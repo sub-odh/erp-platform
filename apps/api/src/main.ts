@@ -6,6 +6,7 @@ import { Logger } from 'nestjs-pino';
 import { env } from '@erp/config';
 
 import { AppModule } from './app.module';
+import { setupSwagger } from './bootstrap/swagger';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap(): Promise<void> {
@@ -46,9 +47,13 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
 
+  // Register Swagger before starting the HTTP server.
+  setupSwagger(app);
+
   await app.listen(env.PORT, '0.0.0.0');
 
   console.log(`API running at http://localhost:${env.PORT}/api/v1`);
+  console.log(`Swagger docs at http://localhost:${env.PORT}/docs`);
 }
 
 void bootstrap();
