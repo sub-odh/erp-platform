@@ -6,6 +6,7 @@ import { env } from '@erp/config';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -31,6 +32,8 @@ import { AppService } from './app.service';
             : undefined,
       },
     }),
+
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
