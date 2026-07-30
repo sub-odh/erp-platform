@@ -1,7 +1,21 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login.dto';
+import { LoginResponseDto } from './dto/login-response.dto';
 
 @ApiTags('Authentication')
 @Controller({
@@ -14,5 +28,20 @@ export class AuthController {
   @Get('status')
   getStatus(): { status: string } {
     return this.authService.getStatus();
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Log in to an organization',
+  })
+  @ApiOkResponse({
+    type: LoginResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid credentials',
+  })
+  login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
+    return this.authService.login(loginDto);
   }
 }
