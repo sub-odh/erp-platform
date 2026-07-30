@@ -5,6 +5,7 @@ import { env } from '@erp/config';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AuthService } from './auth.service';
         expiresIn: env.JWT_ACCESS_TTL_SECONDS,
       },
     }),
+    UsersModule,
   ],
   controllers: [AuthController],
   providers: [AuthService],
