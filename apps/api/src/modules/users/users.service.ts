@@ -2,9 +2,10 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { hash } from 'bcrypt';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 import { db, organizations, users, type User } from '@erp/db';
 
@@ -25,6 +26,21 @@ export type PublicUser = Pick<
 function canAssignRole(
   actorRole: User['role'],
   targetRole: AssignableUserRole,
+): boolean {
+  if (actorRole === 'OWNER') {
+    return true;
+  }
+
+  if (actorRole === 'ADMIN') {
+    return targetRole === 'MANAGER' || targetRole === 'STAFF';
+  }
+
+  return false;
+}
+
+function canManageUser(
+  actorRole: User['role'],
+  targetRole: User['role'],
 ): boolean {
   if (actorRole === 'OWNER') {
     return true;
@@ -105,6 +121,38 @@ export class UsersService {
     return user;
   }
 
+  async findByIdAndOrganization(
+    userId: string,
+    organizationId: string,
+  ): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(
+        and(eq(users.id, userId), eq(users.organizationId, organizationId)),
+      )
+      .limit(1);
+
+    return user;
+  }
+
+  async listUsers(organizationId: string): Promise<PublicUser[]> {
+    return db
+      .select({
+        id: users.id,
+        organizationId: users.organizationId,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.organizationId, organizationId))
+      .orderBy(asc(users.createdAt));
+  }
+
   async createUser(
     organizationId: string,
     actorRole: User['role'],
@@ -176,6 +224,81 @@ export class UsersService {
 
       throw error;
     }
+  }
+
+  async updateUserStatus(
+    organizationId: string,
+    actorUserId: string,
+    actorRole: User['role'],
+    targetUserId: string,
+    isActive: boolean,
+  ): Promise<PublicUser> {
+    if (actorUserId === targetUserId && !isActive) {
+      throw new ForbiddenException('You cannot deactivate your own account');
+    }
+
+    const [targetUser] = await db
+      .select({
+        id: users.id,
+        organizationId: users.organizationId,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!canManageUser(actorRole, targetUser.role)) {
+      throw new ForbiddenException(
+        `Role ${actorRole} cannot modify a ${targetUser.role} user`,
+      );
+    }
+
+    if (targetUser.isActive === isActive) {
+      return targetUser;
+    }
+
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        isActive,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+        ),
+      )
+      .returning({
+        id: users.id,
+        organizationId: users.organizationId,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+      });
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return updatedUser;
   }
 
   async updateLastLogin(userId: string): Promise<void> {
