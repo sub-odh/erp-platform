@@ -5,8 +5,10 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -14,8 +16,11 @@ import {
 } from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
+import { CurrentUser } from './decorators/current-user.decorator';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import type { JwtPayload } from './types/jwt-payload.type';
 
 @ApiTags('Authentication')
 @Controller({
@@ -43,5 +48,28 @@ export class AuthController {
   })
   login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
     return this.authService.login(loginDto);
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get the authenticated user profile',
+  })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        sub: '793079de-d814-4ee0-9074-b11fa60140e9',
+        organizationId: '1970d947-0146-40bf-9320-b31938d2a5be',
+        email: 'admin@mycompany.com',
+        role: 'OWNER',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  getProfile(@CurrentUser() user: JwtPayload): JwtPayload {
+    return user;
   }
 }
