@@ -21,6 +21,10 @@ import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { JwtPayload } from './types/jwt-payload.type';
+import { ApiForbiddenResponse } from '@nestjs/swagger';
+
+import { Roles } from './decorators/roles.decorator';
+import { RolesGuard } from './guards/roles.guard';
 
 @ApiTags('Authentication')
 @Controller({
@@ -71,5 +75,35 @@ export class AuthController {
   })
   getProfile(@CurrentUser() user: JwtPayload): JwtPayload {
     return user;
+  }
+  @Get('admin-check')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Verify owner or administrator access',
+  })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        access: 'granted',
+        role: 'OWNER',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'Authenticated user does not have an allowed role',
+  })
+  adminCheck(@CurrentUser() user: JwtPayload): {
+    access: 'granted';
+    role: JwtPayload['role'];
+  } {
+    return {
+      access: 'granted',
+      role: user.role,
+    };
   }
 }
