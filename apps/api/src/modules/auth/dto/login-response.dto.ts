@@ -32,6 +32,9 @@ export class LoginResponseDto {
   @ApiProperty()
   accessToken!: string;
 
+  @ApiProperty()
+  refreshToken!: string;
+
   @ApiProperty({
     example: 'Bearer',
   })
@@ -39,9 +42,13 @@ export class LoginResponseDto {
 
   @ApiProperty({
     example: 900,
-    description: 'Access-token lifetime in seconds',
   })
   expiresIn!: number;
+
+  @ApiProperty({
+    example: 2592000,
+  })
+  refreshExpiresIn!: number;
 
   @ApiProperty({
     type: LoginUserDto,
