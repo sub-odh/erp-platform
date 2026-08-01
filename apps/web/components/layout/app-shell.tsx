@@ -35,7 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-100">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="lg:pl-[250px]">
+      <div className="lg:pl-62.5">
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="p-4 sm:p-6 lg:p-8">{children}</main>

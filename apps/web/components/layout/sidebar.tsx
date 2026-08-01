@@ -50,7 +50,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-40 flex w-[250px] flex-col bg-slate-900 text-slate-200 transition-transform lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-62.5 flex-col bg-slate-900 text-slate-200 transition-transform lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
