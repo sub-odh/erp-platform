@@ -5,4 +5,5 @@ export interface JwtPayload {
   organizationId: string;
   email: string;
   role: User['role'];
+  tokenVersion: number;
 }

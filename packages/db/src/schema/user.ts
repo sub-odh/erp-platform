@@ -1,6 +1,7 @@
 import {
   boolean,
   index,
+  integer,
   pgEnum,
   pgTable,
   timestamp,
@@ -49,6 +50,8 @@ export const users = pgTable(
 
     isActive: boolean("is_active").default(true).notNull(),
 
+    tokenVersion: integer("token_version").default(0).notNull(),
+
     lastLoginAt: timestamp("last_login_at", {
       withTimezone: true,
     }),
@@ -78,4 +81,5 @@ export const users = pgTable(
 );
 
 export type User = typeof users.$inferSelect;
+
 export type NewUser = typeof users.$inferInsert;

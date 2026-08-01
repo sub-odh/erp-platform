@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { hash } from 'bcrypt';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 import { db, organizations, users, type User } from '@erp/db';
 
@@ -104,6 +104,7 @@ export class UsersService {
         lastName: users.lastName,
         role: users.role,
         isActive: users.isActive,
+        tokenVersion: users.tokenVersion,
         lastLoginAt: users.lastLoginAt,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
@@ -275,6 +276,7 @@ export class UsersService {
       .update(users)
       .set({
         isActive,
+        tokenVersion: sql`${users.tokenVersion} + 1`,
         updatedAt: new Date(),
       })
       .where(
@@ -299,6 +301,48 @@ export class UsersService {
     }
 
     return updatedUser;
+  }
+
+  async updatePassword(
+    userId: string,
+    organizationId: string,
+    passwordHash: string,
+  ): Promise<boolean> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        passwordHash,
+        tokenVersion: sql`${users.tokenVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(users.id, userId), eq(users.organizationId, organizationId)),
+      )
+      .returning({
+        id: users.id,
+      });
+
+    return Boolean(updatedUser);
+  }
+
+  async incrementTokenVersion(
+    userId: string,
+    organizationId: string,
+  ): Promise<boolean> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        tokenVersion: sql`${users.tokenVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(users.id, userId), eq(users.organizationId, organizationId)),
+      )
+      .returning({
+        id: users.id,
+      });
+
+    return Boolean(updatedUser);
   }
 
   async updateLastLogin(userId: string): Promise<void> {

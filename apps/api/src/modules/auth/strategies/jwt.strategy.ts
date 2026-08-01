@@ -23,7 +23,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       payload.organizationId,
     );
 
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || user.tokenVersion !== payload.tokenVersion) {
       throw new UnauthorizedException();
     }
 
@@ -32,6 +32,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       organizationId: user.organizationId,
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion,
     };
   }
 }

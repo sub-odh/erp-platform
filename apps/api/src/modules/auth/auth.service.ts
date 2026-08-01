@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { compare } from 'bcrypt';
+import { compare, hash } from 'bcrypt';
 import { createHash, randomUUID } from 'node:crypto';
 
 import { env } from '@erp/config';
@@ -8,6 +8,7 @@ import type { User } from '@erp/db';
 
 import { UsersService } from '../users/users.service';
 import { AuthSessionsService } from './auth-sessions.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -114,12 +115,83 @@ export class AuthService {
     }
   }
 
+  async changePassword(
+    currentUser: JwtPayload,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<void> {
+    const user = await this.usersService.findByIdAndOrganization(
+      currentUser.sub,
+      currentUser.organizationId,
+    );
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException();
+    }
+
+    const currentPasswordMatches = await compare(
+      changePasswordDto.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!currentPasswordMatches) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const passwordIsUnchanged = await compare(
+      changePasswordDto.newPassword,
+      user.passwordHash,
+    );
+
+    if (passwordIsUnchanged) {
+      throw new UnauthorizedException(
+        'New password must be different from the current password',
+      );
+    }
+
+    const newPasswordHash = await hash(changePasswordDto.newPassword, 12);
+
+    const wasUpdated = await this.usersService.updatePassword(
+      user.id,
+      user.organizationId,
+      newPasswordHash,
+    );
+
+    if (!wasUpdated) {
+      throw new UnauthorizedException();
+    }
+
+    await this.authSessionsService.revokeAllSessions(user.id);
+  }
+
+  async logoutAll(currentUser: JwtPayload): Promise<void> {
+    const user = await this.usersService.findByIdAndOrganization(
+      currentUser.sub,
+      currentUser.organizationId,
+    );
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException();
+    }
+
+    const wasUpdated = await this.usersService.incrementTokenVersion(
+      user.id,
+      user.organizationId,
+    );
+
+    if (!wasUpdated) {
+      throw new UnauthorizedException();
+    }
+
+    await this.authSessionsService.revokeAllSessions(user.id);
+  }
+
   private async createAccessToken(user: User): Promise<string> {
     const payload: JwtPayload = {
       sub: user.id,
       organizationId: user.organizationId,
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion,
     };
 
     return this.jwtService.signAsync(payload, {

@@ -16,9 +16,10 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
+import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Roles } from './decorators/roles.decorator';
-import { AuthService } from './auth.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -27,25 +28,27 @@ import { RolesGuard } from './guards/roles.guard';
 import type { JwtPayload } from './types/jwt-payload.type';
 
 @ApiTags('Authentication')
-@Controller('auth')
+@Controller({
+  path: 'auth',
+  version: '1',
+})
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Get()
+  @Get('status')
   @ApiOperation({
-    summary: 'Check authentication module status',
+    summary: 'Check authentication status',
   })
-  @ApiOkResponse({
-    description: 'Authentication module is available',
-  })
-  getStatus(): { status: string } {
+  getStatus(): {
+    status: string;
+  } {
     return this.authService.getStatus();
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Authenticate a user',
+    summary: 'Log in to an organization',
   })
   @ApiOkResponse({
     type: LoginResponseDto,
@@ -68,61 +71,106 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Invalid, expired, revoked, or reused refresh token',
   })
-  refresh(@Body() refreshTokenDto: RefreshTokenDto): Promise<LoginResponseDto> {
+  refresh(
+    @Body()
+    refreshTokenDto: RefreshTokenDto,
+  ): Promise<LoginResponseDto> {
     return this.authService.refresh(refreshTokenDto);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary: 'Revoke the current refresh-token session',
+    summary: 'Revoke one refresh-token session',
   })
   @ApiNoContentResponse({
     description: 'Session revoked successfully',
   })
   @ApiUnauthorizedResponse({
-    description: 'Invalid, expired, revoked, or reused refresh token',
+    description: 'Invalid refresh token',
   })
-  logout(@Body() refreshTokenDto: RefreshTokenDto): Promise<void> {
+  logout(
+    @Body()
+    refreshTokenDto: RefreshTokenDto,
+  ): Promise<void> {
     return this.authService.logout(refreshTokenDto);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Change the current password and revoke all sessions',
+  })
+  @ApiNoContentResponse({
+    description: 'Password changed and all sessions revoked',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing access token or incorrect current password',
+  })
+  changePassword(
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Body()
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<void> {
+    return this.authService.changePassword(currentUser, changePasswordDto);
+  }
+
+  @Post('logout-all')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Invalidate every access token and refresh session',
+  })
+  @ApiNoContentResponse({
+    description: 'All sessions revoked successfully',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid access token',
+  })
+  logoutAll(
+    @CurrentUser()
+    currentUser: JwtPayload,
+  ): Promise<void> {
+    return this.authService.logoutAll(currentUser);
   }
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Return the authenticated user payload',
+    summary: 'Get the authenticated user',
   })
   @ApiOkResponse({
-    description: 'Authenticated JWT payload',
+    description: 'Authenticated user payload',
   })
-  @ApiUnauthorizedResponse({
-    description: 'Missing or invalid access token',
-  })
-  getProfile(@CurrentUser() currentUser: JwtPayload): JwtPayload {
+  getProfile(
+    @CurrentUser()
+    currentUser: JwtPayload,
+  ): JwtPayload {
     return currentUser;
   }
 
   @Get('admin-check')
-  @Roles('OWNER', 'ADMIN')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER', 'ADMIN')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Verify OWNER or ADMIN authorization',
+    summary: 'Verify owner or administrator access',
   })
-  @ApiOkResponse({
-    description: 'User has administrative access',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Missing or invalid access token',
-  })
-  adminCheck(@CurrentUser() currentUser: JwtPayload): {
-    message: string;
-    user: JwtPayload;
+  adminCheck(
+    @CurrentUser()
+    currentUser: JwtPayload,
+  ): {
+    access: 'granted';
+    role: JwtPayload['role'];
   } {
     return {
-      message: 'Administrative access granted',
-      user: currentUser,
+      access: 'granted',
+      role: currentUser.role,
     };
   }
 }

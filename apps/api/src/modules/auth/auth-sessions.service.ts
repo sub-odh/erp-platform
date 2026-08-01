@@ -81,4 +81,16 @@ export class AuthSessionsService {
 
     return Boolean(revokedSession);
   }
+
+  async revokeAllSessions(userId: string): Promise<void> {
+    await db
+      .update(authSessions)
+      .set({
+        revokedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)),
+      );
+  }
 }
