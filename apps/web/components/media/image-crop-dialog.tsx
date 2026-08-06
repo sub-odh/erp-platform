@@ -111,7 +111,7 @@ export function ImageCropDialog({
       }
     >
       <div className="space-y-5">
-        <div className="relative h-[420px] overflow-hidden rounded-xl bg-slate-950">
+        <div className="relative h-105 overflow-hidden rounded-xl bg-slate-950">
           {imageUrl ? (
             <Cropper
               image={imageUrl}

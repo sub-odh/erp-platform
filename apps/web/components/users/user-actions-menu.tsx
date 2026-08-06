@@ -145,7 +145,7 @@ export function UserActionsMenu({
               left: position.left,
               width: MENU_WIDTH,
             }}
-            className="z-[100] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-2xl shadow-slate-900/15"
+            className="z-100 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-2xl shadow-slate-900/15"
           >
             <MenuButton
               icon={<Pencil size={16} />}
