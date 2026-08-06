@@ -1,4 +1,10 @@
-import { pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  integer,
+  pgTable,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -76,6 +82,16 @@ export const organizations = pgTable("organizations", {
   logoUrl: varchar("logo_url", {
     length: 1000,
   }),
+
+  logoFileName: varchar("logo_file_name", {
+    length: 255,
+  }),
+
+  logoMimeType: varchar("logo_mime_type", {
+    length: 100,
+  }),
+
+  logoSize: integer("logo_size"),
 
   createdAt: timestamp("created_at", {
     withTimezone: true,

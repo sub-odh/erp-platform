@@ -1,5 +1,7 @@
+import { relations } from "drizzle-orm";
 import {
   boolean,
+  foreignKey,
   index,
   integer,
   pgEnum,
@@ -52,9 +54,37 @@ export const users = pgTable(
 
     tokenVersion: integer("token_version").default(0).notNull(),
 
+    mustChangePassword: boolean("must_change_password")
+      .default(false)
+      .notNull(),
+
+    passwordChangedAt: timestamp("password_changed_at", {
+      withTimezone: true,
+    }),
+
     lastLoginAt: timestamp("last_login_at", {
       withTimezone: true,
     }),
+
+    avatarUrl: varchar("avatar_url", {
+      length: 1000,
+    }),
+
+    avatarFileName: varchar("avatar_file_name", {
+      length: 255,
+    }),
+
+    avatarMimeType: varchar("avatar_mime_type", {
+      length: 100,
+    }),
+
+    avatarSize: integer("avatar_size"),
+
+    deletedAt: timestamp("deleted_at", {
+      withTimezone: true,
+    }),
+
+    deletedBy: uuid("deleted_by"),
 
     createdAt: timestamp("created_at", {
       withTimezone: true,
@@ -77,8 +107,32 @@ export const users = pgTable(
     index("users_organization_id_index").on(table.organizationId),
 
     index("users_email_index").on(table.email),
+
+    index("users_organization_deleted_at_index").on(
+      table.organizationId,
+      table.deletedAt,
+    ),
+
+    foreignKey({
+      name: "users_deleted_by_users_id_fk",
+      columns: [table.deletedBy],
+      foreignColumns: [table.id],
+    }).onDelete("set null"),
   ],
 );
+
+export const usersRelations = relations(users, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [users.organizationId],
+    references: [organizations.id],
+  }),
+
+  deletedByUser: one(users, {
+    fields: [users.deletedBy],
+    references: [users.id],
+    relationName: "userDeletedBy",
+  }),
+}));
 
 export type User = typeof users.$inferSelect;
 

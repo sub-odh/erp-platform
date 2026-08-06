@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
@@ -7,7 +8,6 @@ import {
   Length,
   MaxLength,
 } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
 
 const trimString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -168,16 +168,4 @@ export class UpdateOrganizationDto {
   @MaxLength(100)
   @Transform(trimString)
   timezone?: string;
-
-  @ApiPropertyOptional({
-    example: 'https://cdn.example.com/company-logo.png',
-    maxLength: 1000,
-  })
-  @IsOptional()
-  @IsUrl({
-    require_protocol: true,
-  })
-  @MaxLength(1000)
-  @Transform(trimString)
-  logoUrl?: string;
 }

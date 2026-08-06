@@ -17,6 +17,9 @@ export interface Organization {
   currencyCode: string;
   timezone: string;
   logoUrl: string | null;
+  logoFileName: string | null;
+  logoMimeType: string | null;
+  logoSize: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +42,5 @@ export type UpdateOrganizationInput = Partial<
     | "country"
     | "currencyCode"
     | "timezone"
-    | "logoUrl"
   >
 >;

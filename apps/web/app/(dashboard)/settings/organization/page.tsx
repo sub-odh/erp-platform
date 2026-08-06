@@ -1,9 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
 import { Building2, Save } from "lucide-react";
+import { type FormEvent, useEffect, useState } from "react";
 
-import { apiRequest } from "@/lib/api";
+import { ImageUploader } from "@/components/media";
+import {
+  getCurrentOrganization,
+  removeOrganizationLogo,
+  resolveMediaUrl,
+  updateCurrentOrganization,
+  uploadOrganizationLogo,
+} from "@/lib/organizations";
 import type {
   Organization,
   UpdateOrganizationInput,
@@ -28,6 +35,9 @@ const emptyOrganization: Organization = {
   currencyCode: "USD",
   timezone: "UTC",
   logoUrl: null,
+  logoFileName: null,
+  logoMimeType: null,
+  logoSize: null,
   createdAt: "",
   updatedAt: "",
 };
@@ -39,6 +49,10 @@ export default function OrganizationSettingsPage() {
   const [loading, setLoading] = useState(true);
 
   const [saving, setSaving] = useState(false);
+
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const [removingLogo, setRemovingLogo] = useState(false);
 
   const [message, setMessage] = useState<string | null>(null);
 
@@ -53,7 +67,7 @@ export default function OrganizationSettingsPage() {
     setError(null);
 
     try {
-      const result = await apiRequest<Organization>("/organizations/current");
+      const result = await getCurrentOrganization();
 
       setOrganization(result);
     } catch (requestError) {
@@ -75,6 +89,64 @@ export default function OrganizationSettingsPage() {
       ...current,
       [field]: value,
     }));
+  }
+
+  function publishOrganization(value: Organization): void {
+    window.dispatchEvent(
+      new CustomEvent<Organization>("erp:organization-updated", {
+        detail: value,
+      }),
+    );
+  }
+
+  async function handleLogoUpload(file: File): Promise<void> {
+    setUploadingLogo(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const result = await uploadOrganizationLogo(file);
+
+      setOrganization(result);
+      publishOrganization(result);
+
+      setMessage("Company logo uploaded successfully.");
+    } catch (requestError) {
+      const messageValue =
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to upload company logo";
+
+      setError(messageValue);
+      throw requestError;
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+
+  async function handleRemoveLogo(): Promise<void> {
+    setRemovingLogo(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const result = await removeOrganizationLogo();
+
+      setOrganization(result);
+      publishOrganization(result);
+
+      setMessage("Company logo removed successfully.");
+    } catch (requestError) {
+      const messageValue =
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to remove company logo";
+
+      setError(messageValue);
+      throw requestError;
+    } finally {
+      setRemovingLogo(false);
+    }
   }
 
   async function handleSubmit(
@@ -102,7 +174,6 @@ export default function OrganizationSettingsPage() {
       country: organization.country,
       currencyCode: organization.currencyCode,
       timezone: organization.timezone,
-      logoUrl: organization.logoUrl,
     };
 
     const sanitizedPayload = Object.fromEntries(
@@ -110,15 +181,14 @@ export default function OrganizationSettingsPage() {
         key,
         typeof value === "string" && value.trim() === "" ? undefined : value,
       ]),
-    );
+    ) as UpdateOrganizationInput;
 
     try {
-      const result = await apiRequest<Organization>("/organizations/current", {
-        method: "PATCH",
-        body: JSON.stringify(sanitizedPayload),
-      });
+      const result = await updateCurrentOrganization(sanitizedPayload);
 
       setOrganization(result);
+      publishOrganization(result);
+
       setMessage("Organization updated successfully.");
     } catch (requestError) {
       setError(
@@ -132,8 +202,18 @@ export default function OrganizationSettingsPage() {
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Loading organization...</p>;
+    return (
+      <div className="flex min-h-60 items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-blue-600 border-r-transparent" />
+
+          <p className="mt-4 text-sm text-slate-500">Loading organization...</p>
+        </div>
+      </div>
+    );
   }
+
+  const logoUrl = resolveMediaUrl(organization.logoUrl);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -150,12 +230,62 @@ export default function OrganizationSettingsPage() {
           </h1>
 
           <p className="mt-2 text-slate-500">
-            Maintain company identity, contact, address, and regional settings.
+            Maintain company identity, branding, contact, address, and regional
+            settings.
           </p>
         </div>
       </div>
 
+      {message ? (
+        <div className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+          {message}
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
       <form onSubmit={handleSubmit} className="space-y-6">
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Company branding
+            </h2>
+
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              Upload, crop, and resize the company logo used throughout the ERP
+              workspace.
+            </p>
+          </div>
+
+          <div className="mt-6">
+            <ImageUploader
+              preset="companyLogo"
+              value={logoUrl}
+              uploading={uploadingLogo}
+              removing={removingLogo}
+              disabled={saving}
+              onUpload={handleLogoUpload}
+              onRemove={handleRemoveLogo}
+            />
+          </div>
+
+          {organization.logoFileName ? (
+            <div className="mt-5 rounded-lg bg-slate-50 px-4 py-3 text-xs text-slate-500">
+              <p>Stored file: {organization.logoFileName}</p>
+
+              {organization.logoSize ? (
+                <p className="mt-1">
+                  File size: {formatFileSize(organization.logoSize)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">
             Company information
@@ -191,12 +321,6 @@ export default function OrganizationSettingsPage() {
               label="Tax / VAT number"
               value={organization.taxNumber ?? ""}
               onChange={(value) => updateField("taxNumber", value)}
-            />
-
-            <Field
-              label="Logo URL"
-              value={organization.logoUrl ?? ""}
-              onChange={(value) => updateField("logoUrl", value)}
             />
           </div>
         </section>
@@ -294,23 +418,11 @@ export default function OrganizationSettingsPage() {
           </div>
         </section>
 
-        {message ? (
-          <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-            {message}
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
-
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
+            disabled={saving || uploadingLogo || removingLogo}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Save size={18} />
 
@@ -358,4 +470,16 @@ function Field({
       />
     </label>
   );
+}
+
+function formatFileSize(value: number): string {
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  if (value < 1024 * 1024) {
+    return `${Math.round(value / 1024)} KB`;
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }

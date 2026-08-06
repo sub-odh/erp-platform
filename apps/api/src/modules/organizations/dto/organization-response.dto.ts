@@ -83,6 +83,21 @@ export class OrganizationResponseDto {
   })
   logoUrl!: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+  })
+  logoFileName!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+  })
+  logoMimeType!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+  })
+  logoSize!: number | null;
+
   @ApiProperty({
     format: 'date-time',
   })

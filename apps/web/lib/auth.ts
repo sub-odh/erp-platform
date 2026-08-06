@@ -4,7 +4,13 @@ const ACCESS_TOKEN_KEY = "erp.accessToken";
 const REFRESH_TOKEN_KEY = "erp.refreshToken";
 const USER_KEY = "erp.user";
 
+export const AUTH_SESSION_EXPIRED_EVENT = "erp:auth-session-expired";
+
 export function saveAuthSession(response: LoginResponse): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
   localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
 
   localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken);
@@ -48,7 +54,21 @@ export function getStoredUser(): AuthUser | null {
 }
 
 export function clearAuthSession(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+}
+
+export function expireAuthSession(): void {
+  clearAuthSession();
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
 }

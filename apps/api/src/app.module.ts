@@ -7,8 +7,10 @@ import { env } from '@erp/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
-import { UsersModule } from './modules/users/users.module';
+import { MediaModule } from './modules/media/media.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { CustomersModule } from './modules/sales/customers/customers.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -37,7 +39,9 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 
     AuthModule,
     UsersModule,
+    CustomersModule,
     OrganizationsModule,
+    MediaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

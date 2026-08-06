@@ -1,0 +1,1672 @@
+
+===== .\apps\api\src\modules\users\users.service.ts =====
+
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { hash } from 'bcrypt';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
+
+import { authSessions, db, organizations, users, type User } from '@erp/db';
+
+import {
+  createPaginatedResult,
+  type PaginatedResult,
+} from '../../common/pagination';
+import type { AssignableUserRole, CreateUserDto } from './dto/create-user.dto';
+import type {
+  ListUsersQueryDto,
+  UserSortDirection,
+  UserSortField,
+} from './dto/list-users-query.dto';
+import type { UpdateUserDto } from './dto/update-user.dto';
+
+export type PublicUser = Pick<
+  User,
+  | 'id'
+  | 'organizationId'
+  | 'email'
+  | 'firstName'
+  | 'lastName'
+  | 'role'
+  | 'isActive'
+  | 'lastLoginAt'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'deletedAt'
+>;
+
+export interface UserListCounts {
+  active: number;
+  inactive: number;
+  archived: number;
+  total: number;
+}
+
+export interface PaginatedUsersResult extends PaginatedResult<PublicUser> {
+  counts: UserListCounts;
+}
+
+const publicUserSelection = {
+  id: users.id,
+  organizationId: users.organizationId,
+  email: users.email,
+  firstName: users.firstName,
+  lastName: users.lastName,
+  role: users.role,
+  isActive: users.isActive,
+  lastLoginAt: users.lastLoginAt,
+  createdAt: users.createdAt,
+  updatedAt: users.updatedAt,
+  deletedAt: users.deletedAt,
+};
+
+function canAssignRole(
+  actorRole: User['role'],
+  targetRole: AssignableUserRole,
+): boolean {
+  if (actorRole === 'OWNER') {
+    return true;
+  }
+
+  if (actorRole === 'ADMIN') {
+    return targetRole === 'MANAGER' || targetRole === 'STAFF';
+  }
+
+  return false;
+}
+
+function canManageUser(
+  actorRole: User['role'],
+  targetRole: User['role'],
+): boolean {
+  if (actorRole === 'OWNER') {
+    return true;
+  }
+
+  if (actorRole === 'ADMIN') {
+    return targetRole === 'MANAGER' || targetRole === 'STAFF';
+  }
+
+  return false;
+}
+
+function getDatabaseErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+
+  const record = error as {
+    code?: unknown;
+    cause?: unknown;
+  };
+
+  if (typeof record.code === 'string') {
+    return record.code;
+  }
+
+  if (
+    typeof record.cause === 'object' &&
+    record.cause !== null &&
+    'code' in record.cause
+  ) {
+    const cause = record.cause as {
+      code?: unknown;
+    };
+
+    if (typeof cause.code === 'string') {
+      return cause.code;
+    }
+  }
+
+  return undefined;
+}
+
+@Injectable()
+export class UsersService {
+  async findByOrganizationAndEmail(
+    organizationCode: string,
+    email: string,
+  ): Promise<User | undefined> {
+    const normalizedOrganizationCode = organizationCode.trim().toUpperCase();
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const [result] = await db
+      .select({
+        user: users,
+      })
+      .from(users)
+      .innerJoin(organizations, eq(users.organizationId, organizations.id))
+      .where(
+        and(
+          eq(organizations.code, normalizedOrganizationCode),
+          eq(users.email, normalizedEmail),
+          isNull(users.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    return result?.user;
+  }
+
+  async findByIdAndOrganization(
+    userId: string,
+    organizationId: string,
+  ): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.id, userId),
+          eq(users.organizationId, organizationId),
+          isNull(users.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    return user;
+  }
+
+  async listUsers(
+    organizationId: string,
+    query: ListUsersQueryDto,
+  ): Promise<PaginatedUsersResult> {
+    const conditions = this.createListConditions(organizationId, query);
+
+    const offset = (query.page - 1) * query.limit;
+
+    const orderColumn = this.getSortColumn(query.sortBy);
+
+    const orderExpression =
+      query.sortDirection === 'asc' ? asc(orderColumn) : desc(orderColumn);
+
+    const [data, totalResult, countsResult] = await Promise.all([
+      db
+        .select(publicUserSelection)
+        .from(users)
+        .where(and(...conditions))
+        .orderBy(orderExpression)
+        .limit(query.limit)
+        .offset(offset),
+
+      db
+        .select({
+          total: sql<number>`count(*)::int`,
+        })
+        .from(users)
+        .where(and(...conditions)),
+
+      db
+        .select({
+          active: sql<number>`
+            count(*) filter (
+              where ${users.deletedAt} is null
+              and ${users.isActive} = true
+            )::int
+          `,
+          inactive: sql<number>`
+            count(*) filter (
+              where ${users.deletedAt} is null
+              and ${users.isActive} = false
+            )::int
+          `,
+          archived: sql<number>`
+            count(*) filter (
+              where ${users.deletedAt} is not null
+            )::int
+          `,
+          total: sql<number>`count(*)::int`,
+        })
+        .from(users)
+        .where(eq(users.organizationId, organizationId)),
+    ]);
+
+    const paginated = createPaginatedResult(
+      data,
+      query.page,
+      query.limit,
+      totalResult[0]?.total ?? 0,
+    );
+
+    return {
+      ...paginated,
+      counts: {
+        active: countsResult[0]?.active ?? 0,
+        inactive: countsResult[0]?.inactive ?? 0,
+        archived: countsResult[0]?.archived ?? 0,
+        total: countsResult[0]?.total ?? 0,
+      },
+    };
+  }
+
+  async createUser(
+    organizationId: string,
+    actorRole: User['role'],
+    createUserDto: CreateUserDto,
+  ): Promise<PublicUser> {
+    if (!canAssignRole(actorRole, createUserDto.role)) {
+      throw new ForbiddenException(
+        `Role ${actorRole} cannot create a ${createUserDto.role} user`,
+      );
+    }
+
+    const normalizedEmail = createUserDto.email.trim().toLowerCase();
+
+    const [existingUser] = await db
+      .select({
+        id: users.id,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.organizationId, organizationId),
+          eq(users.email, normalizedEmail),
+        ),
+      )
+      .limit(1);
+
+    if (existingUser) {
+      throw new ConflictException(
+        'A user with this email already exists in the organization',
+      );
+    }
+
+    const passwordHash = await hash(createUserDto.password, 12);
+
+    try {
+      const [createdUser] = await db
+        .insert(users)
+        .values({
+          organizationId,
+          email: normalizedEmail,
+          passwordHash,
+          firstName: createUserDto.firstName.trim(),
+          lastName: createUserDto.lastName.trim(),
+          role: createUserDto.role,
+          isActive: true,
+          mustChangePassword: false,
+        })
+        .returning(publicUserSelection);
+
+      if (!createdUser) {
+        throw new Error('Database did not return the created user');
+      }
+
+      return createdUser;
+    } catch (error: unknown) {
+      if (getDatabaseErrorCode(error) === '23505') {
+        throw new ConflictException(
+          'A user with this email already exists in the organization',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  async updateUser(
+    organizationId: string,
+    actorUserId: string,
+    actorRole: User['role'],
+    targetUserId: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<PublicUser> {
+    void actorUserId;
+
+    const [targetUser] = await db
+      .select(publicUserSelection)
+      .from(users)
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+          isNull(users.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (targetUser.role === 'OWNER') {
+      throw new ForbiddenException('The owner account cannot be edited');
+    }
+
+    if (!canManageUser(actorRole, targetUser.role)) {
+      throw new ForbiddenException(
+        `Role ${actorRole} cannot modify a ${targetUser.role} user`,
+      );
+    }
+
+    if (
+      updateUserDto.role !== undefined &&
+      !canAssignRole(actorRole, updateUserDto.role)
+    ) {
+      throw new ForbiddenException(
+        `Role ${actorRole} cannot assign the ${updateUserDto.role} role`,
+      );
+    }
+
+    const roleChanged =
+      updateUserDto.role !== undefined &&
+      updateUserDto.role !== targetUser.role;
+
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        firstName:
+          updateUserDto.firstName !== undefined
+            ? updateUserDto.firstName.trim()
+            : targetUser.firstName,
+        lastName:
+          updateUserDto.lastName !== undefined
+            ? updateUserDto.lastName.trim()
+            : targetUser.lastName,
+        role: updateUserDto.role ?? targetUser.role,
+        tokenVersion: roleChanged
+          ? sql`${users.tokenVersion} + 1`
+          : users.tokenVersion,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+          isNull(users.deletedAt),
+        ),
+      )
+      .returning(publicUserSelection);
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return updatedUser;
+  }
+
+  async updateUserStatus(
+    organizationId: string,
+    actorUserId: string,
+    actorRole: User['role'],
+    targetUserId: string,
+    isActive: boolean,
+  ): Promise<PublicUser> {
+    if (actorUserId === targetUserId && !isActive) {
+      throw new ForbiddenException('You cannot deactivate your own account');
+    }
+
+    const [targetUser] = await db
+      .select(publicUserSelection)
+      .from(users)
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+          isNull(users.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (targetUser.role === 'OWNER') {
+      throw new ForbiddenException(
+        'The owner account status cannot be changed',
+      );
+    }
+
+    if (!canManageUser(actorRole, targetUser.role)) {
+      throw new ForbiddenException(
+        `Role ${actorRole} cannot modify a ${targetUser.role} user`,
+      );
+    }
+
+    if (targetUser.isActive === isActive) {
+      return targetUser;
+    }
+
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        isActive,
+        tokenVersion: sql`${users.tokenVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+          isNull(users.deletedAt),
+        ),
+      )
+      .returning(publicUserSelection);
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!isActive) {
+      await this.revokeAllUserSessions(targetUserId);
+    }
+
+    return updatedUser;
+  }
+
+  async updatePassword(
+    userId: string,
+    organizationId: string,
+    passwordHash: string,
+  ): Promise<boolean> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        passwordHash,
+        mustChangePassword: false,
+        passwordChangedAt: new Date(),
+        tokenVersion: sql`${users.tokenVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, userId),
+          eq(users.organizationId, organizationId),
+          isNull(users.deletedAt),
+        ),
+      )
+      .returning({
+        id: users.id,
+      });
+
+    return Boolean(updatedUser);
+  }
+
+  async incrementTokenVersion(
+    userId: string,
+    organizationId: string,
+  ): Promise<boolean> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        tokenVersion: sql`${users.tokenVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, userId),
+          eq(users.organizationId, organizationId),
+          isNull(users.deletedAt),
+        ),
+      )
+      .returning({
+        id: users.id,
+      });
+
+    return Boolean(updatedUser);
+  }
+
+  async updateLastLogin(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        lastLoginAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)));
+  }
+
+  async archiveUser(
+    organizationId: string,
+    actorUserId: string,
+    actorRole: User['role'],
+    targetUserId: string,
+  ): Promise<void> {
+    if (actorUserId === targetUserId) {
+      throw new ForbiddenException('You cannot archive your own account');
+    }
+
+    const [targetUser] = await db
+      .select({
+        id: users.id,
+        role: users.role,
+        deletedAt: users.deletedAt,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (targetUser.role === 'OWNER') {
+      throw new ForbiddenException('The owner account cannot be archived');
+    }
+
+    if (!canManageUser(actorRole, targetUser.role)) {
+      throw new ForbiddenException(
+        `Role ${actorRole} cannot archive a ${targetUser.role} user`,
+      );
+    }
+
+    if (targetUser.deletedAt) {
+      return;
+    }
+
+    const [archivedUser] = await db
+      .update(users)
+      .set({
+        isActive: false,
+        deletedAt: new Date(),
+        deletedBy: actorUserId,
+        tokenVersion: sql`${users.tokenVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+          isNull(users.deletedAt),
+        ),
+      )
+      .returning({
+        id: users.id,
+      });
+
+    if (!archivedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.revokeAllUserSessions(targetUserId);
+  }
+
+  async restoreUser(
+    organizationId: string,
+    actorRole: User['role'],
+    targetUserId: string,
+  ): Promise<PublicUser> {
+    const [targetUser] = await db
+      .select({
+        id: users.id,
+        role: users.role,
+        deletedAt: users.deletedAt,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!targetUser.deletedAt) {
+      throw new ConflictException('User is not archived');
+    }
+
+    if (targetUser.role === 'OWNER') {
+      throw new ForbiddenException('The owner account cannot be restored here');
+    }
+
+    if (!canManageUser(actorRole, targetUser.role)) {
+      throw new ForbiddenException(
+        `Role ${actorRole} cannot restore a ${targetUser.role} user`,
+      );
+    }
+
+    const [restoredUser] = await db
+      .update(users)
+      .set({
+        isActive: false,
+        deletedAt: null,
+        deletedBy: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+        ),
+      )
+      .returning(publicUserSelection);
+
+    if (!restoredUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return restoredUser;
+  }
+
+  private createListConditions(
+    organizationId: string,
+    query: ListUsersQueryDto,
+  ): SQL[] {
+    const conditions: SQL[] = [eq(users.organizationId, organizationId)];
+
+    switch (query.status) {
+      case 'active':
+        conditions.push(isNull(users.deletedAt), eq(users.isActive, true));
+        break;
+
+      case 'inactive':
+        conditions.push(isNull(users.deletedAt), eq(users.isActive, false));
+        break;
+
+      case 'archived':
+        conditions.push(isNotNull(users.deletedAt));
+        break;
+
+      case 'all':
+        break;
+    }
+
+    if (query.role) {
+      conditions.push(eq(users.role, query.role));
+    }
+
+    const search = query.search?.trim();
+
+    if (search) {
+      const pattern = `%${search}%`;
+
+      const searchCondition = or(
+        ilike(users.firstName, pattern),
+        ilike(users.lastName, pattern),
+        ilike(users.email, pattern),
+        ilike(users.role, pattern),
+      );
+
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
+    }
+
+    return conditions;
+  }
+
+  private getSortColumn(sortBy: UserSortField) {
+    switch (sortBy) {
+      case 'firstName':
+        return users.firstName;
+
+      case 'email':
+        return users.email;
+
+      case 'role':
+        return users.role;
+
+      case 'lastLoginAt':
+        return users.lastLoginAt;
+
+      case 'createdAt':
+      default:
+        return users.createdAt;
+    }
+  }
+
+  private async revokeAllUserSessions(userId: string): Promise<void> {
+    await db
+      .update(authSessions)
+      .set({
+        revokedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)),
+      );
+  }
+}
+
+===== .\apps\api\src\modules\users\users.controller.ts =====
+
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import type { JwtPayload } from '../auth/types/jwt-payload.type';
+import { CreateUserDto } from './dto/create-user.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
+import { ResetUserPasswordResponseDto } from './dto/reset-user-password-response.dto';
+import {
+  PaginatedUsersResponseDto,
+  UserResponseDto,
+} from './dto/user-response.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UserPasswordResetService } from './user-password-reset.service';
+import { UsersService } from './users.service';
+
+@ApiTags('Users')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('OWNER', 'ADMIN')
+@Controller({
+  path: 'users',
+  version: '1',
+})
+export class UsersController {
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly userPasswordResetService: UserPasswordResetService,
+  ) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'List users in the current organization',
+  })
+  @ApiOkResponse({
+    type: PaginatedUsersResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid list query parameters',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'Owner or administrator role required',
+  })
+  listUsers(
+    @CurrentUser() currentUser: JwtPayload,
+    @Query() query: ListUsersQueryDto,
+  ): Promise<PaginatedUsersResponseDto> {
+    return this.usersService.listUsers(currentUser.organizationId, query);
+  }
+
+  @Post()
+  @ApiOperation({
+    summary: 'Create a user in the current organization',
+  })
+  @ApiCreatedResponse({
+    type: UserResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'Authenticated user cannot create the requested role',
+  })
+  @ApiConflictResponse({
+    description: 'Email already exists in the organization',
+  })
+  createUser(
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() createUserDto: CreateUserDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.createUser(
+      currentUser.organizationId,
+      currentUser.role,
+      createUserDto,
+    );
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Update an organization user',
+  })
+  @ApiOkResponse({
+    type: UserResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid user ID or request body',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user cannot modify this account',
+  })
+  @ApiNotFoundResponse({
+    description: 'User was not found in the organization',
+  })
+  updateUser(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) userId: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateUser(
+      currentUser.organizationId,
+      currentUser.sub,
+      currentUser.role,
+      userId,
+      updateUserDto,
+    );
+  }
+
+  @Patch(':id/status')
+  @ApiOperation({
+    summary: 'Activate or deactivate an organization user',
+  })
+  @ApiOkResponse({
+    type: UserResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid user ID or request body',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user cannot modify this account',
+  })
+  @ApiNotFoundResponse({
+    description: 'User was not found in the organization',
+  })
+  updateUserStatus(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) userId: string,
+    @Body() updateUserStatusDto: UpdateUserStatusDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateUserStatus(
+      currentUser.organizationId,
+      currentUser.sub,
+      currentUser.role,
+      userId,
+      updateUserStatusDto.isActive,
+    );
+  }
+
+  @Post(':id/reset-password')
+  @ApiOperation({
+    summary: 'Generate a temporary password for an organization user',
+  })
+  @ApiOkResponse({
+    type: ResetUserPasswordResponseDto,
+    description:
+      'Password reset successfully. The temporary password is returned once.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid user ID',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user cannot reset this account password',
+  })
+  @ApiNotFoundResponse({
+    description: 'User was not found in the organization',
+  })
+  resetPassword(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) userId: string,
+  ): Promise<ResetUserPasswordResponseDto> {
+    return this.userPasswordResetService.resetPassword(
+      currentUser.organizationId,
+      currentUser.sub,
+      currentUser.role,
+      userId,
+    );
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Archive an organization user',
+  })
+  @ApiNoContentResponse({
+    description: 'User archived successfully',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid user ID',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user cannot archive this account',
+  })
+  @ApiNotFoundResponse({
+    description: 'User was not found in the organization',
+  })
+  archiveUser(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) userId: string,
+  ): Promise<void> {
+    return this.usersService.archiveUser(
+      currentUser.organizationId,
+      currentUser.sub,
+      currentUser.role,
+      userId,
+    );
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({
+    summary: 'Restore an archived organization user as inactive',
+  })
+  @ApiOkResponse({
+    type: UserResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid user ID',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user cannot restore this account',
+  })
+  @ApiNotFoundResponse({
+    description: 'User was not found in the organization',
+  })
+  @ApiConflictResponse({
+    description: 'User is not archived',
+  })
+  restoreUser(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) userId: string,
+  ): Promise<UserResponseDto> {
+    return this.usersService.restoreUser(
+      currentUser.organizationId,
+      currentUser.role,
+      userId,
+    );
+  }
+}
+
+===== .\apps\api\src\modules\users\users.module.ts =====
+
+import { Module } from '@nestjs/common';
+
+import { UserPasswordResetService } from './user-password-reset.service';
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
+
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService, UserPasswordResetService],
+  exports: [UsersService],
+})
+export class UsersModule {}
+
+===== .\apps\web\components\users\edit-user-modal.tsx =====
+
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+
+import { Button, Input, Modal, Select } from "@/components/ui";
+import { getStoredUser } from "@/lib/auth";
+import { updateUser } from "@/lib/users";
+import type { UpdateUserRequest, User, UserRole } from "@/types/user";
+
+interface EditUserModalProps {
+  open: boolean;
+  user: User | null;
+  onClose: () => void;
+  onUpdated: (user: User) => void;
+}
+
+export function EditUserModal({
+  open,
+  user,
+  onClose,
+  onUpdated,
+}: EditUserModalProps) {
+  const currentUser = getStoredUser();
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [role, setRole] = useState<Exclude<UserRole, "OWNER">>("STAFF");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    setFirstName(user.firstName);
+    setLastName(user.lastName);
+
+    if (user.role !== "OWNER") {
+      setRole(user.role);
+    }
+
+    setError(null);
+  }, [user]);
+
+  const allowedRoles = useMemo(() => {
+    if (currentUser?.role === "OWNER") {
+      return ["ADMIN", "MANAGER", "STAFF"] as const;
+    }
+
+    return ["MANAGER", "STAFF"] as const;
+  }, [currentUser?.role]);
+
+  function handleClose(): void {
+    if (submitting) {
+      return;
+    }
+
+    setError(null);
+    onClose();
+  }
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
+    event.preventDefault();
+
+    if (!user) {
+      return;
+    }
+
+    const normalizedFirstName = firstName.trim();
+    const normalizedLastName = lastName.trim();
+
+    if (!normalizedFirstName || !normalizedLastName) {
+      setError("First name and last name are required.");
+      return;
+    }
+
+    const payload: UpdateUserRequest = {
+      firstName: normalizedFirstName,
+      lastName: normalizedLastName,
+      role,
+    };
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const updated = await updateUser(user.id, payload);
+      onUpdated(updated);
+      onClose();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to update user",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      title="Edit user"
+      description="Update the user's name and role."
+      onClose={handleClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={handleClose} disabled={submitting}>
+            Cancel
+          </Button>
+
+          <Button type="submit" form="edit-user-form" loading={submitting}>
+            Save changes
+          </Button>
+        </>
+      }
+    >
+      <form id="edit-user-form" onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Input
+            label="First name"
+            value={firstName}
+            onChange={(event) => setFirstName(event.target.value)}
+            maxLength={100}
+            required
+          />
+
+          <Input
+            label="Last name"
+            value={lastName}
+            onChange={(event) => setLastName(event.target.value)}
+            maxLength={100}
+            required
+          />
+        </div>
+
+        <Input
+          label="Email"
+          value={user?.email ?? ""}
+          disabled
+          hint="Email changes are not supported yet."
+        />
+
+        <Select
+          label="Role"
+          value={role}
+          onChange={(event) =>
+            setRole(event.target.value as Exclude<UserRole, "OWNER">)
+          }
+          required
+        >
+          {allowedRoles.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </Select>
+
+        {error ? (
+          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+      </form>
+    </Modal>
+  );
+}
+
+===== .\apps\web\components\users\user-table.tsx =====
+
+import { RotateCcw } from "lucide-react";
+
+import { RoleBadge } from "@/components/users/role-badge";
+import { StatusBadge } from "@/components/users/status-badge";
+import { UserActionsMenu } from "@/components/users/user-actions-menu";
+import type { User } from "@/types/user";
+
+interface UserTableProps {
+  users: User[];
+  currentUserId: string | null;
+  busyUserId: string | null;
+  archivedView: boolean;
+  onEdit: (user: User) => void;
+  onResetPassword: (user: User) => void;
+  onToggleStatus: (user: User) => void;
+  onArchive: (user: User) => void;
+  onRestore: (user: User) => void;
+}
+
+export function UserTable({
+  users,
+  currentUserId,
+  busyUserId,
+  archivedView,
+  onEdit,
+  onResetPassword,
+  onToggleStatus,
+  onArchive,
+  onRestore,
+}: UserTableProps) {
+  if (users.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
+        <p className="font-medium text-slate-700">
+          {archivedView ? "No archived users" : "No users found"}
+        </p>
+
+        <p className="mt-2 text-sm text-slate-500">
+          {archivedView
+            ? "Archived users will appear here."
+            : "Try changing your search or create a new user."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-slate-50">
+            <tr>
+              <TableHeader>User</TableHeader>
+              <TableHeader>Email</TableHeader>
+              <TableHeader>Role</TableHeader>
+              <TableHeader>Last login</TableHeader>
+              <TableHeader>{archivedView ? "Archived" : "Status"}</TableHeader>
+              <TableHeader align="right">Actions</TableHeader>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-slate-100">
+            {users.map((user) => {
+              const isBusy = busyUserId === user.id;
+
+              return (
+                <tr key={user.id} className="transition hover:bg-slate-50">
+                  <td className="whitespace-nowrap px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+                        {getInitials(user)}
+                      </div>
+
+                      <div>
+                        <p className="font-medium text-slate-900">
+                          {user.firstName} {user.lastName}
+                        </p>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          Created {formatDate(user.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                    {user.email}
+                  </td>
+
+                  <td className="whitespace-nowrap px-5 py-4">
+                    <RoleBadge role={user.role} />
+                  </td>
+
+                  <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                    {user.lastLoginAt
+                      ? formatDateTime(user.lastLoginAt)
+                      : "Never"}
+                  </td>
+
+                  <td className="whitespace-nowrap px-5 py-4">
+                    {archivedView ? (
+                      <span className="inline-flex rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700">
+                        {user.deletedAt
+                          ? formatDate(user.deletedAt)
+                          : "Archived"}
+                      </span>
+                    ) : (
+                      <StatusBadge isActive={user.isActive} />
+                    )}
+                  </td>
+
+                  <td className="whitespace-nowrap px-5 py-4 text-right">
+                    {archivedView ? (
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => onRestore(user)}
+                        className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <RotateCcw size={16} />
+
+                        {isBusy ? "Restoring..." : "Restore"}
+                      </button>
+                    ) : (
+                      <UserActionsMenu
+                        user={user}
+                        currentUserId={currentUserId}
+                        busy={isBusy}
+                        onEdit={onEdit}
+                        onResetPassword={onResetPassword}
+                        onToggleStatus={onToggleStatus}
+                        onArchive={onArchive}
+                      />
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function TableHeader({
+  children,
+  align = "left",
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  return (
+    <th
+      className={[
+        "px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500",
+        align === "right" ? "text-right" : "text-left",
+      ].join(" ")}
+    >
+      {children}
+    </th>
+  );
+}
+
+function getInitials(user: User): string {
+  const firstInitial = user.firstName.trim().charAt(0).toUpperCase();
+
+  const lastInitial = user.lastName.trim().charAt(0).toUpperCase();
+
+  return `${firstInitial}${lastInitial}`;
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+===== .\apps\web\components\layout\topbar.tsx =====
+
+"use client";
+
+import { LogOut, Menu, UserCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+import { clearAuthSession, getStoredUser } from "@/lib/auth";
+
+interface TopbarProps {
+  onMenuClick: () => void;
+}
+
+export function Topbar({ onMenuClick }: TopbarProps) {
+  const router = useRouter();
+  const user = getStoredUser();
+
+  function logout(): void {
+    clearAuthSession();
+    router.replace("/login");
+  }
+
+  return (
+    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+      <button
+        type="button"
+        onClick={onMenuClick}
+        className="rounded-md p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+      >
+        <Menu size={22} />
+      </button>
+
+      <div className="hidden lg:block">
+        <p className="text-sm text-slate-500">Business workspace</p>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="hidden text-right sm:block">
+          <p className="text-sm font-medium text-slate-900">
+            {user ? `${user.firstName} ${user.lastName}` : "ERP User"}
+          </p>
+
+          <p className="text-xs text-slate-500">{user?.role ?? ""}</p>
+        </div>
+
+        <UserCircle size={34} className="text-slate-400" />
+
+        <button
+          type="button"
+          onClick={logout}
+          className="rounded-md p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+          aria-label="Log out"
+        >
+          <LogOut size={20} />
+        </button>
+      </div>
+    </header>
+  );
+}
+
+===== .\apps\web\types\user.ts =====
+
+export type UserRole = "OWNER" | "ADMIN" | "MANAGER" | "STAFF";
+
+export type UserListStatus = "active" | "inactive" | "archived" | "all";
+
+export type UserSortField =
+  | "firstName"
+  | "email"
+  | "role"
+  | "lastLoginAt"
+  | "createdAt";
+
+export type UserSortDirection = "asc" | "desc";
+
+export interface User {
+  id: string;
+  organizationId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface CreateUserRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  role: Exclude<UserRole, "OWNER">;
+}
+
+export interface UpdateUserRequest {
+  firstName?: string;
+  lastName?: string;
+  role?: Exclude<UserRole, "OWNER">;
+}
+
+export interface UpdateUserStatusRequest {
+  isActive: boolean;
+}
+
+export interface ResetUserPasswordResponse {
+  userId: string;
+  temporaryPassword: string;
+  mustChangePassword: boolean;
+}
+
+export interface UserListQuery {
+  search?: string;
+  status?: UserListStatus;
+  role?: UserRole;
+  page?: number;
+  limit?: number;
+  sortBy?: UserSortField;
+  sortDirection?: UserSortDirection;
+}
+
+export interface UserListCounts {
+  active: number;
+  inactive: number;
+  archived: number;
+  total: number;
+}
+
+export interface UserListPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface PaginatedUsersResponse {
+  data: User[];
+  pagination: UserListPagination;
+  counts: UserListCounts;
+}
+
+===== .\apps\web\types\auth.ts =====
+
+export type UserRole = "OWNER" | "ADMIN" | "MANAGER" | "STAFF";
+
+export interface AuthUser {
+  id: string;
+  organizationId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: "Bearer";
+  expiresIn: number;
+  refreshExpiresIn: number;
+  user: AuthUser;
+}
+
+===== .\apps\web\lib\users.ts =====
+
+import { apiRequest } from "@/lib/api";
+import type {
+  CreateUserRequest,
+  PaginatedUsersResponse,
+  ResetUserPasswordResponse,
+  UpdateUserRequest,
+  UpdateUserStatusRequest,
+  User,
+  UserListQuery,
+} from "@/types/user";
+
+function createQueryString(query: UserListQuery): string {
+  const params = new URLSearchParams();
+
+  if (query.search) {
+    params.set("search", query.search);
+  }
+
+  if (query.status) {
+    params.set("status", query.status);
+  }
+
+  if (query.role) {
+    params.set("role", query.role);
+  }
+
+  if (query.page !== undefined) {
+    params.set("page", String(query.page));
+  }
+
+  if (query.limit !== undefined) {
+    params.set("limit", String(query.limit));
+  }
+
+  if (query.sortBy) {
+    params.set("sortBy", query.sortBy);
+  }
+
+  if (query.sortDirection) {
+    params.set("sortDirection", query.sortDirection);
+  }
+
+  const value = params.toString();
+
+  return value ? `?${value}` : "";
+}
+
+export function getUsers(query: UserListQuery = {}) {
+  return apiRequest<PaginatedUsersResponse>(
+    `/users${createQueryString(query)}`,
+  );
+}
+
+export function createUser(payload: CreateUserRequest) {
+  return apiRequest<User>("/users", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateUser(userId: string, payload: UpdateUserRequest) {
+  return apiRequest<User>(`/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateUserStatus(
+  userId: string,
+  payload: UpdateUserStatusRequest,
+) {
+  return apiRequest<User>(`/users/${userId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resetUserPassword(userId: string) {
+  return apiRequest<ResetUserPasswordResponse>(
+    `/users/${userId}/reset-password`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export function archiveUser(userId: string) {
+  return apiRequest<void>(`/users/${userId}`, {
+    method: "DELETE",
+  });
+}
+
+export function restoreUser(userId: string) {
+  return apiRequest<User>(`/users/${userId}/restore`, {
+    method: "POST",
+  });
+}

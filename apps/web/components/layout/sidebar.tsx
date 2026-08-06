@@ -11,8 +11,12 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { resolveMediaUrl } from "@/lib/organizations";
+import type { Organization } from "@/types/organization";
+
 interface SidebarProps {
   open: boolean;
+  organization: Organization | null;
   onClose: () => void;
 }
 
@@ -34,8 +38,10 @@ const items = [
   },
 ];
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, organization, onClose }: SidebarProps) {
   const pathname = usePathname();
+
+  const logoUrl = resolveMediaUrl(organization?.logoUrl);
 
   return (
     <>
@@ -54,19 +60,36 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
-        <div className="flex h-16 items-center justify-between border-b border-slate-800 px-5">
+        <div className="flex min-h-20 items-center justify-between border-b border-slate-800 px-5 py-3">
           <Link
             href="/dashboard"
-            className="flex items-center gap-3"
+            className="flex min-w-0 items-center gap-3"
             onClick={onClose}
           >
-            <div className="rounded-lg bg-blue-600 p-2">
-              <Package size={20} />
-            </div>
+            {logoUrl ? (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-800">
+                <img
+                  src={logoUrl}
+                  alt={`${organization?.name ?? "Organization"} logo`}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600">
+                <Package size={22} />
+              </div>
+            )}
 
-            <div>
-              <p className="font-semibold text-white">ERP Platform</p>
-              <p className="text-xs text-slate-400">Management system</p>
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-white">
+                {organization?.name ?? "ERP Platform"}
+              </p>
+
+              <p className="truncate text-xs text-slate-400">
+                {organization
+                  ? `${organization.code} workspace`
+                  : "Management system"}
+              </p>
             </div>
           </Link>
 

@@ -1,7 +1,9 @@
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
+import { join } from 'node:path';
 
 import { env } from '@erp/config';
 
@@ -10,7 +12,7 @@ import { setupSwagger } from './bootstrap/swagger';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
 
@@ -18,7 +20,13 @@ async function bootstrap(): Promise<void> {
 
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: {
+        policy: 'cross-origin',
+      },
+    }),
+  );
 
   app.enableCors({
     origin: env.CORS_ORIGIN,
@@ -27,7 +35,13 @@ async function bootstrap(): Promise<void> {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  app.setGlobalPrefix('api');
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
+
+  app.setGlobalPrefix('api', {
+    exclude: ['/uploads/(.*)'],
+  });
 
   app.enableVersioning({
     type: VersioningType.URI,
@@ -47,12 +61,12 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
 
-  // Register Swagger before starting the HTTP server.
   setupSwagger(app);
 
   await app.listen(env.PORT, '0.0.0.0');
 
   console.log(`API running at http://localhost:${env.PORT}/api/v1`);
+
   console.log(`Swagger docs at http://localhost:${env.PORT}/docs`);
 }
 
