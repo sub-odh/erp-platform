@@ -1,5 +1,6 @@
 import { RotateCcw } from "lucide-react";
 
+import { Avatar } from "@/components/users/avatar";
 import { RoleBadge } from "@/components/users/role-badge";
 import { StatusBadge } from "@/components/users/status-badge";
 import { UserActionsMenu } from "@/components/users/user-actions-menu";
@@ -67,9 +68,12 @@ export function UserTable({
                 <tr key={user.id} className="transition hover:bg-slate-50">
                   <td className="whitespace-nowrap px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-                        {getInitials(user)}
-                      </div>
+                      <Avatar
+                        firstName={user.firstName}
+                        lastName={user.lastName}
+                        src={user.avatarUrl}
+                        size="md"
+                      />
 
                       <div>
                         <p className="font-medium text-slate-900">
@@ -160,14 +164,6 @@ function TableHeader({
       {children}
     </th>
   );
-}
-
-function getInitials(user: User): string {
-  const firstInitial = user.firstName.trim().charAt(0).toUpperCase();
-
-  const lastInitial = user.lastName.trim().charAt(0).toUpperCase();
-
-  return `${firstInitial}${lastInitial}`;
 }
 
 function formatDate(value: string): string {

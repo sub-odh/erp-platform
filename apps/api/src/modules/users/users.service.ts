@@ -27,7 +27,6 @@ import {
 import type { AssignableUserRole, CreateUserDto } from './dto/create-user.dto';
 import type {
   ListUsersQueryDto,
-  UserSortDirection,
   UserSortField,
 } from './dto/list-users-query.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
@@ -42,6 +41,10 @@ export type PublicUser = Pick<
   | 'role'
   | 'isActive'
   | 'lastLoginAt'
+  | 'avatarUrl'
+  | 'avatarFileName'
+  | 'avatarMimeType'
+  | 'avatarSize'
   | 'createdAt'
   | 'updatedAt'
   | 'deletedAt'
@@ -67,6 +70,10 @@ const publicUserSelection = {
   role: users.role,
   isActive: users.isActive,
   lastLoginAt: users.lastLoginAt,
+  avatarUrl: users.avatarUrl,
+  avatarFileName: users.avatarFileName,
+  avatarMimeType: users.avatarMimeType,
+  avatarSize: users.avatarSize,
   createdAt: users.createdAt,
   updatedAt: users.updatedAt,
   deletedAt: users.deletedAt,
@@ -372,14 +379,18 @@ export class UsersService {
           updateUserDto.firstName !== undefined
             ? updateUserDto.firstName.trim()
             : targetUser.firstName,
+
         lastName:
           updateUserDto.lastName !== undefined
             ? updateUserDto.lastName.trim()
             : targetUser.lastName,
+
         role: updateUserDto.role ?? targetUser.role,
+
         tokenVersion: roleChanged
           ? sql`${users.tokenVersion} + 1`
           : users.tokenVersion,
+
         updatedAt: new Date(),
       })
       .where(

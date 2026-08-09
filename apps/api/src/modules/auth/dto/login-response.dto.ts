@@ -26,6 +26,13 @@ export class LoginUserDto {
     enum: USER_ROLES,
   })
   role!: (typeof USER_ROLES)[number];
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '/uploads/users/550e8400-e29b-41d4-a716-446655440000.webp',
+  })
+  avatarUrl!: string | null;
 }
 
 export class LoginResponseDto {

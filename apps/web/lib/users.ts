@@ -75,6 +75,23 @@ export function updateUserStatus(
   });
 }
 
+export function uploadUserAvatar(userId: string, file: File) {
+  const formData = new FormData();
+
+  formData.append("file", file);
+
+  return apiRequest<User>(`/users/${userId}/avatar`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function removeUserAvatar(userId: string) {
+  return apiRequest<User>(`/users/${userId}/avatar`, {
+    method: "DELETE",
+  });
+}
+
 export function resetUserPassword(userId: string) {
   return apiRequest<ResetUserPasswordResponse>(
     `/users/${userId}/reset-password`,

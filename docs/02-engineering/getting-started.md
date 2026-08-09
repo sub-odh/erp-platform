@@ -354,8 +354,8 @@ After completing setup:
 - Database Design
 - Module Map
 
-
 Generated SQL migrations are stored in:
 
 ```text
 packages/db/src/migrations
+```

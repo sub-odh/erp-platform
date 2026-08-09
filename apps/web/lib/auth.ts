@@ -6,6 +6,8 @@ const USER_KEY = "erp.user";
 
 export const AUTH_SESSION_EXPIRED_EVENT = "erp:auth-session-expired";
 
+export const AUTH_USER_CHANGED_EVENT = "erp:auth-user-changed";
+
 export function saveAuthSession(response: LoginResponse): void {
   if (typeof window === "undefined") {
     return;
@@ -16,6 +18,8 @@ export function saveAuthSession(response: LoginResponse): void {
   localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken);
 
   localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+
+  notifyAuthUserChanged();
 }
 
 export function getAccessToken(): string | null {
@@ -49,8 +53,32 @@ export function getStoredUser(): AuthUser | null {
     return JSON.parse(value) as AuthUser;
   } catch {
     clearAuthSession();
+
     return null;
   }
+}
+
+export function updateStoredUser(updates: Partial<AuthUser>): AuthUser | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const currentUser = getStoredUser();
+
+  if (!currentUser) {
+    return null;
+  }
+
+  const updatedUser: AuthUser = {
+    ...currentUser,
+    ...updates,
+  };
+
+  localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+
+  notifyAuthUserChanged();
+
+  return updatedUser;
 }
 
 export function clearAuthSession(): void {
@@ -59,16 +87,28 @@ export function clearAuthSession(): void {
   }
 
   localStorage.removeItem(ACCESS_TOKEN_KEY);
+
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+
   localStorage.removeItem(USER_KEY);
+
+  notifyAuthUserChanged();
 }
 
 export function expireAuthSession(): void {
-  clearAuthSession();
-
   if (typeof window === "undefined") {
     return;
   }
 
+  clearAuthSession();
+
   window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
+}
+
+function notifyAuthUserChanged(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event(AUTH_USER_CHANGED_EVENT));
 }

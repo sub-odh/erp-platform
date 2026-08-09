@@ -7,6 +7,7 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   role: UserRole;
+  avatarUrl: string | null;
 }
 
 export interface LoginResponse {

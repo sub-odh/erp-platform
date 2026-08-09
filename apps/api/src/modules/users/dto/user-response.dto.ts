@@ -45,6 +45,34 @@ export class UserResponseDto {
 
   @ApiProperty({
     type: String,
+    nullable: true,
+    example: '/uploads/users/550e8400-e29b-41d4-a716-446655440000.webp',
+  })
+  avatarUrl!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '550e8400-e29b-41d4-a716-446655440000.webp',
+  })
+  avatarFileName!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'image/webp',
+  })
+  avatarMimeType!: string | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 48291,
+  })
+  avatarSize!: number | null;
+
+  @ApiProperty({
+    type: String,
     format: 'date-time',
   })
   createdAt!: Date;

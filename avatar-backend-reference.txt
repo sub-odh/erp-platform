@@ -1,0 +1,375 @@
+
+===== .\apps\api\src\modules\organizations\organizations.controller.ts =====
+
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Patch,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import type { JwtPayload } from '../auth/types/jwt-payload.type';
+import { MEDIA_MAX_FILE_SIZE } from '../media/constants';
+import { OrganizationResponseDto } from './dto/organization-response.dto';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
+import { OrganizationsService } from './organizations.service';
+
+@ApiTags('Organizations')
+@ApiBearerAuth()
+@Controller({
+  path: 'organizations',
+  version: '1',
+})
+export class OrganizationsController {
+  constructor(private readonly organizationsService: OrganizationsService) {}
+
+  @Get('current')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get the authenticated user organization',
+  })
+  @ApiOkResponse({
+    type: OrganizationResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired access token',
+  })
+  @ApiNotFoundResponse({
+    description: 'Organization was not found',
+  })
+  getCurrent(
+    @CurrentUser()
+    currentUser: JwtPayload,
+  ): Promise<OrganizationResponseDto> {
+    return this.organizationsService.findCurrent(currentUser.organizationId);
+  }
+
+  @Patch('current')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @ApiOperation({
+    summary: 'Update the authenticated user organization',
+  })
+  @ApiOkResponse({
+    type: OrganizationResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired access token',
+  })
+  @ApiForbiddenResponse({
+    description: 'Owner or administrator role required',
+  })
+  @ApiNotFoundResponse({
+    description: 'Organization was not found',
+  })
+  updateCurrent(
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Body()
+    updateOrganizationDto: UpdateOrganizationDto,
+  ): Promise<OrganizationResponseDto> {
+    return this.organizationsService.updateCurrent(
+      currentUser.organizationId,
+      updateOrganizationDto,
+    );
+  }
+
+  @Post('current/logo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: MEDIA_MAX_FILE_SIZE,
+      },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Upload the current organization logo',
+  })
+  @ApiOkResponse({
+    type: OrganizationResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Missing, invalid, or oversized image',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired access token',
+  })
+  @ApiForbiddenResponse({
+    description: 'Owner or administrator role required',
+  })
+  uploadLogo(
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @UploadedFile()
+    file: Express.Multer.File | undefined,
+  ): Promise<OrganizationResponseDto> {
+    return this.organizationsService.uploadLogo(
+      currentUser.organizationId,
+      file,
+    );
+  }
+
+  @Delete('current/logo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @ApiOperation({
+    summary: 'Remove the current organization logo',
+  })
+  @ApiOkResponse({
+    type: OrganizationResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired access token',
+  })
+  @ApiForbiddenResponse({
+    description: 'Owner or administrator role required',
+  })
+  @ApiNotFoundResponse({
+    description: 'Organization was not found',
+  })
+  removeLogo(
+    @CurrentUser()
+    currentUser: JwtPayload,
+  ): Promise<OrganizationResponseDto> {
+    return this.organizationsService.removeLogo(currentUser.organizationId);
+  }
+}
+
+===== .\apps\api\src\modules\organizations\organizations.service.ts =====
+
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
+
+import { db, organizations, type Organization } from '@erp/db';
+
+import { MediaService } from '../media/media.service';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
+
+@Injectable()
+export class OrganizationsService {
+  constructor(private readonly mediaService: MediaService) {}
+
+  async findCurrent(organizationId: string): Promise<Organization> {
+    const [organization] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return organization;
+  }
+
+  async updateCurrent(
+    organizationId: string,
+    updateOrganizationDto: UpdateOrganizationDto,
+  ): Promise<Organization> {
+    const [updatedOrganization] = await db
+      .update(organizations)
+      .set({
+        ...updateOrganizationDto,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, organizationId))
+      .returning();
+
+    if (!updatedOrganization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return updatedOrganization;
+  }
+
+  async uploadLogo(
+    organizationId: string,
+    file: Express.Multer.File | undefined,
+  ): Promise<Organization> {
+    const currentOrganization = await this.findCurrent(organizationId);
+
+    const uploaded = await this.mediaService.uploadImage(file, 'organizations');
+
+    try {
+      const [updatedOrganization] = await db
+        .update(organizations)
+        .set({
+          logoUrl: uploaded.url,
+          logoFileName: uploaded.fileName,
+          logoMimeType: uploaded.mimeType,
+          logoSize: uploaded.size,
+          updatedAt: new Date(),
+        })
+        .where(eq(organizations.id, organizationId))
+        .returning();
+
+      if (!updatedOrganization) {
+        throw new NotFoundException('Organization not found');
+      }
+
+      await this.mediaService.deleteImage(currentOrganization.logoUrl);
+
+      return updatedOrganization;
+    } catch (error: unknown) {
+      await this.mediaService.deleteImage(uploaded.url);
+
+      throw error;
+    }
+  }
+
+  async removeLogo(organizationId: string): Promise<Organization> {
+    const currentOrganization = await this.findCurrent(organizationId);
+
+    const [updatedOrganization] = await db
+      .update(organizations)
+      .set({
+        logoUrl: null,
+        logoFileName: null,
+        logoMimeType: null,
+        logoSize: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, organizationId))
+      .returning();
+
+    if (!updatedOrganization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    await this.mediaService.deleteImage(currentOrganization.logoUrl);
+
+    return updatedOrganization;
+  }
+}
+
+===== .\apps\api\src\modules\organizations\organizations.module.ts =====
+
+import { Module } from '@nestjs/common';
+
+import { MediaModule } from '../media/media.module';
+import { OrganizationsController } from './organizations.controller';
+import { OrganizationsService } from './organizations.service';
+
+@Module({
+  imports: [MediaModule],
+  controllers: [OrganizationsController],
+  providers: [OrganizationsService],
+  exports: [OrganizationsService],
+})
+export class OrganizationsModule {}
+
+===== .\apps\api\src\main.ts =====
+
+import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import helmet from 'helmet';
+import { Logger } from 'nestjs-pino';
+import { join } from 'node:path';
+
+import { env } from '@erp/config';
+
+import { AppModule } from './app.module';
+import { setupSwagger } from './bootstrap/swagger';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
+
+  app.useLogger(app.get(Logger));
+
+  app.useGlobalFilters(new HttpExceptionFilter());
+
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: {
+        policy: 'cross-origin',
+      },
+    }),
+  );
+
+  app.enableCors({
+    origin: env.CORS_ORIGIN,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
+
+  app.setGlobalPrefix('api', {
+    exclude: ['/uploads/(.*)'],
+  });
+
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: false,
+      },
+    }),
+  );
+
+  app.enableShutdownHooks();
+
+  setupSwagger(app);
+
+  await app.listen(env.PORT, '0.0.0.0');
+
+  console.log(`API running at http://localhost:${env.PORT}/api/v1`);
+
+  console.log(`Swagger docs at http://localhost:${env.PORT}/docs`);
+}
+
+void bootstrap();

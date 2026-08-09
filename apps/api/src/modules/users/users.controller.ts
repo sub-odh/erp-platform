@@ -10,12 +10,16 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
@@ -25,12 +29,15 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { JwtPayload } from '../auth/types/jwt-payload.type';
+import { MEDIA_MAX_FILE_SIZE } from '../media/constants';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { ResetUserPasswordResponseDto } from './dto/reset-user-password-response.dto';
@@ -40,6 +47,7 @@ import {
 } from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UserAvatarService } from './user-avatar.service';
 import { UserPasswordResetService } from './user-password-reset.service';
 import { UsersService } from './users.service';
 
@@ -55,6 +63,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly userPasswordResetService: UserPasswordResetService,
+    private readonly userAvatarService: UserAvatarService,
   ) {}
 
   @Get()
@@ -74,8 +83,10 @@ export class UsersController {
     description: 'Owner or administrator role required',
   })
   listUsers(
-    @CurrentUser() currentUser: JwtPayload,
-    @Query() query: ListUsersQueryDto,
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Query()
+    query: ListUsersQueryDto,
   ): Promise<PaginatedUsersResponseDto> {
     return this.usersService.listUsers(currentUser.organizationId, query);
   }
@@ -100,8 +111,10 @@ export class UsersController {
     description: 'Email already exists in the organization',
   })
   createUser(
-    @CurrentUser() currentUser: JwtPayload,
-    @Body() createUserDto: CreateUserDto,
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Body()
+    createUserDto: CreateUserDto,
   ): Promise<UserResponseDto> {
     return this.usersService.createUser(
       currentUser.organizationId,
@@ -130,9 +143,12 @@ export class UsersController {
     description: 'User was not found in the organization',
   })
   updateUser(
-    @CurrentUser() currentUser: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) userId: string,
-    @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe())
+    userId: string,
+    @Body()
+    updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     return this.usersService.updateUser(
       currentUser.organizationId,
@@ -163,9 +179,12 @@ export class UsersController {
     description: 'User was not found in the organization',
   })
   updateUserStatus(
-    @CurrentUser() currentUser: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) userId: string,
-    @Body() updateUserStatusDto: UpdateUserStatusDto,
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe())
+    userId: string,
+    @Body()
+    updateUserStatusDto: UpdateUserStatusDto,
   ): Promise<UserResponseDto> {
     return this.usersService.updateUserStatus(
       currentUser.organizationId,
@@ -173,6 +192,96 @@ export class UsersController {
       currentUser.role,
       userId,
       updateUserStatusDto.isActive,
+    );
+  }
+
+  @Post(':id/avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: MEDIA_MAX_FILE_SIZE,
+      },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Upload or replace an organization user avatar',
+  })
+  @ApiOkResponse({
+    type: UserResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Missing, invalid, or oversized image',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user cannot modify this avatar',
+  })
+  @ApiNotFoundResponse({
+    description: 'User was not found in the organization',
+  })
+  uploadAvatar(
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe())
+    userId: string,
+    @UploadedFile()
+    file: Express.Multer.File | undefined,
+  ): Promise<UserResponseDto> {
+    return this.userAvatarService.uploadAvatar(
+      currentUser.organizationId,
+      currentUser.sub,
+      currentUser.role,
+      userId,
+      file,
+    );
+  }
+
+  @Delete(':id/avatar')
+  @ApiOperation({
+    summary: 'Remove an organization user avatar',
+  })
+  @ApiOkResponse({
+    type: UserResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid user ID',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'The authenticated user cannot modify this avatar',
+  })
+  @ApiNotFoundResponse({
+    description: 'User was not found in the organization',
+  })
+  removeAvatar(
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe())
+    userId: string,
+  ): Promise<UserResponseDto> {
+    return this.userAvatarService.removeAvatar(
+      currentUser.organizationId,
+      currentUser.sub,
+      currentUser.role,
+      userId,
     );
   }
 
@@ -198,8 +307,10 @@ export class UsersController {
     description: 'User was not found in the organization',
   })
   resetPassword(
-    @CurrentUser() currentUser: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) userId: string,
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe())
+    userId: string,
   ): Promise<ResetUserPasswordResponseDto> {
     return this.userPasswordResetService.resetPassword(
       currentUser.organizationId,
@@ -230,8 +341,10 @@ export class UsersController {
     description: 'User was not found in the organization',
   })
   archiveUser(
-    @CurrentUser() currentUser: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) userId: string,
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe())
+    userId: string,
   ): Promise<void> {
     return this.usersService.archiveUser(
       currentUser.organizationId,
@@ -264,8 +377,10 @@ export class UsersController {
     description: 'User is not archived',
   })
   restoreUser(
-    @CurrentUser() currentUser: JwtPayload,
-    @Param('id', new ParseUUIDPipe()) userId: string,
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe())
+    userId: string,
   ): Promise<UserResponseDto> {
     return this.usersService.restoreUser(
       currentUser.organizationId,

@@ -20,6 +20,12 @@ export interface User {
   role: UserRole;
   isActive: boolean;
   lastLoginAt: string | null;
+
+  avatarUrl: string | null;
+  avatarFileName: string | null;
+  avatarMimeType: string | null;
+  avatarSize: number | null;
+
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

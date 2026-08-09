@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 
+import { ImageUploader } from "@/components/media/image-uploader";
 import { Button, Input, Modal, Select } from "@/components/ui";
 import { getStoredUser } from "@/lib/auth";
-import { createUser } from "@/lib/users";
+import { createUser, uploadUserAvatar } from "@/lib/users";
 import type { CreateUserRequest, User } from "@/types/user";
 
 interface CreateUserModalProps {
@@ -30,6 +31,12 @@ export function CreateUserModal({
 
   const [form, setForm] = useState<CreateUserRequest>(initialForm);
 
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
+
+  const [createdWithoutAvatar, setCreatedWithoutAvatar] = useState<User | null>(
+    null,
+  );
+
   const [error, setError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -52,13 +59,23 @@ export function CreateUserModal({
     }));
   }
 
+  function clearForm(): void {
+    setForm(initialForm);
+    setPendingAvatar(null);
+    setCreatedWithoutAvatar(null);
+    setError(null);
+  }
+
   function resetAndClose(): void {
     if (submitting) {
       return;
     }
 
-    setForm(initialForm);
-    setError(null);
+    if (createdWithoutAvatar) {
+      onCreated(createdWithoutAvatar);
+    }
+
+    clearForm();
     onClose();
   }
 
@@ -67,10 +84,16 @@ export function CreateUserModal({
   ): Promise<void> {
     event.preventDefault();
 
+    if (createdWithoutAvatar) {
+      resetAndClose();
+      return;
+    }
+
     setError(null);
 
     if (form.password.length < 12) {
       setError("Password must contain at least 12 characters.");
+
       return;
     }
 
@@ -84,8 +107,27 @@ export function CreateUserModal({
         email: form.email.trim().toLowerCase(),
       });
 
-      onCreated(created);
-      setForm(initialForm);
+      let finalUser = created;
+
+      if (pendingAvatar) {
+        try {
+          finalUser = await uploadUserAvatar(created.id, pendingAvatar);
+        } catch (avatarError) {
+          setCreatedWithoutAvatar(created);
+
+          setError(
+            avatarError instanceof Error
+              ? `User was created, but the profile picture could not be uploaded: ${avatarError.message}`
+              : "User was created, but the profile picture could not be uploaded. You can add it later from Edit user.",
+          );
+
+          return;
+        }
+      }
+
+      onCreated(finalUser);
+
+      clearForm();
       onClose();
     } catch (requestError) {
       setError(
@@ -98,35 +140,52 @@ export function CreateUserModal({
     }
   }
 
+  const userAlreadyCreated = Boolean(createdWithoutAvatar);
+
   return (
     <Modal
       open={open}
       title="Create user"
       description="Add a user to the current organization."
       onClose={resetAndClose}
+      className="max-w-2xl"
       footer={
-        <>
-          <Button
-            variant="outline"
-            onClick={resetAndClose}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
+        userAlreadyCreated ? (
+          <Button onClick={resetAndClose}>Done</Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              onClick={resetAndClose}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
 
-          <Button type="submit" form="create-user-form" loading={submitting}>
-            Create user
-          </Button>
-        </>
+            <Button type="submit" form="create-user-form" loading={submitting}>
+              Create user
+            </Button>
+          </>
+        )
       }
     >
-      <form id="create-user-form" onSubmit={handleSubmit} className="space-y-5">
+      <form id="create-user-form" onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex justify-center">
+          <ImageUploader
+            preset="avatar"
+            deferUpload
+            disabled={submitting || userAlreadyCreated}
+            onCroppedFileChange={setPendingAvatar}
+          />
+        </div>
+
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
             label="First name"
             value={form.firstName}
             onChange={(event) => updateField("firstName", event.target.value)}
             maxLength={100}
+            disabled={userAlreadyCreated}
             required
           />
 
@@ -135,6 +194,7 @@ export function CreateUserModal({
             value={form.lastName}
             onChange={(event) => updateField("lastName", event.target.value)}
             maxLength={100}
+            disabled={userAlreadyCreated}
             required
           />
         </div>
@@ -145,6 +205,7 @@ export function CreateUserModal({
           value={form.email}
           onChange={(event) => updateField("email", event.target.value)}
           maxLength={320}
+          disabled={userAlreadyCreated}
           required
         />
 
@@ -156,6 +217,7 @@ export function CreateUserModal({
           minLength={12}
           maxLength={128}
           hint="Use at least 12 characters."
+          disabled={userAlreadyCreated}
           required
         />
 
@@ -165,6 +227,7 @@ export function CreateUserModal({
           onChange={(event) =>
             updateField("role", event.target.value as CreateUserRequest["role"])
           }
+          disabled={userAlreadyCreated}
           required
         >
           {allowedRoles.map((role) => (
@@ -175,7 +238,14 @@ export function CreateUserModal({
         </Select>
 
         {error ? (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div
+            className={[
+              "rounded-lg px-4 py-3 text-sm",
+              userAlreadyCreated
+                ? "bg-amber-50 text-amber-800"
+                : "bg-red-50 text-red-700",
+            ].join(" ")}
+          >
             {error}
           </div>
         ) : null}

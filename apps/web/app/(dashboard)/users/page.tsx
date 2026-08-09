@@ -329,9 +329,14 @@ export default function UsersPage() {
         open={editingUser !== null}
         user={editingUser}
         onClose={() => setEditingUser(null)}
-        onUpdated={() => {
-          setEditingUser(null);
-          void loadUsers(pagination.page);
+        onUpdated={(updatedUser) => {
+          setEditingUser(updatedUser);
+
+          setUsers((currentUsers) =>
+            currentUsers.map((user) =>
+              user.id === updatedUser.id ? updatedUser : user,
+            ),
+          );
         }}
       />
 
