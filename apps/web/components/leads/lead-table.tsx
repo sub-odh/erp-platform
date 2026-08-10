@@ -202,7 +202,7 @@ export function LeadTable({ leads, onEdit, onArchive }: LeadTableProps) {
       {menuLead && menuPosition ? (
         <div
           ref={menuRef}
-          className="fixed z-[100] w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+          className="fixed z-100 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
           style={{
             top: menuPosition.top,
             right: menuPosition.right,

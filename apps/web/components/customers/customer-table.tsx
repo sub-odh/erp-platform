@@ -282,7 +282,7 @@ export function CustomerTable({
       {openMenuCustomer && menuPosition ? (
         <div
           ref={menuRef}
-          className="fixed z-[100] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-left shadow-xl"
+          className="fixed z-100 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-left shadow-xl"
           style={{
             top: menuPosition.top,
             right: menuPosition.right,

@@ -113,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div
         className={[
           "min-h-screen transition-[padding] duration-200",
-          sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[280px]",
+          sidebarCollapsed ? "lg:pl-18" : "lg:pl-70",
         ].join(" ")}
       >
         <Topbar onMenuClick={() => setSidebarOpen(true)} />

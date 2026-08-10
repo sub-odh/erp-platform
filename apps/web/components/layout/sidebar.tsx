@@ -290,7 +290,7 @@ export function Sidebar({
       <aside
         className={[
           "fixed inset-y-0 left-0 z-40 flex flex-col bg-[#1e2b3f] text-slate-200 shadow-xl transition-[width,transform] duration-200 lg:translate-x-0",
-          collapsed ? "w-[280px] lg:w-[72px]" : "w-[280px]",
+          collapsed ? "w-70 lg:w-18" : "w-70",
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
@@ -689,7 +689,7 @@ function CollapsedFlyout({
   onNavigate: () => void;
 }) {
   return (
-    <div className="absolute left-[68px] top-0 z-[100] hidden w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 shadow-2xl lg:block">
+    <div className="absolute left-17 top-0 z-100 hidden w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 shadow-2xl lg:block">
       <div className="border-b border-slate-100 px-4 pb-2 pt-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
           {item.label}

@@ -239,7 +239,7 @@ function CalendarPopover({
   const today = new Date();
 
   return (
-    <div className="absolute right-0 top-12 z-[200] w-[330px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+    <div className="absolute right-0 top-12 z-200 w-82.5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
       <div className="flex items-center justify-between px-4 py-4">
         <button
           type="button"
