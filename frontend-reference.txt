@@ -1,0 +1,1134 @@
+﻿============================================================
+FILE: apps/web/app/(dashboard)/customers/page.tsx
+============================================================
+"use client";
+
+import { Plus, RefreshCw, Search, UsersRound } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+
+import { CreateCustomerModal } from "@/components/customers/create-customer-modal";
+import { CustomerTable } from "@/components/customers/customer-table";
+import { Button, Select, Spinner } from "@/components/ui";
+import { getCustomers, updateCustomerStatus } from "@/lib/customers";
+import type {
+  Customer,
+  CustomerSortField,
+  PaginatedCustomersResponse,
+  SortDirection,
+} from "@/types/customer";
+
+const PAGE_SIZE = 20;
+
+type StatusFilter = "all" | "active" | "inactive";
+
+export default function CustomersPage() {
+  const router = useRouter();
+
+  const [customers, setCustomers] = useState<Customer[]>([]);
+
+  const [pagination, setPagination] = useState<
+    PaginatedCustomersResponse["pagination"] | null
+  >(null);
+
+  const [searchInput, setSearchInput] = useState("");
+
+  const [search, setSearch] = useState("");
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  const [page, setPage] = useState(1);
+
+  const [sortBy, setSortBy] = useState<CustomerSortField>("createdAt");
+
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] = useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const [busyCustomerId, setBusyCustomerId] = useState<string | null>(null);
+
+  const loadCustomers = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await getCustomers({
+        search: search || undefined,
+
+        isActive:
+          statusFilter === "all" ? undefined : statusFilter === "active",
+
+        page,
+        limit: PAGE_SIZE,
+        sortBy,
+        sortDirection,
+      });
+
+      setCustomers(result.data);
+
+      setPagination(result.pagination);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load customers.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search, sortBy, sortDirection, statusFilter]);
+
+  useEffect(() => {
+    void loadCustomers();
+  }, [loadCustomers]);
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+
+    setPage(1);
+
+    setSearch(searchInput.trim());
+  }
+
+  function handleStatusChange(value: StatusFilter): void {
+    setStatusFilter(value);
+    setPage(1);
+  }
+
+  function handleSort(field: CustomerSortField): void {
+    setPage(1);
+
+    if (sortBy === field) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+
+      return;
+    }
+
+    setSortBy(field);
+    setSortDirection("asc");
+  }
+
+  function openCustomer(customer: Customer): void {
+    router.push(`/customers/${customer.id}`);
+  }
+
+  async function handleToggleStatus(customer: Customer): Promise<void> {
+    setBusyCustomerId(customer.id);
+
+    setError(null);
+
+    try {
+      const updated = await updateCustomerStatus(
+        customer.id,
+        !customer.isActive,
+      );
+
+      setCustomers((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+
+      if (statusFilter !== "all") {
+        await loadCustomers();
+      }
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to update customer status.",
+      );
+    } finally {
+      setBusyCustomerId(null);
+    }
+  }
+
+  function handleCreated(customer: Customer): void {
+    setCreateOpen(false);
+
+    router.push(`/customers/${customer.id}`);
+  }
+
+  const total = pagination?.total ?? 0;
+
+  const totalPages = pagination?.totalPages ?? 1;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <UsersRound size={20} />
+          </div>
+
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+              Customers
+            </h1>
+
+            <p className="mt-0.5 text-sm text-slate-500">
+              Manage customer accounts and sales information.
+            </p>
+          </div>
+        </div>
+
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus size={17} />
+          New customer
+        </Button>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row">
+          <form onSubmit={handleSearchSubmit} className="flex min-w-0 flex-1">
+            <div className="relative flex-1">
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+
+              <input
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search customers by name, code, email, phone, or tax number..."
+                className="h-10 w-full rounded-l-lg border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            <Button type="submit" className="rounded-l-none">
+              Search
+            </Button>
+          </form>
+
+          <div className="w-full lg:w-44">
+            <Select
+              value={statusFilter}
+              onChange={(event) =>
+                handleStatusChange(event.target.value as StatusFilter)
+              }
+            >
+              <option value="all">All statuses</option>
+
+              <option value="active">Active</option>
+
+              <option value="inactive">Inactive</option>
+            </Select>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => void loadCustomers()}
+            disabled={loading}
+            aria-label="Refresh customers"
+          >
+            <RefreshCw
+              size={17}
+              className={loading ? "animate-spin" : undefined}
+            />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
+      {loading && customers.length === 0 ? (
+        <div className="flex min-h-64 items-center justify-center rounded-xl border border-slate-200 bg-white">
+          <Spinner />
+        </div>
+      ) : (
+        <CustomerTable
+          customers={customers}
+          busyCustomerId={busyCustomerId}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          onOpen={openCustomer}
+          onToggleStatus={handleToggleStatus}
+        />
+      )}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-500">
+          {total === 0
+            ? "No customers"
+            : `${total} customer${total === 1 ? "" : "s"}`}
+        </p>
+
+        {totalPages > 1 ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Previous
+            </Button>
+
+            <span className="px-2 text-sm text-slate-600">
+              Page {page} of {totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      <CreateCustomerModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={handleCreated}
+      />
+    </div>
+  );
+}
+
+
+============================================================
+FILE: apps/web/components/customers/customer-table.tsx
+============================================================
+"use client";
+
+import {
+  ArrowUpDown,
+  ChevronRight,
+  Mail,
+  MoreHorizontal,
+  Phone,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
+import { CustomerStatusBadge } from "@/components/customers/customer-status-badge";
+import type {
+  Customer,
+  CustomerSortField,
+  SortDirection,
+} from "@/types/customer";
+
+interface CustomerTableProps {
+  customers: Customer[];
+  busyCustomerId: string | null;
+
+  sortBy: CustomerSortField;
+  sortDirection: SortDirection;
+
+  onSort: (field: CustomerSortField) => void;
+
+  onOpen: (customer: Customer) => void;
+
+  onToggleStatus: (customer: Customer) => void;
+}
+
+interface MenuPosition {
+  top: number;
+  right: number;
+}
+
+export function CustomerTable({
+  customers,
+  busyCustomerId,
+  sortBy,
+  sortDirection,
+  onSort,
+  onOpen,
+  onToggleStatus,
+}: CustomerTableProps) {
+  const [openMenuCustomer, setOpenMenuCustomer] = useState<Customer | null>(
+    null,
+  );
+
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openMenuCustomer) {
+      return;
+    }
+
+    function closeMenu(): void {
+      setOpenMenuCustomer(null);
+      setMenuPosition(null);
+    }
+
+    function handleMouseDown(event: MouseEvent): void {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        closeMenu();
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        closeMenu();
+      }
+    }
+
+    window.addEventListener("resize", closeMenu);
+
+    window.addEventListener("scroll", closeMenu, true);
+
+    document.addEventListener("mousedown", handleMouseDown);
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("resize", closeMenu);
+
+      window.removeEventListener("scroll", closeMenu, true);
+
+      document.removeEventListener("mousedown", handleMouseDown);
+
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openMenuCustomer]);
+
+  function toggleMenu(customer: Customer, button: HTMLButtonElement): void {
+    if (openMenuCustomer?.id === customer.id) {
+      setOpenMenuCustomer(null);
+      setMenuPosition(null);
+
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+
+    const menuWidth = 192;
+    const margin = 12;
+
+    const right = Math.max(margin, window.innerWidth - rect.right);
+
+    setMenuPosition({
+      top: rect.bottom + 8,
+      right,
+    });
+
+    setOpenMenuCustomer(customer);
+  }
+
+  function closeMenu(): void {
+    setOpenMenuCustomer(null);
+    setMenuPosition(null);
+  }
+
+  if (customers.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
+        <p className="font-medium text-slate-700">No customers found</p>
+
+        <p className="mt-2 text-sm text-slate-500">
+          Try changing your search or filters, or create a new customer.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <SortableHeader
+                  label="Customer"
+                  field="name"
+                  sortBy={sortBy}
+                  sortDirection={sortDirection}
+                  onSort={onSort}
+                />
+
+                <SortableHeader
+                  label="Code"
+                  field="customerCode"
+                  sortBy={sortBy}
+                  sortDirection={sortDirection}
+                  onSort={onSort}
+                />
+
+                <TableHeader>Contact</TableHeader>
+
+                <TableHeader>Terms</TableHeader>
+
+                <TableHeader>Status</TableHeader>
+
+                <TableHeader align="right">Actions</TableHeader>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-slate-100">
+              {customers.map((customer) => {
+                const busy = busyCustomerId === customer.id;
+
+                return (
+                  <tr
+                    key={customer.id}
+                    className="transition hover:bg-slate-50"
+                  >
+                    <td className="px-5 py-4">
+                      <button
+                        type="button"
+                        onClick={() => onOpen(customer)}
+                        className="group text-left"
+                      >
+                        <p className="font-medium text-slate-900 transition group-hover:text-blue-600">
+                          {customer.name}
+                        </p>
+
+                        {customer.legalName ? (
+                          <p className="mt-1 max-w-72 truncate text-xs text-slate-500">
+                            {customer.legalName}
+                          </p>
+                        ) : null}
+                      </button>
+                    </td>
+
+                    <td className="whitespace-nowrap px-5 py-4">
+                      <span className="rounded-md bg-slate-100 px-2.5 py-1 font-mono text-xs font-medium text-slate-700">
+                        {customer.customerCode}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <div className="space-y-1">
+                        {customer.email ? (
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <Mail
+                              size={14}
+                              className="shrink-0 text-slate-400"
+                            />
+
+                            <span className="max-w-56 truncate">
+                              {customer.email}
+                            </span>
+                          </div>
+                        ) : null}
+
+                        {customer.phone ? (
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <Phone
+                              size={14}
+                              className="shrink-0 text-slate-400"
+                            />
+
+                            {customer.phone}
+                          </div>
+                        ) : null}
+
+                        {!customer.email && !customer.phone ? (
+                          <span className="text-sm text-slate-400">â€”</span>
+                        ) : null}
+                      </div>
+                    </td>
+
+                    <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                      {customer.paymentTermsDays === 0
+                        ? "Due immediately"
+                        : `${customer.paymentTermsDays} days`}
+                    </td>
+
+                    <td className="whitespace-nowrap px-5 py-4">
+                      <CustomerStatusBadge isActive={customer.isActive} />
+                    </td>
+
+                    <td className="whitespace-nowrap px-5 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onOpen(customer)}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                          aria-label={`Open ${customer.name}`}
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={(event) =>
+                            toggleMenu(customer, event.currentTarget)
+                          }
+                          className={[
+                            "rounded-lg p-2 transition disabled:opacity-50",
+                            openMenuCustomer?.id === customer.id
+                              ? "bg-slate-100 text-slate-700"
+                              : "text-slate-400 hover:bg-slate-100 hover:text-slate-700",
+                          ].join(" ")}
+                          aria-label={`Actions for ${customer.name}`}
+                          aria-expanded={openMenuCustomer?.id === customer.id}
+                        >
+                          <MoreHorizontal size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {openMenuCustomer && menuPosition ? (
+        <div
+          ref={menuRef}
+          className="fixed z-[100] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-left shadow-xl"
+          style={{
+            top: menuPosition.top,
+            right: menuPosition.right,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              const customer = openMenuCustomer;
+
+              closeMenu();
+
+              onOpen(customer);
+            }}
+            className="block w-full px-4 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+          >
+            View details
+          </button>
+
+          <button
+            type="button"
+            disabled={busyCustomerId === openMenuCustomer.id}
+            onClick={() => {
+              const customer = openMenuCustomer;
+
+              closeMenu();
+
+              onToggleStatus(customer);
+            }}
+            className={[
+              "block w-full px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 disabled:opacity-50",
+              openMenuCustomer.isActive ? "text-red-600" : "text-emerald-700",
+            ].join(" ")}
+          >
+            {openMenuCustomer.isActive ? "Deactivate" : "Activate"}
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function TableHeader({
+  children,
+  align = "left",
+}: {
+  children: React.ReactNode;
+
+  align?: "left" | "right";
+}) {
+  return (
+    <th
+      className={[
+        "px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500",
+        align === "right" ? "text-right" : "text-left",
+      ].join(" ")}
+    >
+      {children}
+    </th>
+  );
+}
+
+function SortableHeader({
+  label,
+  field,
+  sortBy,
+  sortDirection,
+  onSort,
+}: {
+  label: string;
+
+  field: CustomerSortField;
+
+  sortBy: CustomerSortField;
+
+  sortDirection: SortDirection;
+
+  onSort: (field: CustomerSortField) => void;
+}) {
+  const active = sortBy === field;
+
+  return (
+    <th className="px-5 py-3 text-left">
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className={[
+          "inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide transition",
+          active ? "text-slate-800" : "text-slate-500 hover:text-slate-700",
+        ].join(" ")}
+      >
+        {label}
+
+        <ArrowUpDown size={13} />
+
+        {active ? (
+          <span className="sr-only">
+            {sortDirection === "asc" ? "Ascending" : "Descending"}
+          </span>
+        ) : null}
+      </button>
+    </th>
+  );
+}
+
+
+============================================================
+FILE: apps/web/components/layout/sidebar.tsx
+============================================================
+"use client";
+
+import {
+  BarChart3,
+  Boxes,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  CircleDollarSign,
+  ClipboardList,
+  FileText,
+  Gauge,
+  Handshake,
+  LayoutDashboard,
+  Package,
+  ReceiptText,
+  Settings,
+  ShoppingCart,
+  Target,
+  Truck,
+  UserRound,
+  Users,
+  Warehouse,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState, type ComponentType } from "react";
+
+import { resolveMediaUrl } from "@/lib/organizations";
+import type { Organization } from "@/types/organization";
+
+interface SidebarProps {
+  open: boolean;
+  organization: Organization | null;
+  onClose: () => void;
+}
+
+interface NavigationItem {
+  label: string;
+  icon: ComponentType<{
+    size?: number;
+    className?: string;
+  }>;
+  href?: string;
+  disabled?: boolean;
+  children?: NavigationItem[];
+}
+
+interface NavigationSection {
+  title: string;
+  items: NavigationItem[];
+}
+
+const navigationSections: NavigationSection[] = [
+  {
+    title: "Main",
+    items: [
+      {
+        href: "/dashboard",
+        label: "Dashboard",
+        icon: LayoutDashboard,
+      },
+    ],
+  },
+
+  {
+    title: "Sales & CRM",
+    items: [
+      {
+        label: "CRM",
+        icon: Target,
+        children: [
+          {
+            href: "/customers",
+            label: "Customers",
+            icon: Users,
+          },
+          {
+            label: "Leads",
+            icon: UserRound,
+            disabled: true,
+          },
+          {
+            label: "Opportunities",
+            icon: Handshake,
+            disabled: true,
+          },
+          {
+            label: "Pipeline",
+            icon: BarChart3,
+            disabled: true,
+          },
+        ],
+      },
+
+      {
+        label: "Quotations",
+        icon: FileText,
+        disabled: true,
+      },
+
+      {
+        label: "Sales Orders",
+        icon: ClipboardList,
+        disabled: true,
+      },
+
+      {
+        label: "Invoices",
+        icon: ReceiptText,
+        disabled: true,
+      },
+
+      {
+        label: "Payments",
+        icon: CircleDollarSign,
+        disabled: true,
+      },
+    ],
+  },
+
+  {
+    title: "Inventory",
+    items: [
+      {
+        label: "Products",
+        icon: Package,
+        disabled: true,
+      },
+      {
+        label: "Inventory",
+        icon: Boxes,
+        disabled: true,
+      },
+      {
+        label: "Warehouses",
+        icon: Warehouse,
+        disabled: true,
+      },
+      {
+        label: "Stock Movements",
+        icon: Truck,
+        disabled: true,
+      },
+    ],
+  },
+
+  {
+    title: "Procurement",
+    items: [
+      {
+        label: "Suppliers",
+        icon: Building2,
+        disabled: true,
+      },
+      {
+        label: "Purchase Orders",
+        icon: ShoppingCart,
+        disabled: true,
+      },
+      {
+        label: "Goods Receipts",
+        icon: ClipboardList,
+        disabled: true,
+      },
+    ],
+  },
+
+  {
+    title: "Self Service",
+    items: [
+      {
+        href: "/profile",
+        label: "My Profile",
+        icon: UserRound,
+      },
+    ],
+  },
+
+  {
+    title: "Administration",
+    items: [
+      {
+        href: "/users",
+        label: "Manage Users",
+        icon: Users,
+      },
+      {
+        href: "/settings/organization",
+        label: "Organization Settings",
+        icon: Settings,
+      },
+      {
+        label: "Sales Settings",
+        icon: Gauge,
+        disabled: true,
+      },
+    ],
+  },
+];
+
+export function Sidebar({ open, organization, onClose }: SidebarProps) {
+  const pathname = usePathname();
+
+  const logoUrl = resolveMediaUrl(organization?.logoUrl);
+
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
+    {
+      CRM: pathname.startsWith("/customers"),
+    },
+  );
+
+  useEffect(() => {
+    if (pathname.startsWith("/customers")) {
+      setExpandedGroups((current) => ({
+        ...current,
+        CRM: true,
+      }));
+    }
+  }, [pathname]);
+
+  function toggleGroup(label: string): void {
+    setExpandedGroups((current) => ({
+      ...current,
+      [label]: !current[label],
+    }));
+  }
+
+  return (
+    <>
+      {open ? (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={onClose}
+          className="fixed inset-0 z-30 bg-slate-950/55 lg:hidden"
+        />
+      ) : null}
+
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-40 flex w-62.5 flex-col bg-[#1e2b3f] text-slate-200 shadow-xl transition-transform lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full",
+        ].join(" ")}
+      >
+        <div className="flex min-h-20 items-center justify-between border-b border-white/5 px-4 py-3">
+          <Link
+            href="/dashboard"
+            onClick={onClose}
+            className="flex min-w-0 items-center gap-3"
+          >
+            {logoUrl ? (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5">
+                <img
+                  src={logoUrl}
+                  alt={`${organization?.name ?? "Organization"} logo`}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600">
+                <Package size={20} />
+              </div>
+            )}
+
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">
+                {organization?.name ?? "ERP Platform"}
+              </p>
+
+              <p className="mt-0.5 truncate text-[11px] text-slate-400">
+                {organization
+                  ? `${organization.code} workspace`
+                  : "Business management"}
+              </p>
+            </div>
+          </Link>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="rounded-md p-2 text-slate-400 transition hover:bg-white/5 hover:text-white lg:hidden"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className="sidebar-scrollbar flex-1 overflow-y-auto px-2 py-4">
+          {navigationSections.map((section, index) => (
+            <div key={section.title} className={index === 0 ? "" : "mt-6"}>
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                {section.title}
+              </p>
+
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <SidebarItem
+                    key={item.label}
+                    item={item}
+                    pathname={pathname}
+                    expanded={expandedGroups[item.label] ?? false}
+                    onToggle={() => toggleGroup(item.label)}
+                    onNavigate={onClose}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="border-t border-white/5 px-4 py-3">
+          <p className="text-[10px] text-slate-500">ERP Platform</p>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function SidebarItem({
+  item,
+  pathname,
+  expanded,
+  onToggle,
+  onNavigate,
+  nested = false,
+}: {
+  item: NavigationItem;
+  pathname: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onNavigate: () => void;
+  nested?: boolean;
+}) {
+  const Icon = item.icon;
+
+  const hasChildren = Boolean(item.children?.length);
+
+  const childActive =
+    item.children?.some((child) =>
+      child.href ? isPathActive(pathname, child.href) : false,
+    ) ?? false;
+
+  const active = item.href ? isPathActive(pathname, item.href) : childActive;
+
+  if (hasChildren) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={[
+            "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition",
+            active
+              ? "bg-white/6 text-white"
+              : "text-slate-300 hover:bg-white/5 hover:text-white",
+          ].join(" ")}
+        >
+          <Icon
+            size={17}
+            className={active ? "text-blue-400" : "text-slate-400"}
+          />
+
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+
+          {expanded ? (
+            <ChevronDown size={15} className="text-slate-500" />
+          ) : (
+            <ChevronRight size={15} className="text-slate-500" />
+          )}
+        </button>
+
+        {expanded ? (
+          <div className="mt-0.5 space-y-0.5">
+            {item.children?.map((child) => (
+              <SidebarItem
+                key={child.label}
+                item={child}
+                pathname={pathname}
+                expanded={false}
+                onToggle={() => {}}
+                onNavigate={onNavigate}
+                nested
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (item.disabled || !item.href) {
+    return (
+      <div
+        className={[
+          "group flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2.5 text-sm text-slate-500",
+          nested ? "ml-6" : "",
+        ].join(" ")}
+        title="Coming soon"
+      >
+        <Icon size={16} className="text-slate-600" />
+
+        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+
+        <span className="text-[9px] uppercase tracking-wide text-slate-600 opacity-0 transition group-hover:opacity-100">
+          Soon
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      className={[
+        "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition",
+        nested ? "ml-6" : "",
+        active
+          ? "bg-blue-600/15 text-white"
+          : "text-slate-300 hover:bg-white/5 hover:text-white",
+      ].join(" ")}
+    >
+      {active ? (
+        <span className="absolute inset-y-1 left-0 w-0.5 rounded-r bg-blue-500" />
+      ) : null}
+
+      <Icon size={16} className={active ? "text-blue-400" : "text-slate-400"} />
+
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+    </Link>
+  );
+}
+
+function isPathActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+

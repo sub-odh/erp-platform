@@ -1,90 +1,61 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
-import {
-  AUTH_SESSION_EXPIRED_EVENT,
-  getAccessToken,
-  getRefreshToken,
-} from "@/lib/auth";
-import { ApiError } from "@/lib/api";
-import { getCurrentOrganization } from "@/lib/organizations";
+import { getAccessToken } from "@/lib/auth";
+import { getCurrentOrganization, resolveMediaUrl } from "@/lib/organizations";
 import type { Organization } from "@/types/organization";
 
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
-type ShellStatus = "loading" | "ready" | "error";
+const SIDEBAR_COLLAPSED_KEY = "erp.sidebar.collapsed";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const [organization, setOrganization] = useState<Organization | null>(null);
 
-  const [status, setStatus] = useState<ShellStatus>("loading");
+  const [ready, setReady] = useState(false);
 
-  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+
+    setSidebarCollapsed(stored === "true");
+  }, []);
 
   useEffect(() => {
     let active = true;
 
-    function redirectToLogin(): void {
-      if (!active) {
-        return;
-      }
-
-      setStatus("loading");
-      router.replace("/login");
-    }
-
     async function initialize(): Promise<void> {
-      const accessToken = getAccessToken();
+      if (!getAccessToken()) {
+        router.replace("/login");
 
-      const refreshToken = getRefreshToken();
-
-      if (!accessToken && !refreshToken) {
-        redirectToLogin();
         return;
       }
-
-      setStatus("loading");
-      setError(null);
 
       try {
         const result = await getCurrentOrganization();
 
-        if (!active) {
-          return;
+        if (active) {
+          setOrganization(result);
         }
-
-        setOrganization(result);
-        setStatus("ready");
-      } catch (requestError) {
-        if (!active) {
-          return;
+      } catch {
+        // Keep shell usable with fallback branding.
+      } finally {
+        if (active) {
+          setReady(true);
         }
-
-        if (requestError instanceof ApiError && requestError.status === 401) {
-          redirectToLogin();
-          return;
-        }
-
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Unable to load the workspace",
-        );
-
-        setStatus("error");
       }
     }
 
-    function handleSessionExpired(): void {
-      redirectToLogin();
-    }
+    void initialize();
 
     function handleOrganizationUpdated(event: Event): void {
       const customEvent = event as CustomEvent<Organization>;
@@ -92,22 +63,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setOrganization(customEvent.detail);
     }
 
-    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
-
     window.addEventListener(
       "erp:organization-updated",
       handleOrganizationUpdated,
     );
 
-    void initialize();
-
     return () => {
       active = false;
-
-      window.removeEventListener(
-        AUTH_SESSION_EXPIRED_EVENT,
-        handleSessionExpired,
-      );
 
       window.removeEventListener(
         "erp:organization-updated",
@@ -116,38 +78,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [router]);
 
-  if (status === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-r-transparent" />
+  useEffect(() => {
+    updateBrowserBranding(organization);
+  }, [organization, pathname]);
 
-          <p className="mt-4 text-sm text-slate-500">Loading workspace...</p>
-        </div>
-      </div>
-    );
+  function toggleSidebarCollapsed(): void {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+
+      return next;
+    });
   }
 
-  if (status === "error") {
+  if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <h1 className="text-xl font-semibold text-slate-900">
-            Unable to load workspace
-          </h1>
-
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            {error ?? "The workspace could not be loaded."}
-          </p>
-
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="mt-6 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
-          >
-            Try again
-          </button>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+        <p className="text-sm text-slate-500">Loading workspace...</p>
       </div>
     );
   }
@@ -156,15 +104,100 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-100">
       <Sidebar
         open={sidebarOpen}
+        collapsed={sidebarCollapsed}
         organization={organization}
         onClose={() => setSidebarOpen(false)}
+        onToggleCollapsed={toggleSidebarCollapsed}
       />
 
-      <div className="lg:pl-62.5">
+      <div
+        className={[
+          "min-h-screen transition-[padding] duration-200",
+          sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[280px]",
+        ].join(" ")}
+      >
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );
+}
+
+function updateBrowserBranding(organization: Organization | null): void {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const organizationName = organization?.name?.trim() || "ERP Platform";
+
+  /*
+   * Browser tab:
+   *
+   * XYZ
+   *
+   * rather than:
+   * XYZ - Business workspace
+   */
+  document.title = organizationName;
+
+  const logoUrl = resolveMediaUrl(organization?.logoUrl);
+
+  if (!logoUrl) {
+    return;
+  }
+
+  /*
+   * Next.js can insert its own favicon link.
+   * Update every existing icon reference so the browser
+   * cannot keep selecting an older/default favicon.
+   */
+  const existingIcons = Array.from(
+    document.querySelectorAll<HTMLLinkElement>(
+      'link[rel="icon"], link[rel="shortcut icon"]',
+    ),
+  );
+
+  const faviconUrl = addFaviconCacheBuster(logoUrl, organization?.updatedAt);
+
+  if (existingIcons.length > 0) {
+    existingIcons.forEach((icon) => {
+      icon.href = faviconUrl;
+    });
+  } else {
+    const favicon = document.createElement("link");
+
+    favicon.rel = "icon";
+
+    favicon.href = faviconUrl;
+
+    document.head.appendChild(favicon);
+  }
+
+  let shortcutIcon = document.querySelector<HTMLLinkElement>(
+    'link[data-erp-shortcut-icon="true"]',
+  );
+
+  if (!shortcutIcon) {
+    shortcutIcon = document.createElement("link");
+
+    shortcutIcon.rel = "shortcut icon";
+
+    shortcutIcon.setAttribute("data-erp-shortcut-icon", "true");
+
+    document.head.appendChild(shortcutIcon);
+  }
+
+  shortcutIcon.href = faviconUrl;
+}
+
+function addFaviconCacheBuster(
+  url: string,
+  updatedAt: string | undefined,
+): string {
+  const separator = url.includes("?") ? "&" : "?";
+
+  return `${url}${separator}favicon=${encodeURIComponent(
+    updatedAt ?? String(Date.now()),
+  )}`;
 }

@@ -11,6 +11,8 @@ import { MediaModule } from './modules/media/media.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { CustomersModule } from './modules/sales/customers/customers.module';
 import { UsersModule } from './modules/users/users.module';
+import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-stages.module';
+import { LeadsModule } from './modules/sales/leads/leads.module';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     UsersModule,
     CustomersModule,
+    PipelineStagesModule,
+    LeadsModule,
     OrganizationsModule,
     MediaModule,
   ],
