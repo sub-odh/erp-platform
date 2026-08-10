@@ -1,0 +1,574 @@
+
+===== .\apps\api\src\modules\sales\customers\dto\customer-response.dto.ts =====
+
+import type { SalesCustomer } from '@erp/db';
+import type { PaginationMeta } from '../../../../common/pagination';
+
+export class CustomerResponseDto {
+  id!: string;
+  tenantId!: string;
+  customerCode!: string;
+  name!: string;
+  legalName!: string | null;
+  taxNumber!: string | null;
+  email!: string | null;
+  phone!: string | null;
+  website!: string | null;
+
+  billingAddressLine1!: string | null;
+  billingAddressLine2!: string | null;
+  billingCity!: string | null;
+  billingState!: string | null;
+  billingPostalCode!: string | null;
+  billingCountry!: string | null;
+
+  shippingAddressLine1!: string | null;
+  shippingAddressLine2!: string | null;
+  shippingCity!: string | null;
+  shippingState!: string | null;
+  shippingPostalCode!: string | null;
+  shippingCountry!: string | null;
+
+  creditLimit!: string;
+  paymentTermsDays!: number;
+  notes!: string | null;
+  isActive!: boolean;
+  createdBy!: string | null;
+  updatedBy!: string | null;
+  createdAt!: Date;
+  updatedAt!: Date;
+
+  static fromEntity(customer: SalesCustomer): CustomerResponseDto {
+    return {
+      id: customer.id,
+      tenantId: customer.tenantId,
+      customerCode: customer.customerCode,
+      name: customer.name,
+      legalName: customer.legalName,
+      taxNumber: customer.taxNumber,
+      email: customer.email,
+      phone: customer.phone,
+      website: customer.website,
+
+      billingAddressLine1: customer.billingAddressLine1,
+      billingAddressLine2: customer.billingAddressLine2,
+      billingCity: customer.billingCity,
+      billingState: customer.billingState,
+      billingPostalCode: customer.billingPostalCode,
+      billingCountry: customer.billingCountry,
+
+      shippingAddressLine1: customer.shippingAddressLine1,
+      shippingAddressLine2: customer.shippingAddressLine2,
+      shippingCity: customer.shippingCity,
+      shippingState: customer.shippingState,
+      shippingPostalCode: customer.shippingPostalCode,
+      shippingCountry: customer.shippingCountry,
+
+      creditLimit: customer.creditLimit,
+      paymentTermsDays: Number(customer.paymentTermsDays),
+      notes: customer.notes,
+      isActive: customer.isActive,
+      createdBy: customer.createdBy,
+      updatedBy: customer.updatedBy,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+    };
+  }
+}
+
+export class PaginatedCustomersResponseDto {
+  data!: CustomerResponseDto[];
+
+  pagination!: PaginationMeta;
+}
+
+===== .\apps\api\src\modules\sales\customers\dto\create-customer.dto.ts =====
+
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEmail,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+
+function trimString(value: unknown): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+function emptyStringToUndefined(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed.length === 0 ? undefined : trimmed;
+}
+
+function normalizeEmail(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  return normalized.length === 0 ? undefined : normalized;
+}
+
+function normalizeCustomerCode(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  return value.trim().toUpperCase();
+}
+
+export class CreateCustomerDto {
+  @Transform(({ value }) => normalizeCustomerCode(value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  customerCode!: string;
+
+  @Transform(({ value }) => trimString(value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  name!: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  legalName?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  taxNumber?: string;
+
+  @Transform(({ value }) => normalizeEmail(value))
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(320)
+  email?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  phone?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsUrl({
+    require_protocol: true,
+  })
+  @MaxLength(500)
+  website?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  billingAddressLine1?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  billingAddressLine2?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  billingCity?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  billingState?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  billingPostalCode?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  billingCountry?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingAddressLine1?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingAddressLine2?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCity?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingState?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  shippingPostalCode?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCountry?: string;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber({
+    maxDecimalPlaces: 2,
+  })
+  @Min(0)
+  creditLimit?: number;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(99999)
+  paymentTermsDays?: number;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+===== .\apps\api\src\modules\sales\customers\dto\list-customers-query.dto.ts =====
+
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+
+export const customerSortFields = [
+  'customerCode',
+  'name',
+  'createdAt',
+  'updatedAt',
+] as const;
+
+export type CustomerSortField = (typeof customerSortFields)[number];
+
+export const sortDirections = ['asc', 'desc'] as const;
+
+export type SortDirection = (typeof sortDirections)[number];
+
+export class ListCustomersQueryDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+
+  @Transform(({ value }) => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === true || value === 'true') {
+      return true;
+    }
+
+    if (value === false || value === 'false') {
+      return false;
+    }
+
+    return value;
+  })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit: number = 20;
+
+  @IsOptional()
+  @IsIn(customerSortFields)
+  sortBy: CustomerSortField = 'createdAt';
+
+  @IsOptional()
+  @IsIn(sortDirections)
+  sortDirection: SortDirection = 'desc';
+}
+
+===== .\apps\api\src\modules\sales\customers\dto\update-customer-status.dto.ts =====
+
+import { IsBoolean } from 'class-validator';
+
+export class UpdateCustomerStatusDto {
+  @IsBoolean()
+  isActive!: boolean;
+}
+
+===== .\apps\web\components\ui\index.ts =====
+
+export * from "./badge";
+export * from "./button";
+export * from "./card";
+export * from "./confirm-dialog";
+export * from "./input";
+export * from "./modal";
+export * from "./select";
+export * from "./spinner";
+export * from "./textarea";
+
+===== .\apps\web\lib\api.ts =====
+
+import {
+  expireAuthSession,
+  getAccessToken,
+  getRefreshToken,
+  saveAuthSession,
+} from "@/lib/auth";
+import type { LoginResponse } from "@/types/auth";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
+
+interface ApiErrorResponse {
+  message?: string | string[];
+  statusCode?: number;
+}
+
+interface ApiRequestOptions extends RequestInit {
+  skipAuthRefresh?: boolean;
+}
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+let refreshPromise: Promise<string> | null = null;
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const response = await performRequest(path, options);
+
+  if (
+    response.status === 401 &&
+    !options.skipAuthRefresh &&
+    path !== "/auth/login" &&
+    path !== "/auth/refresh"
+  ) {
+    try {
+      const accessToken = await refreshAccessToken();
+
+      const retryResponse = await performRequest(path, options, accessToken);
+
+      return handleResponse<T>(retryResponse);
+    } catch {
+      expireAuthSession();
+
+      throw new ApiError(
+        401,
+        "Your session has expired. Please sign in again.",
+      );
+    }
+  }
+
+  return handleResponse<T>(response);
+}
+
+async function performRequest(
+  path: string,
+  options: ApiRequestOptions,
+  accessTokenOverride?: string,
+): Promise<Response> {
+  const fetchOptions: RequestInit = {
+    ...options,
+  };
+
+  delete (fetchOptions as ApiRequestOptions).skipAuthRefresh;
+
+  const headers = new Headers(fetchOptions.headers);
+
+  const isFormData =
+    typeof FormData !== "undefined" && fetchOptions.body instanceof FormData;
+
+  if (
+    fetchOptions.body !== undefined &&
+    !isFormData &&
+    !headers.has("Content-Type")
+  ) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const accessToken = accessTokenOverride ?? getAccessToken();
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  try {
+    return await fetch(`${API_URL}${path}`, {
+      ...fetchOptions,
+      headers,
+    });
+  } catch {
+    throw new ApiError(0, `Cannot connect to API at ${API_URL}`);
+  }
+}
+
+async function refreshAccessToken(): Promise<string> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = executeRefresh();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
+async function executeRefresh(): Promise<string> {
+  const refreshToken = getRefreshToken();
+
+  if (!refreshToken) {
+    throw new ApiError(401, "No refresh token is available");
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        refreshToken,
+      }),
+    });
+  } catch {
+    throw new ApiError(0, `Cannot connect to API at ${API_URL}`);
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      await readErrorMessage(response, "Unable to refresh session"),
+    );
+  }
+
+  const result = (await response.json()) as LoginResponse;
+
+  saveAuthSession(result);
+
+  return result.accessToken;
+}
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const body = (await response.json().catch(() => null)) as
+    | ApiErrorResponse
+    | T
+    | null;
+
+  if (!response.ok) {
+    const rawMessage =
+      body && typeof body === "object" && "message" in body
+        ? body.message
+        : `Request failed with status ${response.status}`;
+
+    const message = Array.isArray(rawMessage)
+      ? rawMessage.join(", ")
+      : (rawMessage ?? `Request failed with status ${response.status}`);
+
+    throw new ApiError(response.status, message);
+  }
+
+  return body as T;
+}
+
+async function readErrorMessage(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  try {
+    const body = (await response.json()) as ApiErrorResponse;
+
+    if (Array.isArray(body.message)) {
+      return body.message.join(", ");
+    }
+
+    if (typeof body.message === "string") {
+      return body.message;
+    }
+  } catch {
+    // Use the fallback when the response body is not JSON.
+  }
+
+  return fallback;
+}
