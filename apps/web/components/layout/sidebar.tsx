@@ -258,9 +258,27 @@ export function Sidebar({
   }, [crmActive]);
 
   function toggleGroup(label: string): void {
+    /*
+     * If the sidebar is collapsed, clicking a group such as CRM
+     * should expand the sidebar first and reveal its children.
+     */
+    if (collapsed) {
+      setExpandedGroups((current) => ({
+        ...current,
+        [label]: true,
+      }));
+
+      onToggleCollapsed();
+
+      return;
+    }
+
+    /*
+     * Normal expanded-sidebar behaviour:
+     * toggle the child menu open/closed.
+     */
     setExpandedGroups((current) => ({
       ...current,
-
       [label]: !current[label],
     }));
   }
@@ -595,14 +613,6 @@ function SidebarItem({
                 />
               ))}
             </div>
-
-            {collapsed ? (
-              <CollapsedFlyout
-                item={item}
-                pathname={pathname}
-                onNavigate={onNavigate}
-              />
-            ) : null}
           </>
         ) : null}
       </div>
@@ -673,89 +683,6 @@ function SidebarItem({
       >
         {item.label}
       </span>
-    </Link>
-  );
-}
-
-function CollapsedFlyout({
-  item,
-  pathname,
-  onNavigate,
-}: {
-  item: NavigationItem;
-
-  pathname: string;
-
-  onNavigate: () => void;
-}) {
-  return (
-    <div className="absolute left-17 top-0 z-100 hidden w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 shadow-2xl lg:block">
-      <div className="border-b border-slate-100 px-4 pb-2 pt-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          {item.label}
-        </p>
-      </div>
-
-      <div className="px-2 pt-2">
-        {item.children?.map((child) => (
-          <CollapsedFlyoutItem
-            key={child.label}
-            item={child}
-            pathname={pathname}
-            onNavigate={onNavigate}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CollapsedFlyoutItem({
-  item,
-  pathname,
-  onNavigate,
-}: {
-  item: NavigationItem;
-
-  pathname: string;
-
-  onNavigate: () => void;
-}) {
-  const Icon = item.icon;
-
-  if (item.disabled || !item.href) {
-    return (
-      <div
-        title="Coming soon"
-        className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400"
-      >
-        <Icon size={16} />
-
-        <span className="min-w-0 flex-1 truncate">{item.label}</span>
-
-        <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-300">
-          Soon
-        </span>
-      </div>
-    );
-  }
-
-  const active = isPathActive(pathname, item.href);
-
-  return (
-    <Link
-      href={item.href}
-      onClick={onNavigate}
-      className={[
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition",
-        active
-          ? "bg-blue-50 font-medium text-blue-700"
-          : "text-slate-700 hover:bg-slate-50",
-      ].join(" ")}
-    >
-      <Icon size={16} className={active ? "text-blue-600" : "text-slate-400"} />
-
-      <span>{item.label}</span>
     </Link>
   );
 }
