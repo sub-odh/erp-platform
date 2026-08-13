@@ -104,9 +104,9 @@ const navigationSections: NavigationSection[] = [
           },
 
           {
+            href: "/pipeline",
             label: "Pipeline",
             icon: BarChart3,
-            disabled: true,
           },
         ],
       },
@@ -242,7 +242,8 @@ export function Sidebar({
   const crmActive =
     pathname.startsWith("/customers") ||
     pathname.startsWith("/leads") ||
-    pathname.startsWith("/opportunities");
+    pathname.startsWith("/opportunities") ||
+    pathname.startsWith("/pipeline");
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {
