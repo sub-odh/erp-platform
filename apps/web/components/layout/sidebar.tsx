@@ -98,9 +98,9 @@ const navigationSections: NavigationSection[] = [
           },
 
           {
+            href: "/opportunities",
             label: "Opportunities",
             icon: Handshake,
-            disabled: true,
           },
 
           {
@@ -240,7 +240,9 @@ export function Sidebar({
   const logoUrl = resolveMediaUrl(organization?.logoUrl);
 
   const crmActive =
-    pathname.startsWith("/customers") || pathname.startsWith("/leads");
+    pathname.startsWith("/customers") ||
+    pathname.startsWith("/leads") ||
+    pathname.startsWith("/opportunities");
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {

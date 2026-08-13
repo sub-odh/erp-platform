@@ -6,7 +6,13 @@ import { Button, Input, Modal, Select, Textarea } from "@/components/ui";
 
 import { createLead, updateLead } from "@/lib/leads";
 
-import type { CreateLeadRequest, EditableLeadStatus, Lead } from "@/types/lead";
+import type {
+  CreateLeadRequest,
+  EditableLeadStatus,
+  Lead,
+  LeadStatus,
+  UpdateLeadRequest,
+} from "@/types/lead";
 
 interface LeadModalProps {
   open: boolean;
@@ -31,7 +37,7 @@ interface FormState {
 
   source: string;
 
-  status: EditableLeadStatus;
+  status: LeadStatus;
 
   notes: string;
 }
@@ -54,12 +60,22 @@ const EMPTY_FORM: FormState = {
   notes: "",
 };
 
-export function LeadModal({ open, lead, onClose, onSaved }: LeadModalProps) {
+export function LeadModal({
+  open,
+
+  lead,
+
+  onClose,
+
+  onSaved,
+}: LeadModalProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const [submitting, setSubmitting] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+
+  const converted = lead?.status === "CONVERTED";
 
   useEffect(() => {
     if (!open) {
@@ -84,7 +100,7 @@ export function LeadModal({ open, lead, onClose, onSaved }: LeadModalProps) {
 
         source: lead.source ?? "",
 
-        status: lead.status === "CONVERTED" ? "QUALIFIED" : lead.status,
+        status: lead.status,
 
         notes: lead.notes ?? "",
       });
@@ -95,9 +111,14 @@ export function LeadModal({ open, lead, onClose, onSaved }: LeadModalProps) {
     setError(null);
   }, [lead, open]);
 
-  function updateField(key: keyof FormState, value: string): void {
+  function updateField(
+    key: keyof FormState,
+
+    value: string,
+  ): void {
     setForm((current) => ({
       ...current,
+
       [key]: value,
     }));
   }
@@ -124,33 +145,63 @@ export function LeadModal({ open, lead, onClose, onSaved }: LeadModalProps) {
     }
 
     setSubmitting(true);
+
     setError(null);
 
     try {
-      const payload: CreateLeadRequest = {
-        firstName,
-        lastName,
+      let saved: Lead;
 
-        companyName: optional(form.companyName),
+      if (lead) {
+        const payload: UpdateLeadRequest = {
+          firstName,
 
-        jobTitle: optional(form.jobTitle),
+          lastName,
 
-        email: optional(form.email)?.toLowerCase(),
+          companyName: optional(form.companyName),
 
-        phone: optional(form.phone),
+          jobTitle: optional(form.jobTitle),
 
-        mobile: optional(form.mobile),
+          email: optional(form.email)?.toLowerCase(),
 
-        source: optional(form.source),
+          phone: optional(form.phone),
 
-        status: form.status,
+          mobile: optional(form.mobile),
 
-        notes: optional(form.notes),
-      };
+          source: optional(form.source),
 
-      const saved = lead
-        ? await updateLead(lead.id, payload)
-        : await createLead(payload);
+          notes: optional(form.notes),
+        };
+
+        if (!converted) {
+          payload.status = form.status as EditableLeadStatus;
+        }
+
+        saved = await updateLead(lead.id, payload);
+      } else {
+        const payload: CreateLeadRequest = {
+          firstName,
+
+          lastName,
+
+          companyName: optional(form.companyName),
+
+          jobTitle: optional(form.jobTitle),
+
+          email: optional(form.email)?.toLowerCase(),
+
+          phone: optional(form.phone),
+
+          mobile: optional(form.mobile),
+
+          source: optional(form.source),
+
+          status: form.status as EditableLeadStatus,
+
+          notes: optional(form.notes),
+        };
+
+        saved = await createLead(payload);
+      }
 
       onSaved(saved);
     } catch (requestError) {
@@ -164,12 +215,24 @@ export function LeadModal({ open, lead, onClose, onSaved }: LeadModalProps) {
     }
   }
 
+  function handleClose(): void {
+    if (submitting) {
+      return;
+    }
+
+    onClose();
+  }
+
   return (
     <Modal
       open={open}
       title={lead ? "Edit lead" : "Add New Lead"}
-      description="Enter company and contact information for this sales lead."
-      onClose={onClose}
+      description={
+        converted
+          ? "Update lead information. Converted status is managed by the opportunity conversion workflow."
+          : "Enter company and contact information for this sales lead."
+      }
+      onClose={handleClose}
       className="max-w-2xl"
       footer={
         <>
@@ -177,7 +240,7 @@ export function LeadModal({ open, lead, onClose, onSaved }: LeadModalProps) {
             type="button"
             variant="outline"
             disabled={submitting}
-            onClick={onClose}
+            onClick={handleClose}
           >
             Cancel
           </Button>
@@ -251,6 +314,7 @@ export function LeadModal({ open, lead, onClose, onSaved }: LeadModalProps) {
           <Select
             label="Status"
             value={form.status}
+            disabled={converted}
             onChange={(event) => updateField("status", event.target.value)}
           >
             <option value="NEW">New</option>
@@ -260,8 +324,17 @@ export function LeadModal({ open, lead, onClose, onSaved }: LeadModalProps) {
             <option value="QUALIFIED">Qualified</option>
 
             <option value="DISQUALIFIED">Disqualified</option>
+
+            {converted ? <option value="CONVERTED">Converted</option> : null}
           </Select>
         </div>
+
+        {converted ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            This lead has been converted to an opportunity. Its conversion
+            status cannot be changed manually.
+          </div>
+        ) : null}
 
         <Textarea
           label="Notes"

@@ -1,3 +1,5 @@
+import type { Opportunity } from "@/types/opportunity";
+
 export type LeadStatus =
   | "NEW"
   | "CONTACTED"
@@ -10,6 +12,8 @@ export type EditableLeadStatus =
   | "CONTACTED"
   | "QUALIFIED"
   | "DISQUALIFIED";
+
+export type LeadRecordState = "active" | "archived" | "all";
 
 export type LeadSortField =
   | "firstName"
@@ -50,6 +54,8 @@ export interface Lead {
   updatedAt: string;
 
   convertedAt: string | null;
+
+  deletedAt: string | null;
 }
 
 export interface LeadPagination {
@@ -67,7 +73,9 @@ export interface PaginatedLeadsResponse {
 export interface ListLeadsParams {
   search?: string;
 
-  status?: EditableLeadStatus;
+  status?: LeadStatus;
+
+  recordState?: LeadRecordState;
 
   ownerUserId?: string;
 
@@ -117,4 +125,26 @@ export interface UpdateLeadRequest {
   ownerUserId?: string;
 
   notes?: string;
+}
+
+export interface ConvertLeadRequest {
+  name: string;
+
+  customerId?: string;
+
+  stageId: string;
+
+  ownerUserId?: string;
+
+  amount?: number;
+
+  expectedCloseDate?: string;
+
+  description?: string;
+}
+
+export interface ConvertLeadResponse {
+  lead: Lead;
+
+  opportunity: Opportunity;
 }

@@ -6,13 +6,17 @@ import { env } from '@erp/config';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+
 import { AuthModule } from './modules/auth/auth.module';
 import { MediaModule } from './modules/media/media.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+
 import { CustomersModule } from './modules/sales/customers/customers.module';
-import { UsersModule } from './modules/users/users.module';
-import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-stages.module';
 import { LeadsModule } from './modules/sales/leads/leads.module';
+import { OpportunitiesModule } from './modules/sales/opportunities/opportunities.module';
+import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-stages.module';
+
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -25,13 +29,17 @@ import { LeadsModule } from './modules/sales/leads/leads.module';
     LoggerModule.forRoot({
       pinoHttp: {
         level: env.NODE_ENV === 'production' ? 'info' : 'debug',
+
         transport:
           env.NODE_ENV === 'development'
             ? {
                 target: 'pino-pretty',
+
                 options: {
                   colorize: true,
+
                   translateTime: 'SYS:standard',
+
                   singleLine: true,
                 },
               }
@@ -40,14 +48,24 @@ import { LeadsModule } from './modules/sales/leads/leads.module';
     }),
 
     AuthModule,
+
     UsersModule,
+
     CustomersModule,
+
     PipelineStagesModule,
+
     LeadsModule,
+
+    OpportunitiesModule,
+
     OrganizationsModule,
+
     MediaModule,
   ],
+
   controllers: [AppController],
+
   providers: [AppService],
 })
 export class AppModule {}

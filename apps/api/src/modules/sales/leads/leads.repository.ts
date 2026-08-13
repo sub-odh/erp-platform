@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
+
 import {
   and,
   asc,
   desc,
   eq,
   ilike,
+  isNotNull,
   isNull,
   or,
   sql,
@@ -13,16 +15,27 @@ import {
 
 import {
   db,
+  salesCustomers,
   salesLeads,
+  salesOpportunities,
+  salesPipelineStages,
   users,
   type NewSalesLead,
+  type NewSalesOpportunity,
+  type SalesCustomer,
   type SalesLead,
   type SalesLeadStatus,
+  type SalesOpportunity,
+  type SalesPipelineStage,
 } from '@erp/db';
 
 import { getPaginationOffset } from '../../../common/pagination';
 
-import type { LeadSortField, SortDirection } from './dto/list-leads-query.dto';
+import type {
+  LeadRecordState,
+  LeadSortField,
+  SortDirection,
+} from './dto/list-leads-query.dto';
 
 export interface ListLeadsRepositoryInput {
   tenantId: string;
@@ -31,32 +44,42 @@ export interface ListLeadsRepositoryInput {
 
   status?: SalesLeadStatus;
 
+  recordState: LeadRecordState;
+
   ownerUserId?: string;
 
   page: number;
+
   limit: number;
 
   sortBy: LeadSortField;
+
   sortDirection: SortDirection;
 }
 
 export interface ListLeadsRepositoryResult {
   data: SalesLead[];
+
   total: number;
 }
 
 export interface CreateLeadRepositoryInput {
   tenantId: string;
+
   actorUserId: string;
 
   firstName: string;
+
   lastName: string;
 
   companyName?: string;
+
   jobTitle?: string;
 
   email?: string;
+
   phone?: string;
+
   mobile?: string;
 
   source?: string;
@@ -70,6 +93,7 @@ export interface CreateLeadRepositoryInput {
 
 export interface UpdateLeadRepositoryInput {
   firstName?: string;
+
   lastName?: string;
 
   companyName?: string | null;
@@ -91,6 +115,38 @@ export interface UpdateLeadRepositoryInput {
   notes?: string | null;
 }
 
+export interface ConvertLeadRepositoryInput {
+  tenantId: string;
+
+  leadId: string;
+
+  actorUserId: string;
+
+  name: string;
+
+  customerId?: string;
+
+  stageId: string;
+
+  ownerUserId?: string;
+
+  amount: number;
+
+  probability: number;
+
+  expectedCloseDate?: string;
+
+  description?: string;
+}
+
+export interface ConvertLeadRepositoryResult {
+  lead: SalesLead;
+
+  opportunity: SalesOpportunity;
+}
+
+class LeadConversionStateError extends Error {}
+
 @Injectable()
 export class LeadsRepository {
   async list(
@@ -100,6 +156,7 @@ export class LeadsRepository {
 
     const offset = getPaginationOffset({
       page: input.page,
+
       limit: input.limit,
     });
 
@@ -127,6 +184,7 @@ export class LeadsRepository {
 
     return {
       data,
+
       total: countResult[0]?.total ?? 0,
     };
   }
@@ -141,13 +199,99 @@ export class LeadsRepository {
       .where(
         and(
           eq(salesLeads.id, leadId),
+
           eq(salesLeads.tenantId, tenantId),
+
           isNull(salesLeads.deletedAt),
         ),
       )
       .limit(1);
 
     return lead;
+  }
+
+  async findByIdIncludingArchived(
+    tenantId: string,
+    leadId: string,
+  ): Promise<SalesLead | undefined> {
+    const [lead] = await db
+      .select()
+      .from(salesLeads)
+      .where(
+        and(
+          eq(salesLeads.id, leadId),
+
+          eq(salesLeads.tenantId, tenantId),
+        ),
+      )
+      .limit(1);
+
+    return lead;
+  }
+
+  async findStage(
+    tenantId: string,
+    stageId: string,
+  ): Promise<SalesPipelineStage | undefined> {
+    const [stage] = await db
+      .select()
+      .from(salesPipelineStages)
+      .where(
+        and(
+          eq(salesPipelineStages.id, stageId),
+
+          eq(salesPipelineStages.tenantId, tenantId),
+
+          eq(salesPipelineStages.isActive, true),
+
+          isNull(salesPipelineStages.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    return stage;
+  }
+
+  async findCustomer(
+    tenantId: string,
+    customerId: string,
+  ): Promise<SalesCustomer | undefined> {
+    const [customer] = await db
+      .select()
+      .from(salesCustomers)
+      .where(
+        and(
+          eq(salesCustomers.id, customerId),
+
+          eq(salesCustomers.tenantId, tenantId),
+
+          eq(salesCustomers.isActive, true),
+
+          isNull(salesCustomers.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    return customer;
+  }
+
+  async findOpportunityByLeadId(
+    tenantId: string,
+    leadId: string,
+  ): Promise<SalesOpportunity | undefined> {
+    const [opportunity] = await db
+      .select()
+      .from(salesOpportunities)
+      .where(
+        and(
+          eq(salesOpportunities.tenantId, tenantId),
+
+          eq(salesOpportunities.leadId, leadId),
+        ),
+      )
+      .limit(1);
+
+    return opportunity;
   }
 
   async ownerExists(tenantId: string, ownerUserId: string): Promise<boolean> {
@@ -159,8 +303,11 @@ export class LeadsRepository {
       .where(
         and(
           eq(users.id, ownerUserId),
+
           eq(users.organizationId, tenantId),
+
           eq(users.isActive, true),
+
           isNull(users.deletedAt),
         ),
       )
@@ -226,7 +373,9 @@ export class LeadsRepository {
       .where(
         and(
           eq(salesLeads.id, leadId),
+
           eq(salesLeads.tenantId, tenantId),
+
           isNull(salesLeads.deletedAt),
         ),
       )
@@ -253,13 +402,109 @@ export class LeadsRepository {
       .where(
         and(
           eq(salesLeads.id, leadId),
+
           eq(salesLeads.tenantId, tenantId),
+
           isNull(salesLeads.deletedAt),
         ),
       )
       .returning();
 
     return updatedLead;
+  }
+
+  async convertQualifiedLead(
+    input: ConvertLeadRepositoryInput,
+  ): Promise<ConvertLeadRepositoryResult | undefined> {
+    try {
+      return await db.transaction(async (tx) => {
+        const now = new Date();
+
+        /*
+         * Claim the qualified lead first.
+         *
+         * This conditional UPDATE also protects
+         * against two conversion requests racing
+         * at the same time.
+         */
+        const [convertedLead] = await tx
+          .update(salesLeads)
+          .set({
+            status: 'CONVERTED',
+
+            convertedAt: now,
+
+            updatedBy: input.actorUserId,
+
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(salesLeads.id, input.leadId),
+
+              eq(salesLeads.tenantId, input.tenantId),
+
+              eq(salesLeads.status, 'QUALIFIED'),
+
+              isNull(salesLeads.deletedAt),
+            ),
+          )
+          .returning();
+
+        if (!convertedLead) {
+          throw new LeadConversionStateError();
+        }
+
+        const opportunityValues: NewSalesOpportunity = {
+          tenantId: input.tenantId,
+
+          name: input.name,
+
+          customerId: input.customerId,
+
+          leadId: input.leadId,
+
+          stageId: input.stageId,
+
+          ownerUserId: input.ownerUserId,
+
+          amount: input.amount.toFixed(2),
+
+          probability: input.probability,
+
+          expectedCloseDate: input.expectedCloseDate,
+
+          status: 'OPEN',
+
+          description: input.description,
+
+          createdBy: input.actorUserId,
+
+          updatedBy: input.actorUserId,
+        };
+
+        const [opportunity] = await tx
+          .insert(salesOpportunities)
+          .values(opportunityValues)
+          .returning();
+
+        if (!opportunity) {
+          throw new Error('Database did not return the converted opportunity');
+        }
+
+        return {
+          lead: convertedLead,
+
+          opportunity,
+        };
+      });
+    } catch (error) {
+      if (error instanceof LeadConversionStateError) {
+        return undefined;
+      }
+
+      throw error;
+    }
   }
 
   async archive(
@@ -279,7 +524,9 @@ export class LeadsRepository {
       .where(
         and(
           eq(salesLeads.id, leadId),
+
           eq(salesLeads.tenantId, tenantId),
+
           isNull(salesLeads.deletedAt),
         ),
       )
@@ -290,12 +537,71 @@ export class LeadsRepository {
     return Boolean(archived);
   }
 
-  private createListConditions(input: ListLeadsRepositoryInput): SQL[] {
-    const conditions: SQL[] = [
-      eq(salesLeads.tenantId, input.tenantId),
+  async restore(
+    tenantId: string,
+    leadId: string,
+    actorUserId: string,
+  ): Promise<SalesLead | undefined> {
+    const [restored] = await db
+      .update(salesLeads)
+      .set({
+        deletedAt: null,
 
-      isNull(salesLeads.deletedAt),
-    ];
+        updatedBy: actorUserId,
+
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(salesLeads.id, leadId),
+
+          eq(salesLeads.tenantId, tenantId),
+
+          isNotNull(salesLeads.deletedAt),
+        ),
+      )
+      .returning();
+
+    return restored;
+  }
+
+  async permanentDelete(tenantId: string, leadId: string): Promise<boolean> {
+    const [deleted] = await db
+      .delete(salesLeads)
+      .where(
+        and(
+          eq(salesLeads.id, leadId),
+
+          eq(salesLeads.tenantId, tenantId),
+
+          isNotNull(salesLeads.deletedAt),
+        ),
+      )
+      .returning({
+        id: salesLeads.id,
+      });
+
+    return Boolean(deleted);
+  }
+
+  private createListConditions(input: ListLeadsRepositoryInput): SQL[] {
+    const conditions: SQL[] = [eq(salesLeads.tenantId, input.tenantId)];
+
+    switch (input.recordState) {
+      case 'archived':
+        conditions.push(isNotNull(salesLeads.deletedAt));
+
+        break;
+
+      case 'all':
+        break;
+
+      case 'active':
+      default:
+        conditions.push(isNull(salesLeads.deletedAt));
+
+        break;
+    }
 
     if (input.status) {
       conditions.push(eq(salesLeads.status, input.status));
@@ -312,11 +618,17 @@ export class LeadsRepository {
 
       const searchCondition = or(
         ilike(salesLeads.firstName, pattern),
+
         ilike(salesLeads.lastName, pattern),
+
         ilike(salesLeads.companyName, pattern),
+
         ilike(salesLeads.email, pattern),
+
         ilike(salesLeads.phone, pattern),
+
         ilike(salesLeads.mobile, pattern),
+
         ilike(salesLeads.source, pattern),
       );
 
@@ -353,6 +665,7 @@ export class LeadsRepository {
 
   private createUpdateValues(
     input: UpdateLeadRepositoryInput,
+
     actorUserId: string,
   ): Partial<NewSalesLead> {
     const values: Partial<NewSalesLead> = {

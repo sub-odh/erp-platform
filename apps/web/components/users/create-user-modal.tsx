@@ -3,28 +3,48 @@
 import { type FormEvent, useMemo, useState } from "react";
 
 import { ImageUploader } from "@/components/media/image-uploader";
+import { PasswordRequirements } from "@/components/security/password-requirements";
+
 import { Button, Input, Modal, Select } from "@/components/ui";
+
 import { getStoredUser } from "@/lib/auth";
+
+import {
+  isStrongPassword,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/password-policy";
+
 import { createUser, uploadUserAvatar } from "@/lib/users";
+
 import type { CreateUserRequest, User } from "@/types/user";
 
 interface CreateUserModalProps {
   open: boolean;
+
   onClose: () => void;
+
   onCreated: (user: User) => void;
 }
 
 const initialForm: CreateUserRequest = {
   firstName: "",
+
   lastName: "",
+
   email: "",
+
   password: "",
+
   role: "STAFF",
 };
 
 export function CreateUserModal({
   open,
+
   onClose,
+
   onCreated,
 }: CreateUserModalProps) {
   const currentUser = getStoredUser();
@@ -51,18 +71,23 @@ export function CreateUserModal({
 
   function updateField<Key extends keyof CreateUserRequest>(
     key: Key,
+
     value: CreateUserRequest[Key],
   ): void {
     setForm((current) => ({
       ...current,
+
       [key]: value,
     }));
   }
 
   function clearForm(): void {
     setForm(initialForm);
+
     setPendingAvatar(null);
+
     setCreatedWithoutAvatar(null);
+
     setError(null);
   }
 
@@ -76,6 +101,7 @@ export function CreateUserModal({
     }
 
     clearForm();
+
     onClose();
   }
 
@@ -86,13 +112,14 @@ export function CreateUserModal({
 
     if (createdWithoutAvatar) {
       resetAndClose();
+
       return;
     }
 
     setError(null);
 
-    if (form.password.length < 12) {
-      setError("Password must contain at least 12 characters.");
+    if (!isStrongPassword(form.password)) {
+      setError(PASSWORD_POLICY_MESSAGE);
 
       return;
     }
@@ -102,8 +129,11 @@ export function CreateUserModal({
     try {
       const created = await createUser({
         ...form,
+
         firstName: form.firstName.trim(),
+
         lastName: form.lastName.trim(),
+
         email: form.email.trim().toLowerCase(),
       });
 
@@ -111,7 +141,11 @@ export function CreateUserModal({
 
       if (pendingAvatar) {
         try {
-          finalUser = await uploadUserAvatar(created.id, pendingAvatar);
+          finalUser = await uploadUserAvatar(
+            created.id,
+
+            pendingAvatar,
+          );
         } catch (avatarError) {
           setCreatedWithoutAvatar(created);
 
@@ -128,6 +162,7 @@ export function CreateUserModal({
       onCreated(finalUser);
 
       clearForm();
+
       onClose();
     } catch (requestError) {
       setError(
@@ -183,7 +218,13 @@ export function CreateUserModal({
           <Input
             label="First name"
             value={form.firstName}
-            onChange={(event) => updateField("firstName", event.target.value)}
+            onChange={(event) =>
+              updateField(
+                "firstName",
+
+                event.target.value,
+              )
+            }
             maxLength={100}
             disabled={userAlreadyCreated}
             required
@@ -192,7 +233,13 @@ export function CreateUserModal({
           <Input
             label="Last name"
             value={form.lastName}
-            onChange={(event) => updateField("lastName", event.target.value)}
+            onChange={(event) =>
+              updateField(
+                "lastName",
+
+                event.target.value,
+              )
+            }
             maxLength={100}
             disabled={userAlreadyCreated}
             required
@@ -203,29 +250,51 @@ export function CreateUserModal({
           label="Email"
           type="email"
           value={form.email}
-          onChange={(event) => updateField("email", event.target.value)}
+          onChange={(event) =>
+            updateField(
+              "email",
+
+              event.target.value,
+            )
+          }
           maxLength={320}
           disabled={userAlreadyCreated}
           required
         />
 
-        <Input
-          label="Temporary password"
-          type="password"
-          value={form.password}
-          onChange={(event) => updateField("password", event.target.value)}
-          minLength={12}
-          maxLength={128}
-          hint="Use at least 12 characters."
-          disabled={userAlreadyCreated}
-          required
-        />
+        <div className="space-y-3">
+          <Input
+            label="Temporary password"
+            type="password"
+            autoComplete="new-password"
+            value={form.password}
+            onChange={(event) =>
+              updateField(
+                "password",
+
+                event.target.value,
+              )
+            }
+            minLength={PASSWORD_MIN_LENGTH}
+            maxLength={PASSWORD_MAX_LENGTH}
+            disabled={userAlreadyCreated}
+            required
+          />
+
+          {!userAlreadyCreated ? (
+            <PasswordRequirements password={form.password} />
+          ) : null}
+        </div>
 
         <Select
           label="Role"
           value={form.role}
           onChange={(event) =>
-            updateField("role", event.target.value as CreateUserRequest["role"])
+            updateField(
+              "role",
+
+              event.target.value as CreateUserRequest["role"],
+            )
           }
           disabled={userAlreadyCreated}
           required
@@ -241,6 +310,7 @@ export function CreateUserModal({
           <div
             className={[
               "rounded-lg px-4 py-3 text-sm",
+
               userAlreadyCreated
                 ? "bg-amber-50 text-amber-800"
                 : "bg-red-50 text-red-700",

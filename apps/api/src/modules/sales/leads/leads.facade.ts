@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 import type { PaginatedResult } from '../../../common/pagination';
 
+import { ConvertLeadDto } from './dto/convert-lead.dto';
+import { ConvertLeadResponseDto } from './dto/convert-lead-response.dto';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { LeadResponseDto } from './dto/lead-response.dto';
 import { ListLeadsQueryDto } from './dto/list-leads-query.dto';
@@ -54,11 +56,32 @@ export class LeadsFacade {
     );
   }
 
+  convert(
+    tenantId: string,
+    leadId: string,
+    actorUserId: string,
+    dto: ConvertLeadDto,
+  ): Promise<ConvertLeadResponseDto> {
+    return this.leadsService.convert(tenantId, leadId, actorUserId, dto);
+  }
+
   archive(
     tenantId: string,
     leadId: string,
     actorUserId: string,
   ): Promise<void> {
     return this.leadsService.archive(tenantId, leadId, actorUserId);
+  }
+
+  restore(
+    tenantId: string,
+    leadId: string,
+    actorUserId: string,
+  ): Promise<LeadResponseDto> {
+    return this.leadsService.restore(tenantId, leadId, actorUserId);
+  }
+
+  permanentDelete(tenantId: string, leadId: string): Promise<void> {
+    return this.leadsService.permanentDelete(tenantId, leadId);
   }
 }

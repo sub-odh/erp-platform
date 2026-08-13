@@ -1,4 +1,5 @@
 import { Transform, Type } from 'class-transformer';
+
 import {
   IsIn,
   IsInt,
@@ -10,10 +11,19 @@ import {
   Min,
 } from 'class-validator';
 
-import {
-  ASSIGNABLE_LEAD_STATUSES,
-  type AssignableLeadStatus,
-} from './create-lead.dto';
+export const LEAD_STATUSES = [
+  'NEW',
+  'CONTACTED',
+  'QUALIFIED',
+  'DISQUALIFIED',
+  'CONVERTED',
+] as const;
+
+export type LeadStatusFilter = (typeof LEAD_STATUSES)[number];
+
+export const LEAD_RECORD_STATES = ['active', 'archived', 'all'] as const;
+
+export type LeadRecordState = (typeof LEAD_RECORD_STATES)[number];
 
 export const LEAD_SORT_FIELDS = [
   'firstName',
@@ -32,24 +42,30 @@ export type SortDirection = (typeof SORT_DIRECTIONS)[number];
 
 export class ListLeadsQueryDto {
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MaxLength(200)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   search?: string;
 
   @IsOptional()
-  @IsIn(ASSIGNABLE_LEAD_STATUSES)
-  status?: AssignableLeadStatus;
+  @IsIn(LEAD_STATUSES)
+  status?: LeadStatusFilter;
 
   @IsOptional()
   @IsUUID()
   ownerUserId?: string;
 
+  @IsOptional()
+  @IsIn(LEAD_RECORD_STATES)
+  recordState: LeadRecordState = 'active';
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page = 1;
 
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

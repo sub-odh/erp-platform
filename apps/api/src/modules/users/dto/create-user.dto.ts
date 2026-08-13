@@ -1,5 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsIn, IsString, MaxLength, MinLength } from 'class-validator';
+
+import {
+  IsEmail,
+  IsIn,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_PATTERN,
+  PASSWORD_POLICY_MESSAGE,
+} from '../../../common/security/password-policy';
 
 export const ASSIGNABLE_USER_ROLES = ['ADMIN', 'MANAGER', 'STAFF'] as const;
 
@@ -14,13 +29,18 @@ export class CreateUserDto {
   email!: string;
 
   @ApiProperty({
-    example: 'SecurePassword123!',
-    minLength: 12,
-    maxLength: 128,
+    example: 'Erp@2026',
+    minLength: PASSWORD_MIN_LENGTH,
+    maxLength: PASSWORD_MAX_LENGTH,
+    description:
+      'Must contain uppercase, lowercase, number, and special character',
   })
   @IsString()
-  @MinLength(12)
-  @MaxLength(128)
+  @MinLength(PASSWORD_MIN_LENGTH)
+  @MaxLength(PASSWORD_MAX_LENGTH)
+  @Matches(PASSWORD_PATTERN, {
+    message: PASSWORD_POLICY_MESSAGE,
+  })
   password!: string;
 
   @ApiProperty({

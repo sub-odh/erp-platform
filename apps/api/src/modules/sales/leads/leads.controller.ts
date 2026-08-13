@@ -13,17 +13,29 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import type { Request } from 'express';
 
+import { Roles } from '../../auth/decorators/roles.decorator';
+
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+
+import { RolesGuard } from '../../auth/guards/roles.guard';
+
 import type { JwtPayload } from '../../auth/types/jwt-payload.type';
 
+import { ConvertLeadDto } from './dto/convert-lead.dto';
+
 import { CreateLeadDto } from './dto/create-lead.dto';
+
 import { ListLeadsQueryDto } from './dto/list-leads-query.dto';
+
 import { UpdateLeadDto } from './dto/update-lead.dto';
+
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
+
 import { LeadsFacade } from './leads.facade';
 
 type AuthenticatedRequest = Request & {
@@ -34,6 +46,7 @@ type AuthenticatedRequest = Request & {
 @ApiBearerAuth()
 @Controller({
   path: 'sales/leads',
+
   version: '1',
 })
 @UseGuards(JwtAuthGuard)
@@ -48,7 +61,11 @@ export class LeadsController {
     @Query()
     query: ListLeadsQueryDto,
   ) {
-    return this.leadsFacade.list(request.user.organizationId, query);
+    return this.leadsFacade.list(
+      request.user.organizationId,
+
+      query,
+    );
   }
 
   @Get(':leadId')
@@ -59,7 +76,11 @@ export class LeadsController {
     @Param('leadId', new ParseUUIDPipe())
     leadId: string,
   ) {
-    return this.leadsFacade.findById(request.user.organizationId, leadId);
+    return this.leadsFacade.findById(
+      request.user.organizationId,
+
+      leadId,
+    );
   }
 
   @Post()
@@ -72,8 +93,49 @@ export class LeadsController {
   ) {
     return this.leadsFacade.create(
       request.user.organizationId,
+
       request.user.sub,
+
       dto,
+    );
+  }
+
+  @Post(':leadId/convert')
+  convert(
+    @Req()
+    request: AuthenticatedRequest,
+
+    @Param('leadId', new ParseUUIDPipe())
+    leadId: string,
+
+    @Body()
+    dto: ConvertLeadDto,
+  ) {
+    return this.leadsFacade.convert(
+      request.user.organizationId,
+
+      leadId,
+
+      request.user.sub,
+
+      dto,
+    );
+  }
+
+  @Post(':leadId/restore')
+  restore(
+    @Req()
+    request: AuthenticatedRequest,
+
+    @Param('leadId', new ParseUUIDPipe())
+    leadId: string,
+  ) {
+    return this.leadsFacade.restore(
+      request.user.organizationId,
+
+      leadId,
+
+      request.user.sub,
     );
   }
 
@@ -90,8 +152,11 @@ export class LeadsController {
   ) {
     return this.leadsFacade.update(
       request.user.organizationId,
+
       leadId,
+
       request.user.sub,
+
       dto,
     );
   }
@@ -109,9 +174,30 @@ export class LeadsController {
   ) {
     return this.leadsFacade.updateStatus(
       request.user.organizationId,
+
       leadId,
+
       request.user.sub,
+
       dto.status,
+    );
+  }
+
+  @Delete(':leadId/permanent')
+  @UseGuards(RolesGuard)
+  @Roles('OWNER', 'ADMIN')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  permanentDelete(
+    @Req()
+    request: AuthenticatedRequest,
+
+    @Param('leadId', new ParseUUIDPipe())
+    leadId: string,
+  ): Promise<void> {
+    return this.leadsFacade.permanentDelete(
+      request.user.organizationId,
+
+      leadId,
     );
   }
 
@@ -126,7 +212,9 @@ export class LeadsController {
   ): Promise<void> {
     return this.leadsFacade.archive(
       request.user.organizationId,
+
       leadId,
+
       request.user.sub,
     );
   }

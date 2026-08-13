@@ -1,13 +1,26 @@
 "use client";
 
 import { KeyRound, Mail, ShieldCheck, UserRound } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+
 import { useRouter } from "next/navigation";
 
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+
 import { ImageUploader } from "@/components/media/image-uploader";
+import { PasswordRequirements } from "@/components/security/password-requirements";
 import { Button, Input } from "@/components/ui";
+
 import { clearAuthSession, updateStoredUser } from "@/lib/auth";
+
 import { resolveMediaUrl } from "@/lib/media";
+
+import {
+  isStrongPassword,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/password-policy";
+
 import {
   changePassword,
   getProfile,
@@ -15,6 +28,7 @@ import {
   updateProfile,
   uploadProfileAvatar,
 } from "@/lib/profile";
+
 import type { User } from "@/types/user";
 
 export default function ProfilePage() {
@@ -52,13 +66,18 @@ export default function ProfilePage() {
     setProfile(updated);
 
     setFirstName(updated.firstName);
+
     setLastName(updated.lastName);
 
     updateStoredUser({
       firstName: updated.firstName,
+
       lastName: updated.lastName,
+
       email: updated.email,
+
       role: updated.role,
+
       avatarUrl: updated.avatarUrl,
     });
   }, []);
@@ -66,6 +85,7 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadProfile(): Promise<void> {
       setLoading(true);
+
       setProfileError(null);
 
       try {
@@ -102,12 +122,15 @@ export default function ProfilePage() {
     }
 
     setSaving(true);
+
     setProfileError(null);
+
     setProfileSuccess(null);
 
     try {
       const updated = await updateProfile({
         firstName: normalizedFirstName,
+
         lastName: normalizedLastName,
       });
 
@@ -127,7 +150,9 @@ export default function ProfilePage() {
 
   async function handleAvatarUpload(file: File): Promise<void> {
     setUploadingAvatar(true);
+
     setProfileError(null);
+
     setProfileSuccess(null);
 
     try {
@@ -152,7 +177,9 @@ export default function ProfilePage() {
 
   async function handleAvatarRemove(): Promise<void> {
     setRemovingAvatar(true);
+
     setProfileError(null);
+
     setProfileSuccess(null);
 
     try {
@@ -181,8 +208,14 @@ export default function ProfilePage() {
 
     setPasswordError(null);
 
-    if (newPassword.length < 12) {
-      setPasswordError("New password must contain at least 12 characters.");
+    if (!currentPassword) {
+      setPasswordError("Current password is required.");
+
+      return;
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      setPasswordError(PASSWORD_POLICY_MESSAGE);
 
       return;
     }
@@ -207,8 +240,8 @@ export default function ProfilePage() {
       await changePassword(currentPassword, newPassword);
 
       /*
-       * The API intentionally revokes every session
-       * after changing the password.
+       * Changing the password revokes
+       * the user's existing sessions.
        */
       clearAuthSession();
 
@@ -381,20 +414,24 @@ export default function ProfilePage() {
                   autoComplete="current-password"
                   value={currentPassword}
                   onChange={(event) => setCurrentPassword(event.target.value)}
+                  maxLength={PASSWORD_MAX_LENGTH}
                   required
                 />
 
-                <Input
-                  label="New password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                  minLength={12}
-                  maxLength={128}
-                  hint="Use at least 12 characters."
-                  required
-                />
+                <div className="space-y-3">
+                  <Input
+                    label="New password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    minLength={PASSWORD_MIN_LENGTH}
+                    maxLength={PASSWORD_MAX_LENGTH}
+                    required
+                  />
+
+                  <PasswordRequirements password={newPassword} />
+                </div>
 
                 <Input
                   label="Confirm new password"
@@ -402,8 +439,8 @@ export default function ProfilePage() {
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
-                  minLength={12}
-                  maxLength={128}
+                  minLength={PASSWORD_MIN_LENGTH}
+                  maxLength={PASSWORD_MAX_LENGTH}
                   required
                 />
 

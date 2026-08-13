@@ -1,10 +1,18 @@
+import { ChevronDown } from "lucide-react";
+
 import type { LeadStatus } from "@/types/lead";
 
 interface LeadStatusBadgeProps {
   status: LeadStatus;
+
+  interactive?: boolean;
 }
 
-export function LeadStatusBadge({ status }: LeadStatusBadgeProps) {
+export function LeadStatusBadge({
+  status,
+
+  interactive = false,
+}: LeadStatusBadgeProps) {
   const classes = getClasses(status);
 
   return (
@@ -16,7 +24,15 @@ export function LeadStatusBadge({ status }: LeadStatusBadgeProps) {
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
 
-      {formatStatus(status)}
+      <span>{formatStatus(status)}</span>
+
+      {interactive ? (
+        <ChevronDown
+          size={12}
+          strokeWidth={2.5}
+          className="ml-0.5 shrink-0 opacity-70 transition group-hover:opacity-100"
+        />
+      ) : null}
     </span>
   );
 }

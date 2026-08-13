@@ -6,16 +6,33 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { Button, ConfirmDialog, Select, Spinner } from "@/components/ui";
 
+import { LeadConversionModal } from "@/components/leads/lead-conversion-modal";
 import { LeadModal } from "@/components/leads/lead-modal";
 import { LeadTable } from "@/components/leads/lead-table";
+import { LeadViewModal } from "@/components/leads/lead-view-modal";
 
-import { archiveLead, getLeads } from "@/lib/leads";
+import { getStoredUser } from "@/lib/auth";
 
-import type { EditableLeadStatus, Lead, LeadPagination } from "@/types/lead";
+import {
+  archiveLead,
+  getLeads,
+  permanentlyDeleteLead,
+  restoreLead,
+  updateLeadStatus,
+} from "@/lib/leads";
+
+import type {
+  ConvertLeadResponse,
+  EditableLeadStatus,
+  Lead,
+  LeadPagination,
+  LeadRecordState,
+  LeadStatus,
+} from "@/types/lead";
 
 const PAGE_SIZE = 20;
 
-type StatusFilter = "ALL" | EditableLeadStatus;
+type StatusFilter = "ALL" | LeadStatus;
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -30,20 +47,47 @@ export default function LeadsPage() {
 
   const [status, setStatus] = useState<StatusFilter>("ALL");
 
+  const [recordState, setRecordState] = useState<LeadRecordState>("active");
+
   const [page, setPage] = useState(1);
 
   const [modalOpen, setModalOpen] = useState(false);
 
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
+  const [viewingLead, setViewingLead] = useState<Lead | null>(null);
+
+  const [conversionTarget, setConversionTarget] = useState<Lead | null>(null);
+
+  const [conversionSuccess, setConversionSuccess] = useState<{
+    opportunityName: string;
+    opportunityId: string;
+  } | null>(null);
+
   const [archiveTarget, setArchiveTarget] = useState<Lead | null>(null);
+
+  const [permanentDeleteTarget, setPermanentDeleteTarget] =
+    useState<Lead | null>(null);
 
   const [archiving, setArchiving] = useState(false);
 
+  const [deletingPermanently, setDeletingPermanently] = useState(false);
+
+  const [busyLeadId, setBusyLeadId] = useState<string | null>(null);
+
+  const [canPermanentlyDelete, setCanPermanentlyDelete] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const role = getStoredUser()?.role;
+
+    setCanPermanentlyDelete(role === "OWNER" || role === "ADMIN");
+  }, []);
 
   const loadLeads = useCallback(async (): Promise<void> => {
     setLoading(true);
+
     setError(null);
 
     try {
@@ -51,6 +95,8 @@ export default function LeadsPage() {
         search: search || undefined,
 
         status: status === "ALL" ? undefined : status,
+
+        recordState,
 
         page,
 
@@ -73,7 +119,7 @@ export default function LeadsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, status]);
+  }, [page, recordState, search, status]);
 
   useEffect(() => {
     void loadLeads();
@@ -88,28 +134,78 @@ export default function LeadsPage() {
   }
 
   function openCreate(): void {
+    if (recordState === "archived") {
+      return;
+    }
+
     setEditingLead(null);
+
     setModalOpen(true);
   }
 
   function openEdit(lead: Lead): void {
+    if (lead.deletedAt) {
+      return;
+    }
+
     setEditingLead(lead);
+
     setModalOpen(true);
   }
 
   function handleSaved(lead: Lead): void {
     setModalOpen(false);
+
     setEditingLead(null);
 
-    setLeads((current) => {
-      const exists = current.some((item) => item.id === lead.id);
+    setLeads((current) =>
+      current.map((item) => (item.id === lead.id ? lead : item)),
+    );
 
-      if (exists) {
-        return current.map((item) => (item.id === lead.id ? lead : item));
-      }
+    void loadLeads();
+  }
 
-      return [lead, ...current];
+  async function handleStatusChange(
+    lead: Lead,
+    nextStatus: EditableLeadStatus,
+  ): Promise<void> {
+    if (lead.deletedAt) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const updated = await updateLeadStatus(lead.id, nextStatus);
+
+      setLeads((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+
+      await loadLeads();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to update lead status.",
+      );
+
+      throw requestError;
+    }
+  }
+
+  function handleConverted(result: ConvertLeadResponse): void {
+    setConversionTarget(null);
+
+    setConversionSuccess({
+      opportunityName: result.opportunity.name,
+
+      opportunityId: result.opportunity.id,
     });
+
+    setLeads((current) =>
+      current.map((lead) => (lead.id === result.lead.id ? result.lead : lead)),
+    );
 
     void loadLeads();
   }
@@ -121,12 +217,23 @@ export default function LeadsPage() {
 
     setArchiving(true);
 
+    setError(null);
+
     try {
       await archiveLead(archiveTarget.id);
 
       setArchiveTarget(null);
 
-      await loadLeads();
+      /*
+       * If we removed the final row
+       * of a later page, move back
+       * one page.
+       */
+      if (leads.length === 1 && page > 1 && recordState === "active") {
+        setPage((current) => current - 1);
+      } else {
+        await loadLeads();
+      }
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -135,6 +242,60 @@ export default function LeadsPage() {
       );
     } finally {
       setArchiving(false);
+    }
+  }
+
+  async function handleRestore(lead: Lead): Promise<void> {
+    setBusyLeadId(lead.id);
+
+    setError(null);
+
+    try {
+      await restoreLead(lead.id);
+
+      if (leads.length === 1 && page > 1 && recordState === "archived") {
+        setPage((current) => current - 1);
+      } else {
+        await loadLeads();
+      }
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to restore lead.",
+      );
+    } finally {
+      setBusyLeadId(null);
+    }
+  }
+
+  async function confirmPermanentDelete(): Promise<void> {
+    if (!permanentDeleteTarget) {
+      return;
+    }
+
+    setDeletingPermanently(true);
+
+    setError(null);
+
+    try {
+      await permanentlyDeleteLead(permanentDeleteTarget.id);
+
+      setPermanentDeleteTarget(null);
+
+      if (leads.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+      } else {
+        await loadLeads();
+      }
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to permanently delete lead.",
+      );
+    } finally {
+      setDeletingPermanently(false);
     }
   }
 
@@ -156,13 +317,13 @@ export default function LeadsPage() {
             </p>
           </div>
 
-          <Button onClick={openCreate}>
+          <Button disabled={recordState === "archived"} onClick={openCreate}>
             <Plus size={18} />
             Add New Lead
           </Button>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:flex-row">
+        <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:flex-row">
           <form onSubmit={handleSearch} className="flex min-w-0 flex-1">
             <div className="relative flex-1">
               <Search
@@ -183,7 +344,7 @@ export default function LeadsPage() {
             </Button>
           </form>
 
-          <div className="w-full md:w-48">
+          <div className="w-full xl:w-48">
             <Select
               value={status}
               onChange={(event) => {
@@ -192,7 +353,7 @@ export default function LeadsPage() {
                 setPage(1);
               }}
             >
-              <option value="ALL">All statuses</option>
+              <option value="ALL">All Statuses</option>
 
               <option value="NEW">New</option>
 
@@ -201,6 +362,25 @@ export default function LeadsPage() {
               <option value="QUALIFIED">Qualified</option>
 
               <option value="DISQUALIFIED">Disqualified</option>
+
+              <option value="CONVERTED">Converted</option>
+            </Select>
+          </div>
+
+          <div className="w-full xl:w-48">
+            <Select
+              value={recordState}
+              onChange={(event) => {
+                setRecordState(event.target.value as LeadRecordState);
+
+                setPage(1);
+              }}
+            >
+              <option value="active">Active</option>
+
+              <option value="archived">Archived</option>
+
+              <option value="all">All records</option>
             </Select>
           </div>
 
@@ -217,6 +397,33 @@ export default function LeadsPage() {
           </Button>
         </div>
 
+        {recordState === "archived" ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            Archived leads are read-only. Restore a lead before editing or
+            changing its status.
+          </div>
+        ) : null}
+
+        {conversionSuccess ? (
+          <div className="flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Lead successfully converted to opportunity{" "}
+              <span className="font-semibold">
+                “{conversionSuccess.opportunityName}”
+              </span>
+              .
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setConversionSuccess(null)}
+              className="self-start font-medium text-emerald-700 hover:text-emerald-900 sm:self-auto"
+            >
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+
         {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -231,8 +438,16 @@ export default function LeadsPage() {
           ) : (
             <LeadTable
               leads={leads}
+              recordState={recordState}
+              canPermanentlyDelete={canPermanentlyDelete}
+              busyLeadId={busyLeadId}
+              onView={setViewingLead}
               onEdit={openEdit}
+              onConvert={setConversionTarget}
               onArchive={setArchiveTarget}
+              onRestore={(lead) => void handleRestore(lead)}
+              onPermanentDelete={setPermanentDeleteTarget}
+              onChangeStatus={handleStatusChange}
             />
           )}
         </div>
@@ -268,6 +483,12 @@ export default function LeadsPage() {
         </div>
       </div>
 
+      <LeadViewModal
+        open={viewingLead !== null}
+        lead={viewingLead}
+        onClose={() => setViewingLead(null)}
+      />
+
       <LeadModal
         open={modalOpen}
         lead={editingLead}
@@ -279,12 +500,19 @@ export default function LeadsPage() {
         onSaved={handleSaved}
       />
 
+      <LeadConversionModal
+        open={conversionTarget !== null}
+        lead={conversionTarget}
+        onClose={() => setConversionTarget(null)}
+        onConverted={handleConverted}
+      />
+
       <ConfirmDialog
         open={Boolean(archiveTarget)}
         title="Archive lead"
         description={
           archiveTarget
-            ? `Archive ${archiveTarget.firstName} ${archiveTarget.lastName}?`
+            ? `Archive ${archiveTarget.firstName} ${archiveTarget.lastName}? The lead can be restored later.`
             : ""
         }
         confirmLabel="Archive lead"
@@ -292,6 +520,21 @@ export default function LeadsPage() {
         loading={archiving}
         onClose={() => setArchiveTarget(null)}
         onConfirm={() => void confirmArchive()}
+      />
+
+      <ConfirmDialog
+        open={Boolean(permanentDeleteTarget)}
+        title="Delete lead permanently"
+        description={
+          permanentDeleteTarget
+            ? `Permanently delete ${permanentDeleteTarget.firstName} ${permanentDeleteTarget.lastName}? This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete permanently"
+        destructive
+        loading={deletingPermanently}
+        onClose={() => setPermanentDeleteTarget(null)}
+        onConfirm={() => void confirmPermanentDelete()}
       />
     </>
   );

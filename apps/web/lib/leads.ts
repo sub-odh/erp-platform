@@ -1,6 +1,8 @@
 import { apiRequest } from "@/lib/api";
 
 import type {
+  ConvertLeadRequest,
+  ConvertLeadResponse,
   CreateLeadRequest,
   EditableLeadStatus,
   Lead,
@@ -22,6 +24,10 @@ export function getLeads(
 
   if (params.status) {
     searchParams.set("status", params.status);
+  }
+
+  if (params.recordState) {
+    searchParams.set("recordState", params.recordState);
   }
 
   if (params.ownerUserId) {
@@ -48,6 +54,7 @@ export function getLead(leadId: string): Promise<Lead> {
 export function createLead(payload: CreateLeadRequest): Promise<Lead> {
   return apiRequest<Lead>(LEADS_PATH, {
     method: "POST",
+
     body: JSON.stringify(payload),
   });
 }
@@ -58,6 +65,7 @@ export function updateLead(
 ): Promise<Lead> {
   return apiRequest<Lead>(`${LEADS_PATH}/${leadId}`, {
     method: "PATCH",
+
     body: JSON.stringify(payload),
   });
 }
@@ -68,14 +76,38 @@ export function updateLeadStatus(
 ): Promise<Lead> {
   return apiRequest<Lead>(`${LEADS_PATH}/${leadId}/status`, {
     method: "PATCH",
+
     body: JSON.stringify({
       status,
     }),
   });
 }
 
+export function convertLead(
+  leadId: string,
+  payload: ConvertLeadRequest,
+): Promise<ConvertLeadResponse> {
+  return apiRequest<ConvertLeadResponse>(`${LEADS_PATH}/${leadId}/convert`, {
+    method: "POST",
+
+    body: JSON.stringify(payload),
+  });
+}
+
 export function archiveLead(leadId: string): Promise<void> {
   return apiRequest<void>(`${LEADS_PATH}/${leadId}`, {
+    method: "DELETE",
+  });
+}
+
+export function restoreLead(leadId: string): Promise<Lead> {
+  return apiRequest<Lead>(`${LEADS_PATH}/${leadId}/restore`, {
+    method: "POST",
+  });
+}
+
+export function permanentlyDeleteLead(leadId: string): Promise<void> {
+  return apiRequest<void>(`${LEADS_PATH}/${leadId}/permanent`, {
     method: "DELETE",
   });
 }

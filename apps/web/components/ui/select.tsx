@@ -1,4 +1,5 @@
 import { forwardRef, type SelectHTMLAttributes } from "react";
+import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 
@@ -35,24 +36,32 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </span>
         ) : null}
 
-        <select
-          ref={ref}
-          id={selectId}
-          required={required}
-          disabled={disabled}
-          className={cn(
-            "w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition",
-            "focus:ring-2",
-            error
-              ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-              : "border-slate-300 focus:border-blue-500 focus:ring-blue-100",
-            "disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500",
-            className,
-          )}
-          {...props}
-        >
-          {children}
-        </select>
+        <div className="relative">
+          <select
+            ref={ref}
+            id={selectId}
+            required={required}
+            disabled={disabled}
+            className={cn(
+              "w-full appearance-none rounded-lg border bg-white px-3 py-2.5 pr-10 text-sm text-slate-900 outline-none transition",
+              "focus:ring-2",
+              error
+                ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                : "border-slate-300 focus:border-blue-500 focus:ring-blue-100",
+              "disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500",
+              className,
+            )}
+            {...props}
+          >
+            {children}
+          </select>
+
+          <ChevronDown
+            size={16}
+            strokeWidth={2}
+            className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-700"
+          />
+        </div>
 
         {error ? (
           <span className="mt-1.5 block text-sm text-red-600">{error}</span>
