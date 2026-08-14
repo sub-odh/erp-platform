@@ -6,12 +6,12 @@ import { createHash, randomUUID } from 'node:crypto';
 import { env } from '@erp/config';
 import type { User } from '@erp/db';
 
+import { LicensingService } from '../../common/licensing/licensing.service';
 import { UsersService } from '../users/users.service';
 import { AuthSessionsService } from './auth-sessions.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import type { JwtPayload } from './types/jwt-payload.type';
 import type { RefreshTokenPayload } from './types/refresh-token-payload.type';
 
@@ -21,6 +21,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly authSessionsService: AuthSessionsService,
+    private readonly licensingService: LicensingService,
   ) {}
 
   getStatus(): { status: string } {
@@ -29,7 +30,7 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto): Promise<LoginResponseDto> {
+  async login(loginDto: LoginDto): Promise<AuthResult> {
     const user = await this.usersService.findByOrganizationAndEmail(
       loginDto.organizationCode,
       loginDto.email,
@@ -38,6 +39,8 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    this.licensingService.assertTenant(user.organizationId);
 
     const passwordMatches = await compare(loginDto.password, user.passwordHash);
 
@@ -52,19 +55,22 @@ export class AuthService {
     const refreshToken = await this.createRefreshToken(user, sessionId);
 
     await this.authSessionsService.createSession({
+      organizationId: user.organizationId,
       id: sessionId,
       userId: user.id,
       refreshTokenHash: this.hashRefreshToken(refreshToken),
       expiresAt: this.getRefreshExpiration(),
     });
 
-    await this.usersService.updateLastLogin(user.id);
+    await this.usersService.updateLastLogin(user.id, user.organizationId);
 
-    return this.createAuthResponse(user, accessToken, refreshToken);
+    return {
+      response: this.createAuthResponse(user, accessToken),
+      refreshToken,
+    };
   }
 
-  async refresh(refreshTokenDto: RefreshTokenDto): Promise<LoginResponseDto> {
-    const currentRefreshToken = refreshTokenDto.refreshToken;
+  async refresh(currentRefreshToken: string): Promise<AuthResult> {
 
     const payload = await this.verifyRefreshToken(currentRefreshToken);
 
@@ -77,6 +83,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    this.licensingService.assertTenant(user.organizationId);
+
     const nextAccessToken = await this.createAccessToken(user);
 
     const nextRefreshToken = await this.createRefreshToken(
@@ -85,6 +93,7 @@ export class AuthService {
     );
 
     const wasRotated = await this.authSessionsService.rotateSession({
+      organizationId: user.organizationId,
       sessionId: payload.sessionId,
       userId: user.id,
       currentTokenHash: this.hashRefreshToken(currentRefreshToken),
@@ -96,15 +105,17 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    return this.createAuthResponse(user, nextAccessToken, nextRefreshToken);
+    return {
+      response: this.createAuthResponse(user, nextAccessToken),
+      refreshToken: nextRefreshToken,
+    };
   }
 
-  async logout(refreshTokenDto: RefreshTokenDto): Promise<void> {
-    const refreshToken = refreshTokenDto.refreshToken;
-
+  async logout(refreshToken: string): Promise<void> {
     const payload = await this.verifyRefreshToken(refreshToken, true);
 
     const wasRevoked = await this.authSessionsService.revokeSession({
+      organizationId: payload.organizationId,
       sessionId: payload.sessionId,
       userId: payload.sub,
       refreshTokenHash: this.hashRefreshToken(refreshToken),
@@ -160,7 +171,10 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    await this.authSessionsService.revokeAllSessions(user.id);
+    await this.authSessionsService.revokeAllSessions(
+      user.organizationId,
+      user.id,
+    );
   }
 
   async logoutAll(currentUser: JwtPayload): Promise<void> {
@@ -182,7 +196,10 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    await this.authSessionsService.revokeAllSessions(user.id);
+    await this.authSessionsService.revokeAllSessions(
+      user.organizationId,
+      user.id,
+    );
   }
 
   private async createAccessToken(user: User): Promise<string> {
@@ -252,14 +269,12 @@ export class AuthService {
   private createAuthResponse(
     user: User,
     accessToken: string,
-    refreshToken: string,
   ): LoginResponseDto {
     return {
       accessToken,
-      refreshToken,
       tokenType: 'Bearer',
       expiresIn: env.JWT_ACCESS_TTL_SECONDS,
-      refreshExpiresIn: env.JWT_REFRESH_TTL_SECONDS,
+      license: this.licensingService.getSummary(),
       user: {
         id: user.id,
         organizationId: user.organizationId,
@@ -271,4 +286,9 @@ export class AuthService {
       },
     };
   }
+}
+
+export interface AuthResult {
+  response: LoginResponseDto;
+  refreshToken: string;
 }

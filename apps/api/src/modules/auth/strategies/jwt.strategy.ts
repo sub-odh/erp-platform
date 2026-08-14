@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { env } from '@erp/config';
+import { withTenantContext } from '@erp/db';
 
 import { UsersService } from '../../users/users.service';
 import type { JwtPayload } from '../types/jwt-payload.type';
@@ -18,9 +19,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<JwtPayload> {
-    const user = await this.usersService.findByIdAndOrganization(
-      payload.sub,
-      payload.organizationId,
+    const user = await withTenantContext(payload.organizationId, () =>
+      this.usersService.findByIdAndOrganization(
+        payload.sub,
+        payload.organizationId,
+      ),
     );
 
     if (!user || !user.isActive || user.tokenVersion !== payload.tokenVersion) {

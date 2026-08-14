@@ -1,8 +1,11 @@
-import type { AuthUser, LoginResponse } from "@/types/auth";
+import type { AuthUser, LicenseSummary, LoginResponse } from "@/types/auth";
 
 const ACCESS_TOKEN_KEY = "erp.accessToken";
+// Removed in the HttpOnly-cookie migration. Keep the key only to clean up
+// refresh tokens persisted by older frontend builds.
 const REFRESH_TOKEN_KEY = "erp.refreshToken";
 const USER_KEY = "erp.user";
+const LICENSE_KEY = "erp.license";
 
 export const AUTH_SESSION_EXPIRED_EVENT = "erp:auth-session-expired";
 
@@ -15,9 +18,10 @@ export function saveAuthSession(response: LoginResponse): void {
 
   localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
 
-  localStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 
   localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+  localStorage.setItem(LICENSE_KEY, JSON.stringify(response.license));
 
   notifyAuthUserChanged();
 }
@@ -28,14 +32,6 @@ export function getAccessToken(): string | null {
   }
 
   return localStorage.getItem(ACCESS_TOKEN_KEY);
-}
-
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 export function getStoredUser(): AuthUser | null {
@@ -54,6 +50,18 @@ export function getStoredUser(): AuthUser | null {
   } catch {
     clearAuthSession();
 
+    return null;
+  }
+}
+
+export function getStoredLicense(): LicenseSummary | null {
+  if (typeof window === "undefined") return null;
+  const value = localStorage.getItem(LICENSE_KEY);
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as LicenseSummary;
+  } catch {
+    localStorage.removeItem(LICENSE_KEY);
     return null;
   }
 }
@@ -91,6 +99,7 @@ export function clearAuthSession(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(LICENSE_KEY);
 
   notifyAuthUserChanged();
 }

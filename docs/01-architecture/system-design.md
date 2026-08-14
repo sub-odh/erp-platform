@@ -263,6 +263,8 @@ Platform services are shared across all business modules.
 
 ## Authentication
 
+Refresh-token cookie handling and the session lifecycle are documented in [Session and Token Security](../architecture/session-security.md).
+
 Responsibilities:
 
 - login;
@@ -276,6 +278,8 @@ Responsibilities:
 ---
 
 ## Authorization
+
+The implemented permission model and extension rules are documented in [Authorization and Permissions](../architecture/authorization.md).
 
 Responsibilities:
 
@@ -312,6 +316,8 @@ Responsibilities:
 
 ## Audit
 
+The implemented append-only trail, captured fields, and coverage rules are documented in [Audit Logging](../architecture/audit-logging.md).
+
 Responsibilities:
 
 - record mutations;
@@ -322,6 +328,8 @@ Responsibilities:
 ---
 
 ## Notifications
+
+The implemented inbox, delivery outbox, event coverage, and extension rules are documented in [Notifications](../architecture/notifications.md).
 
 Responsibilities:
 
@@ -434,6 +442,8 @@ Session is revoked
 ---
 
 # Tenant Isolation
+
+Implementation details and the checklist for new tenant-owned tables are documented in [Tenant Isolation](../architecture/tenant-isolation.md).
 
 Every tenant-owned table includes:
 

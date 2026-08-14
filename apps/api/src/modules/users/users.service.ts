@@ -18,7 +18,14 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
-import { authSessions, db, organizations, users, type User } from '@erp/db';
+import {
+  authSessions,
+  db,
+  organizations,
+  users,
+  withTenantContext,
+  type User,
+} from '@erp/db';
 
 import {
   createPaginatedResult,
@@ -30,6 +37,8 @@ import type {
   UserSortField,
 } from './dto/list-users-query.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
+import { LicensingService } from '../../common/licensing/licensing.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export type PublicUser = Pick<
   User,
@@ -142,6 +151,11 @@ function getDatabaseErrorCode(error: unknown): string | undefined {
 
 @Injectable()
 export class UsersService {
+  constructor(
+    private readonly licensingService: LicensingService,
+    private readonly notifications: NotificationsService,
+  ) {}
+
   async findByOrganizationAndEmail(
     organizationCode: string,
     email: string,
@@ -150,41 +164,56 @@ export class UsersService {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    const [result] = await db
+    const [organization] = await db
       .select({
-        user: users,
+        id: organizations.id,
       })
-      .from(users)
-      .innerJoin(organizations, eq(users.organizationId, organizations.id))
-      .where(
-        and(
-          eq(organizations.code, normalizedOrganizationCode),
-          eq(users.email, normalizedEmail),
-          isNull(users.deletedAt),
-        ),
-      )
+      .from(organizations)
+      .where(eq(organizations.code, normalizedOrganizationCode))
       .limit(1);
 
-    return result?.user;
+    if (!organization) {
+      return undefined;
+    }
+
+    return withTenantContext(organization.id, async () => {
+      const [user] = await db
+        .select({
+          user: users,
+        })
+        .from(users)
+        .where(
+          and(
+            eq(users.organizationId, organization.id),
+            eq(users.email, normalizedEmail),
+            isNull(users.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      return user?.user;
+    });
   }
 
   async findByIdAndOrganization(
     userId: string,
     organizationId: string,
   ): Promise<User | undefined> {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(
-        and(
-          eq(users.id, userId),
-          eq(users.organizationId, organizationId),
-          isNull(users.deletedAt),
-        ),
-      )
-      .limit(1);
+    return withTenantContext(organizationId, async () => {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(
+          and(
+            eq(users.id, userId),
+            eq(users.organizationId, organizationId),
+            isNull(users.deletedAt),
+          ),
+        )
+        .limit(1);
 
-    return user;
+      return user;
+    });
   }
 
   async listUsers(
@@ -264,6 +293,7 @@ export class UsersService {
     actorRole: User['role'],
     createUserDto: CreateUserDto,
   ): Promise<PublicUser> {
+    await this.assertUserCapacity(organizationId);
     if (!canAssignRole(actorRole, createUserDto.role)) {
       throw new ForbiddenException(
         `Role ${actorRole} cannot create a ${createUserDto.role} user`,
@@ -311,6 +341,18 @@ export class UsersService {
       if (!createdUser) {
         throw new Error('Database did not return the created user');
       }
+
+      await this.notifications.notify({
+        organizationId,
+        recipientUserId: createdUser.id,
+        type: 'platform.user.created',
+        title: 'Welcome to your ERP workspace',
+        message:
+          'Your account is ready. Review your profile and assigned role.',
+        actionUrl: '/profile',
+        entityType: 'platform.user',
+        entityId: createdUser.id,
+      });
 
       return createdUser;
     } catch (error: unknown) {
@@ -452,6 +494,10 @@ export class UsersService {
       return targetUser;
     }
 
+    if (isActive) {
+      await this.assertUserCapacity(organizationId);
+    }
+
     const [updatedUser] = await db
       .update(users)
       .set({
@@ -531,14 +577,22 @@ export class UsersService {
     return Boolean(updatedUser);
   }
 
-  async updateLastLogin(userId: string): Promise<void> {
-    await db
-      .update(users)
-      .set({
-        lastLoginAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(and(eq(users.id, userId), isNull(users.deletedAt)));
+  async updateLastLogin(userId: string, organizationId: string): Promise<void> {
+    await withTenantContext(organizationId, async () => {
+      await db
+        .update(users)
+        .set({
+          lastLoginAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(users.id, userId),
+            eq(users.organizationId, organizationId),
+            isNull(users.deletedAt),
+          ),
+        );
+    });
   }
 
   async archiveUser(
@@ -749,5 +803,24 @@ export class UsersService {
       .where(
         and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)),
       );
+  }
+
+  private async assertUserCapacity(organizationId: string): Promise<void> {
+    const [{ count = 0 } = {}] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(
+        and(
+          eq(users.organizationId, organizationId),
+          eq(users.isActive, true),
+          isNull(users.deletedAt),
+        ),
+      );
+
+    if (count >= this.licensingService.getLicense().maxUsers) {
+      throw new ForbiddenException(
+        `License user limit of ${this.licensingService.getLicense().maxUsers} has been reached`,
+      );
+    }
   }
 }

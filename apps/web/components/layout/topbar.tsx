@@ -12,8 +12,10 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { apiRequest } from "@/lib/api";
 import { clearAuthSession, getStoredUser } from "@/lib/auth";
 import { resolveMediaUrl } from "@/lib/organizations";
+import { NotificationsDropdown } from "./notifications-dropdown";
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -69,10 +71,17 @@ export function Topbar({ onMenuClick }: TopbarProps) {
     };
   }, []);
 
-  function handleLogout(): void {
-    clearAuthSession();
+  async function handleLogout(): Promise<void> {
+    try {
+      await apiRequest<void>("/auth/logout", {
+        method: "POST",
+        skipAuthRefresh: true,
+      });
+    } finally {
+      clearAuthSession();
 
-    router.replace("/login");
+      router.replace("/login");
+    }
   }
 
   function selectToday(): void {
@@ -130,6 +139,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
+        <NotificationsDropdown />
+
         <div ref={calendarRef} className="relative">
           <button
             type="button"

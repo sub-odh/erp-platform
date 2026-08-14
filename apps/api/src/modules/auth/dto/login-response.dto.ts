@@ -39,9 +39,6 @@ export class LoginResponseDto {
   @ApiProperty()
   accessToken!: string;
 
-  @ApiProperty()
-  refreshToken!: string;
-
   @ApiProperty({
     example: 'Bearer',
   })
@@ -53,12 +50,24 @@ export class LoginResponseDto {
   expiresIn!: number;
 
   @ApiProperty({
-    example: 2592000,
-  })
-  refreshExpiresIn!: number;
-
-  @ApiProperty({
     type: LoginUserDto,
   })
   user!: LoginUserDto;
+
+  @ApiProperty({
+    example: {
+      status: 'valid',
+      licensedModules: ['admin', 'sales'],
+      validUntil: '2027-12-31',
+      maxUsers: 50,
+      daysUntilExpiry: 365,
+    },
+  })
+  license!: {
+    status: 'valid' | 'warning' | 'read_only' | 'blocked';
+    licensedModules: string[];
+    validUntil: string;
+    maxUsers: number;
+    daysUntilExpiry: number;
+  };
 }

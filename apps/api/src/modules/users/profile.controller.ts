@@ -23,6 +23,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
+import { AuditEntity } from '../../common/audit/audit.decorator';
+
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/types/jwt-payload.type';
@@ -34,6 +36,7 @@ import { UserAvatarService } from './user-avatar.service';
 
 @ApiTags('Profile')
 @ApiBearerAuth()
+@AuditEntity('platform.profile')
 @UseGuards(JwtAuthGuard)
 @Controller({
   path: 'profile',

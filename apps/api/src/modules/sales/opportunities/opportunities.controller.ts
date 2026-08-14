@@ -15,10 +15,13 @@ import {
 
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+import { AuditEntity } from '../../../common/audit/audit.decorator';
+
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { PERMISSIONS } from '../../auth/permissions/permission.constants';
 import type { JwtPayload } from '../../auth/types/jwt-payload.type';
 
 import { ChangeOpportunityStageDto } from './dto/change-opportunity-stage.dto';
@@ -29,11 +32,13 @@ import { OpportunitiesFacade } from './opportunities.facade';
 
 @ApiTags('Sales - Opportunities')
 @ApiBearerAuth()
+@AuditEntity('sales.opportunity')
 @Controller({
   path: 'sales/opportunities',
   version: '1',
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermissions(PERMISSIONS.CRM_ACCESS)
 export class OpportunitiesController {
   constructor(private readonly opportunitiesFacade: OpportunitiesFacade) {}
 
@@ -131,8 +136,7 @@ export class OpportunitiesController {
   }
 
   @Delete(':opportunityId/permanent')
-  @UseGuards(RolesGuard)
-  @Roles('OWNER', 'ADMIN')
+  @RequirePermissions(PERMISSIONS.CRM_PERMANENT_DELETE)
   @HttpCode(HttpStatus.NO_CONTENT)
   permanentDelete(
     @CurrentUser()

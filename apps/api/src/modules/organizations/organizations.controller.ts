@@ -24,10 +24,13 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
+import { AuditEntity } from '../../common/audit/audit.decorator';
+
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PERMISSIONS } from '../auth/permissions/permission.constants';
 import type { JwtPayload } from '../auth/types/jwt-payload.type';
 import { MEDIA_MAX_FILE_SIZE } from '../media/constants';
 import { OrganizationResponseDto } from './dto/organization-response.dto';
@@ -36,6 +39,7 @@ import { OrganizationsService } from './organizations.service';
 
 @ApiTags('Organizations')
 @ApiBearerAuth()
+@AuditEntity('platform.organization')
 @Controller({
   path: 'organizations',
   version: '1',
@@ -65,8 +69,8 @@ export class OrganizationsController {
   }
 
   @Patch('current')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('OWNER', 'ADMIN')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
   @ApiOperation({
     summary: 'Update the authenticated user organization',
   })
@@ -95,8 +99,8 @@ export class OrganizationsController {
   }
 
   @Post('current/logo')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('OWNER', 'ADMIN')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -146,8 +150,8 @@ export class OrganizationsController {
   }
 
   @Delete('current/logo')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('OWNER', 'ADMIN')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
   @ApiOperation({
     summary: 'Remove the current organization logo',
   })

@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 
-import { authSessions, db } from '@erp/db';
+import { authSessions, db, withTenantContext } from '@erp/db';
 
 interface CreateSessionInput {
+  organizationId: string;
   id: string;
   userId: string;
   refreshTokenHash: string;
@@ -11,6 +12,7 @@ interface CreateSessionInput {
 }
 
 interface RotateSessionInput {
+  organizationId: string;
   sessionId: string;
   userId: string;
   currentTokenHash: string;
@@ -19,6 +21,7 @@ interface RotateSessionInput {
 }
 
 interface RevokeSessionInput {
+  organizationId: string;
   sessionId: string;
   userId: string;
   refreshTokenHash: string;
@@ -27,16 +30,20 @@ interface RevokeSessionInput {
 @Injectable()
 export class AuthSessionsService {
   async createSession(input: CreateSessionInput): Promise<void> {
-    await db.insert(authSessions).values({
-      id: input.id,
-      userId: input.userId,
-      refreshTokenHash: input.refreshTokenHash,
-      expiresAt: input.expiresAt,
+    await withTenantContext(input.organizationId, async () => {
+      await db.insert(authSessions).values({
+        id: input.id,
+        organizationId: input.organizationId,
+        userId: input.userId,
+        refreshTokenHash: input.refreshTokenHash,
+        expiresAt: input.expiresAt,
+      });
     });
   }
 
   async rotateSession(input: RotateSessionInput): Promise<boolean> {
-    const [updatedSession] = await db
+    return withTenantContext(input.organizationId, async () => {
+      const [updatedSession] = await db
       .update(authSessions)
       .set({
         refreshTokenHash: input.nextTokenHash,
@@ -56,11 +63,13 @@ export class AuthSessionsService {
         id: authSessions.id,
       });
 
-    return Boolean(updatedSession);
+      return Boolean(updatedSession);
+    });
   }
 
   async revokeSession(input: RevokeSessionInput): Promise<boolean> {
-    const [revokedSession] = await db
+    return withTenantContext(input.organizationId, async () => {
+      const [revokedSession] = await db
       .update(authSessions)
       .set({
         revokedAt: new Date(),
@@ -79,18 +88,24 @@ export class AuthSessionsService {
         id: authSessions.id,
       });
 
-    return Boolean(revokedSession);
+      return Boolean(revokedSession);
+    });
   }
 
-  async revokeAllSessions(userId: string): Promise<void> {
-    await db
-      .update(authSessions)
-      .set({
-        revokedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)),
-      );
+  async revokeAllSessions(
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
+    await withTenantContext(organizationId, async () => {
+      await db
+        .update(authSessions)
+        .set({
+          revokedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)),
+        );
+    });
   }
 }

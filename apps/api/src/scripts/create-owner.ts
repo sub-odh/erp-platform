@@ -1,7 +1,9 @@
 import { hash } from 'bcrypt';
 import dotenv from 'dotenv';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import path from 'node:path';
+
+import { DEFAULT_ROLE_PERMISSIONS } from '../modules/auth/permissions/permission.constants';
 
 dotenv.config({
   path: path.resolve(process.cwd(), '../../.env'),
@@ -31,7 +33,14 @@ async function createOwner(): Promise<void> {
   }
 
   // Import after dotenv has loaded the database environment variables.
-  const { client, db, organizations, users } = await import('@erp/db');
+  const {
+    client,
+    db,
+    organizations,
+    permissions,
+    rolePermissions,
+    users,
+  } = await import('@erp/db');
 
   try {
     const passwordHash = await hash(password, 12);
@@ -60,6 +69,44 @@ async function createOwner(): Promise<void> {
             code: organizations.code,
           });
       }
+
+      await transaction.execute(
+        sql`select set_config('app.local_tenant_id', ${organization.id}, true)`,
+      );
+
+      const permissionCodes = [...new Set(Object.values(DEFAULT_ROLE_PERMISSIONS).flat())];
+      const availablePermissions = await transaction
+        .select({ id: permissions.id, code: permissions.code })
+        .from(permissions)
+        .where(inArray(permissions.code, permissionCodes));
+      const permissionIds = new Map(
+        availablePermissions.map((permission) => [
+          permission.code,
+          permission.id,
+        ]),
+      );
+      const assignments = Object.entries(DEFAULT_ROLE_PERMISSIONS).flatMap(
+        ([role, codes]) =>
+          codes.map((code) => ({
+            organizationId: organization.id,
+            role: role as 'OWNER' | 'ADMIN' | 'MANAGER' | 'STAFF',
+            permissionId: permissionIds.get(code),
+          })),
+      );
+
+      if (assignments.some(({ permissionId }) => !permissionId)) {
+        throw new Error('Permission catalog is incomplete; run migrations first');
+      }
+
+      await transaction
+        .insert(rolePermissions)
+        .values(
+          assignments.map((assignment) => ({
+            ...assignment,
+            permissionId: assignment.permissionId!,
+          })),
+        )
+        .onConflictDoNothing();
 
       const [existingUser] = await transaction
         .select({

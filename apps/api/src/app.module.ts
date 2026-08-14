@@ -1,14 +1,21 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 
 import { env } from '@erp/config';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuditInterceptor } from './common/audit/audit.interceptor';
+import { AuditModule } from './common/audit/audit.module';
+import { LicensingModule } from './common/licensing/licensing.module';
+import { TenantContextInterceptor } from './common/tenant';
 
 import { AuthModule } from './modules/auth/auth.module';
+import { AuthorizationModule } from './modules/auth/permissions/authorization.module';
 import { MediaModule } from './modules/media/media.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 
 import { CustomersModule } from './modules/sales/customers/customers.module';
@@ -47,6 +54,13 @@ import { UsersModule } from './modules/users/users.module';
       },
     }),
 
+    LicensingModule,
+    AuditModule,
+
+    AuthorizationModule,
+
+    NotificationsModule,
+
     AuthModule,
 
     UsersModule,
@@ -66,6 +80,16 @@ import { UsersModule } from './modules/users/users.module';
 
   controllers: [AppController],
 
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TenantContextInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
+    },
+  ],
 })
 export class AppModule {}

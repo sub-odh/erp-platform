@@ -29,6 +29,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType } from "react";
 
 import { resolveMediaUrl } from "@/lib/organizations";
+import { getStoredLicense } from "@/lib/auth";
+import type { LicenseSummary } from "@/types/auth";
 import type { Organization } from "@/types/organization";
 
 interface SidebarProps {
@@ -59,6 +61,7 @@ interface NavigationItem {
 
 interface NavigationSection {
   title: string;
+  requiredModule?: string;
 
   items: NavigationItem[];
 }
@@ -78,6 +81,7 @@ const navigationSections: NavigationSection[] = [
 
   {
     title: "Sales & CRM",
+    requiredModule: "sales",
 
     items: [
       {
@@ -205,6 +209,7 @@ const navigationSections: NavigationSection[] = [
 
   {
     title: "Administration",
+    requiredModule: "admin",
 
     items: [
       {
@@ -236,6 +241,9 @@ export function Sidebar({
   onToggleCollapsed,
 }: SidebarProps) {
   const pathname = usePathname();
+  const [license, setLicense] = useState<LicenseSummary | null>(null);
+
+  useEffect(() => setLicense(getStoredLicense()), []);
 
   const logoUrl = resolveMediaUrl(organization?.logoUrl);
 
@@ -369,7 +377,13 @@ export function Sidebar({
           className="sidebar-scrollbar flex-1 overflow-y-auto overflow-x-visible px-2 py-4"
           onMouseLeave={closeDesktopFlyouts}
         >
-          {navigationSections.map((section, sectionIndex) => (
+          {navigationSections
+            .filter(
+              (section) =>
+                !section.requiredModule ||
+                license?.licensedModules.includes(section.requiredModule),
+            )
+            .map((section, sectionIndex) => (
             <NavigationSectionBlock
               key={section.title}
               section={section}
@@ -380,10 +394,10 @@ export function Sidebar({
               onToggleGroup={toggleGroup}
               onNavigate={onClose}
             />
-          ))}
+            ))}
         </nav>
 
-        <SidebarFooter collapsed={collapsed} />
+        <SidebarFooter collapsed={collapsed} license={license} />
       </aside>
     </>
   );
@@ -690,7 +704,13 @@ function SidebarItem({
   );
 }
 
-function SidebarFooter({ collapsed }: { collapsed: boolean }) {
+function SidebarFooter({
+  collapsed,
+  license,
+}: {
+  collapsed: boolean;
+  license: LicenseSummary | null;
+}) {
   return (
     <div
       className={[
@@ -715,6 +735,11 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
           <p className="text-[10px] font-medium text-slate-400">ERP Platform</p>
 
           <p className="mt-0.5 text-[9px] text-slate-600">v1.0.0</p>
+          {license && license.status !== "valid" ? (
+            <p className="mt-1 text-[9px] uppercase text-amber-400">
+              License: {license.status.replace("_", " ")}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

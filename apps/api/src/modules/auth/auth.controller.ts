@@ -5,29 +5,41 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiCookieAuth,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
+
+import { AuditEntity } from '../../common/audit/audit.decorator';
 
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { Roles } from './decorators/roles.decorator';
+import { RequirePermissions } from './decorators/permissions.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { LoginDto } from './dto/login.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
+import { PERMISSIONS } from './permissions/permission.constants';
+import {
+  clearRefreshTokenCookie,
+  readRefreshTokenCookie,
+  setRefreshTokenCookie,
+} from './refresh-token-cookie';
 import type { JwtPayload } from './types/jwt-payload.type';
 
 @ApiTags('Authentication')
+@AuditEntity('platform.authentication')
 @Controller({
   path: 'auth',
   version: '1',
@@ -56,11 +68,19 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Invalid credentials',
   })
-  login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<LoginResponseDto> {
+    const result = await this.authService.login(loginDto);
+
+    setRefreshTokenCookie(response, result.refreshToken);
+
+    return result.response;
   }
 
   @Post('refresh')
+  @ApiCookieAuth('erp_refresh_token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Rotate a refresh token',
@@ -71,14 +91,26 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Invalid, expired, revoked, or reused refresh token',
   })
-  refresh(
-    @Body()
-    refreshTokenDto: RefreshTokenDto,
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<LoginResponseDto> {
-    return this.authService.refresh(refreshTokenDto);
+    try {
+      const result = await this.authService.refresh(
+        readRefreshTokenCookie(request),
+      );
+
+      setRefreshTokenCookie(response, result.refreshToken);
+
+      return result.response;
+    } catch (error: unknown) {
+      clearRefreshTokenCookie(response);
+      throw error;
+    }
   }
 
   @Post('logout')
+  @ApiCookieAuth('erp_refresh_token')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Revoke one refresh-token session',
@@ -89,11 +121,15 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Invalid refresh token',
   })
-  logout(
-    @Body()
-    refreshTokenDto: RefreshTokenDto,
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    return this.authService.logout(refreshTokenDto);
+    try {
+      await this.authService.logout(readRefreshTokenCookie(request));
+    } finally {
+      clearRefreshTokenCookie(response);
+    }
   }
 
   @Post('change-password')
@@ -109,13 +145,15 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Missing access token or incorrect current password',
   })
-  changePassword(
+  async changePassword(
     @CurrentUser()
     currentUser: JwtPayload,
     @Body()
     changePasswordDto: ChangePasswordDto,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    return this.authService.changePassword(currentUser, changePasswordDto);
+    await this.authService.changePassword(currentUser, changePasswordDto);
+    clearRefreshTokenCookie(response);
   }
 
   @Post('logout-all')
@@ -131,11 +169,13 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Missing or invalid access token',
   })
-  logoutAll(
+  async logoutAll(
     @CurrentUser()
     currentUser: JwtPayload,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    return this.authService.logoutAll(currentUser);
+    await this.authService.logoutAll(currentUser);
+    clearRefreshTokenCookie(response);
   }
 
   @Get('profile')
@@ -155,8 +195,8 @@ export class AuthController {
   }
 
   @Get('admin-check')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('OWNER', 'ADMIN')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Verify owner or administrator access',

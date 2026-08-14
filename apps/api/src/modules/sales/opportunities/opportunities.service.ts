@@ -9,6 +9,7 @@ import {
   createPaginatedResult,
   type PaginatedResult,
 } from '../../../common/pagination';
+import { NotificationsService } from '../../notifications/notifications.service';
 
 import { ChangeOpportunityStageDto } from './dto/change-opportunity-stage.dto';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
@@ -21,6 +22,7 @@ import { OpportunitiesRepository } from './opportunities.repository';
 export class OpportunitiesService {
   constructor(
     private readonly opportunitiesRepository: OpportunitiesRepository,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(
@@ -131,6 +133,14 @@ export class OpportunitiesService {
       description: this.normalizeOptionalText(dto.description),
     });
 
+    await this.notifyAssignment(
+      tenantId,
+      actorUserId,
+      created.ownerUserId,
+      created.id,
+      created.name,
+    );
+
     return OpportunityResponseDto.fromEntity(created);
   }
 
@@ -182,6 +192,16 @@ export class OpportunitiesService {
 
     if (!updated) {
       throw new NotFoundException('Opportunity not found');
+    }
+
+    if (updated.ownerUserId !== existing.ownerUserId) {
+      await this.notifyAssignment(
+        tenantId,
+        actorUserId,
+        updated.ownerUserId,
+        updated.id,
+        updated.name,
+      );
     }
 
     return OpportunityResponseDto.fromEntity(updated);
@@ -255,6 +275,21 @@ export class OpportunitiesService {
 
     if (!updated) {
       throw new NotFoundException('Opportunity not found');
+    }
+
+    if (updated.ownerUserId) {
+      await this.notifications.notify({
+        organizationId: tenantId,
+        recipientUserId: updated.ownerUserId,
+        actorUserId,
+        type: 'sales.opportunity.stage-changed',
+        title: 'Opportunity stage changed',
+        message: `${updated.name} moved to ${stage.name}.`,
+        actionUrl: '/pipeline',
+        entityType: 'sales.opportunity',
+        entityId: updated.id,
+        metadata: { status },
+      });
     }
 
     return OpportunityResponseDto.fromEntity(updated);
@@ -351,6 +386,27 @@ export class OpportunitiesService {
     }
 
     return stage;
+  }
+
+  private async notifyAssignment(
+    organizationId: string,
+    actorUserId: string,
+    recipientUserId: string | null | undefined,
+    opportunityId: string,
+    opportunityName: string,
+  ): Promise<void> {
+    if (!recipientUserId) return;
+    await this.notifications.notify({
+      organizationId,
+      recipientUserId,
+      actorUserId,
+      type: 'sales.opportunity.assigned',
+      title: 'Opportunity assigned to you',
+      message: `You are now responsible for ${opportunityName}.`,
+      actionUrl: '/opportunities',
+      entityType: 'sales.opportunity',
+      entityId: opportunityId,
+    });
   }
 
   private async validateRelationships(

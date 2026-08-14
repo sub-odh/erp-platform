@@ -1,7 +1,6 @@
 import {
   expireAuthSession,
   getAccessToken,
-  getRefreshToken,
   saveAuthSession,
 } from "@/lib/auth";
 import type { LoginResponse } from "@/types/auth";
@@ -94,6 +93,7 @@ async function performRequest(
   try {
     return await fetch(`${API_URL}${path}`, {
       ...fetchOptions,
+      credentials: "include",
       headers,
     });
   } catch {
@@ -116,23 +116,12 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 async function executeRefresh(): Promise<string> {
-  const refreshToken = getRefreshToken();
-
-  if (!refreshToken) {
-    throw new ApiError(401, "No refresh token is available");
-  }
-
   let response: Response;
 
   try {
     response = await fetch(`${API_URL}/auth/refresh`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        refreshToken,
-      }),
+      credentials: "include",
     });
   } catch {
     throw new ApiError(0, `Cannot connect to API at ${API_URL}`);

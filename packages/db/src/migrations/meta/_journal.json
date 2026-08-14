@@ -64,6 +64,34 @@
       "when": 1786387091810,
       "tag": "0008_skinny_sue_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786705200000,
+      "tag": "0009_tenant_row_level_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786708800000,
+      "tag": "0010_permission_based_rbac",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786712400000,
+      "tag": "0011_append_only_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786723200000,
+      "tag": "0012_platform_notifications",
+      "breakpoints": true
     }
   ]
 }

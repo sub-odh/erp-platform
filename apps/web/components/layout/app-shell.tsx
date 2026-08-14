@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { getAccessToken } from "@/lib/auth";
+import { AUTH_SESSION_EXPIRED_EVENT, getAccessToken } from "@/lib/auth";
 import { getCurrentOrganization, resolveMediaUrl } from "@/lib/organizations";
 import type { Organization } from "@/types/organization";
 
@@ -33,9 +33,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
+    function routeToLogin(): void {
+      router.replace("/login");
+    }
+
     async function initialize(): Promise<void> {
       if (!getAccessToken()) {
-        router.replace("/login");
+        routeToLogin();
 
         return;
       }
@@ -68,6 +72,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       handleOrganizationUpdated,
     );
 
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, routeToLogin);
+
     return () => {
       active = false;
 
@@ -75,6 +81,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         "erp:organization-updated",
         handleOrganizationUpdated,
       );
+
+      window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, routeToLogin);
     };
   }, [router]);
 

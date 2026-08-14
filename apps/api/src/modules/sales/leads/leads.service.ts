@@ -9,6 +9,7 @@ import {
   createPaginatedResult,
   type PaginatedResult,
 } from '../../../common/pagination';
+import { NotificationsService } from '../../notifications/notifications.service';
 
 import { ConvertLeadDto } from './dto/convert-lead.dto';
 import { ConvertLeadResponseDto } from './dto/convert-lead-response.dto';
@@ -20,7 +21,10 @@ import { LeadsRepository } from './leads.repository';
 
 @Injectable()
 export class LeadsService {
-  constructor(private readonly leadsRepository: LeadsRepository) {}
+  constructor(
+    private readonly leadsRepository: LeadsRepository,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async list(
     tenantId: string,
@@ -101,6 +105,14 @@ export class LeadsService {
       notes: this.normalizeOptionalText(dto.notes),
     });
 
+    await this.notifyAssignment(
+      tenantId,
+      actorUserId,
+      created.ownerUserId,
+      created.id,
+      `${created.firstName} ${created.lastName}`,
+    );
+
     return LeadResponseDto.fromEntity(created);
   }
 
@@ -160,6 +172,16 @@ export class LeadsService {
 
     if (!updated) {
       throw new NotFoundException('Lead not found');
+    }
+
+    if (updated.ownerUserId !== existing.ownerUserId) {
+      await this.notifyAssignment(
+        tenantId,
+        actorUserId,
+        updated.ownerUserId,
+        updated.id,
+        `${updated.firstName} ${updated.lastName}`,
+      );
     }
 
     return LeadResponseDto.fromEntity(updated);
@@ -414,6 +436,27 @@ export class LeadsService {
         'Lead owner must be an active user in this organization',
       );
     }
+  }
+
+  private async notifyAssignment(
+    organizationId: string,
+    actorUserId: string,
+    recipientUserId: string | null | undefined,
+    leadId: string,
+    leadName: string,
+  ): Promise<void> {
+    if (!recipientUserId) return;
+    await this.notifications.notify({
+      organizationId,
+      recipientUserId,
+      actorUserId,
+      type: 'sales.lead.assigned',
+      title: 'Lead assigned to you',
+      message: `You are now responsible for ${leadName.trim()}.`,
+      actionUrl: '/leads',
+      entityType: 'sales.lead',
+      entityId: leadId,
+    });
   }
 
   private normalizeOptionalText(value: string | undefined): string | undefined {

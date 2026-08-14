@@ -1,11 +1,18 @@
 import { index, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 
+import { organizations } from "./organization";
 import { users } from "./user";
 
 export const authSessions = pgTable(
   "auth_sessions",
   {
     id: uuid("id").primaryKey(),
+
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, {
+        onDelete: "cascade",
+      }),
 
     userId: uuid("user_id")
       .notNull()
@@ -38,6 +45,7 @@ export const authSessions = pgTable(
       .notNull(),
   },
   (table) => [
+    index("auth_sessions_organization_id_index").on(table.organizationId),
     index("auth_sessions_user_id_index").on(table.userId),
     index("auth_sessions_expires_at_index").on(table.expiresAt),
   ],

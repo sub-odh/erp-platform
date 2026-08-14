@@ -32,10 +32,13 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
+import { AuditEntity } from '../../common/audit/audit.decorator';
+
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PERMISSIONS } from '../auth/permissions/permission.constants';
 import type { JwtPayload } from '../auth/types/jwt-payload.type';
 import { MEDIA_MAX_FILE_SIZE } from '../media/constants';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -53,8 +56,9 @@ import { UsersService } from './users.service';
 
 @ApiTags('Users')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER', 'ADMIN')
+@AuditEntity('platform.user')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermissions(PERMISSIONS.USERS_MANAGE)
 @Controller({
   path: 'users',
   version: '1',

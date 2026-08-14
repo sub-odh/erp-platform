@@ -11,7 +11,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import { AuditEntity } from '../../../common/audit/audit.decorator';
+
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
+import { PERMISSIONS } from '../../auth/permissions/permission.constants';
 import type { Request } from 'express';
 import type { JwtPayload } from '../../auth/types/jwt-payload.type';
 import { CustomersFacade } from './customers.facade';
@@ -28,7 +33,9 @@ type AuthenticatedRequest = Request & {
   path: 'sales/customers',
   version: '1',
 })
-@UseGuards(JwtAuthGuard)
+@AuditEntity('sales.customer')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermissions(PERMISSIONS.CRM_ACCESS)
 export class CustomersController {
   constructor(private readonly customersFacade: CustomersFacade) {}
 

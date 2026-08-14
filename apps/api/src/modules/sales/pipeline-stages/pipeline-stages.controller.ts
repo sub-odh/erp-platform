@@ -10,9 +10,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import { AuditEntity } from '../../../common/audit/audit.decorator';
+
 import type { Request } from 'express';
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../auth/guards/permissions.guard';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
+import { PERMISSIONS } from '../../auth/permissions/permission.constants';
 import type { JwtPayload } from '../../auth/types/jwt-payload.type';
 
 import { CreatePipelineStageDto } from './dto/create-pipeline-stage.dto';
@@ -28,7 +33,9 @@ type AuthenticatedRequest = Request & {
   path: 'sales/pipeline-stages',
   version: '1',
 })
-@UseGuards(JwtAuthGuard)
+@AuditEntity('sales.pipeline-stage')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermissions(PERMISSIONS.CRM_ACCESS)
 export class PipelineStagesController {
   constructor(private readonly pipelineStagesFacade: PipelineStagesFacade) {}
 

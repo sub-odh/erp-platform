@@ -12,9 +12,16 @@ export interface AuthUser {
 
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
   tokenType: "Bearer";
   expiresIn: number;
-  refreshExpiresIn: number;
   user: AuthUser;
+  license: LicenseSummary;
+}
+
+export interface LicenseSummary {
+  status: "valid" | "warning" | "read_only" | "blocked";
+  licensedModules: string[];
+  validUntil: string;
+  maxUsers: number;
+  daysUntilExpiry: number;
 }
