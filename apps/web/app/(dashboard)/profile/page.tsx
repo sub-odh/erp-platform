@@ -1,97 +1,142 @@
 "use client";
 
-import { KeyRound, Mail, ShieldCheck, UserRound } from "lucide-react";
-
+import {
+  BadgeCheck,
+  BriefcaseBusiness,
+  FileSignature,
+  Info,
+  KeyRound,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import { ImageUploader } from "@/components/media/image-uploader";
 import { PasswordRequirements } from "@/components/security/password-requirements";
 import { Button, Input } from "@/components/ui";
-
 import { clearAuthSession, updateStoredUser } from "@/lib/auth";
-
 import { resolveMediaUrl } from "@/lib/media";
-
 import {
   isStrongPassword,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/password-policy";
-
 import {
   changePassword,
   getProfile,
   removeProfileAvatar,
+  removeProfileSignature,
   updateProfile,
   uploadProfileAvatar,
+  uploadProfileSignature,
 } from "@/lib/profile";
-
+import { ROLE_LABELS } from "@/lib/user-roles";
 import type { User } from "@/types/user";
+
+interface ProfileFormState {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  dateOfBirth: string;
+  fatherName: string;
+  motherName: string;
+  citizenshipNumber: string;
+  panNumber: string;
+  permanentAddress: string;
+}
+
+const EMPTY_PROFILE_FORM: ProfileFormState = {
+  firstName: "",
+  lastName: "",
+  phone: "",
+  dateOfBirth: "",
+  fatherName: "",
+  motherName: "",
+  citizenshipNumber: "",
+  panNumber: "",
+  permanentAddress: "",
+};
+
+function createProfileForm(profile: User): ProfileFormState {
+  return {
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    phone: profile.phone ?? "",
+    dateOfBirth: profile.dateOfBirth ?? "",
+    fatherName: profile.fatherName ?? "",
+    motherName: profile.motherName ?? "",
+    citizenshipNumber: profile.citizenshipNumber ?? "",
+    panNumber: profile.panNumber ?? "",
+    permanentAddress: profile.permanentAddress ?? "",
+  };
+}
+
+function nullableValue(value: string): string | null {
+  return value.trim() || null;
+}
+
+function SectionHeading({
+  title,
+  icon,
+}: {
+  title: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-600">
+        {icon}
+        <span>{title}</span>
+      </div>
+      <div className="h-px flex-1 bg-slate-200" />
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const router = useRouter();
-
   const [profile, setProfile] = useState<User | null>(null);
-
-  const [firstName, setFirstName] = useState("");
-
-  const [lastName, setLastName] = useState("");
-
+  const [form, setForm] = useState<ProfileFormState>(EMPTY_PROFILE_FORM);
   const [loading, setLoading] = useState(true);
-
   const [saving, setSaving] = useState(false);
-
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-
   const [removingAvatar, setRemovingAvatar] = useState(false);
-
+  const [uploadingSignature, setUploadingSignature] = useState(false);
+  const [removingSignature, setRemovingSignature] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
-
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
-
   const [currentPassword, setCurrentPassword] = useState("");
-
   const [newPassword, setNewPassword] = useState("");
-
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [changingPassword, setChangingPassword] = useState(false);
-
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const syncProfile = useCallback((updated: User): void => {
-    setProfile(updated);
+  const applyProfile = useCallback(
+    (updated: User, resetForm: boolean): void => {
+      setProfile(updated);
 
-    setFirstName(updated.firstName);
+      if (resetForm) {
+        setForm(createProfileForm(updated));
+      }
 
-    setLastName(updated.lastName);
-
-    updateStoredUser({
-      firstName: updated.firstName,
-
-      lastName: updated.lastName,
-
-      email: updated.email,
-
-      role: updated.role,
-
-      avatarUrl: updated.avatarUrl,
-    });
-  }, []);
+      updateStoredUser({
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        email: updated.email,
+        role: updated.role,
+        avatarUrl: updated.avatarUrl,
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     async function loadProfile(): Promise<void> {
       setLoading(true);
-
       setProfileError(null);
 
       try {
-        const result = await getProfile();
-
-        syncProfile(result);
+        applyProfile(await getProfile(), true);
       } catch (requestError) {
         setProfileError(
           requestError instanceof Error
@@ -104,38 +149,40 @@ export default function ProfilePage() {
     }
 
     void loadProfile();
-  }, [syncProfile]);
+  }, [applyProfile]);
+
+  function updateField(field: keyof ProfileFormState, value: string): void {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
 
   async function handleProfileSubmit(
     event: FormEvent<HTMLFormElement>,
   ): Promise<void> {
     event.preventDefault();
 
-    const normalizedFirstName = firstName.trim();
-
-    const normalizedLastName = lastName.trim();
-
-    if (!normalizedFirstName || !normalizedLastName) {
+    if (!form.firstName.trim() || !form.lastName.trim()) {
       setProfileError("First name and last name are required.");
-
       return;
     }
 
     setSaving(true);
-
     setProfileError(null);
-
     setProfileSuccess(null);
 
     try {
       const updated = await updateProfile({
-        firstName: normalizedFirstName,
-
-        lastName: normalizedLastName,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        phone: nullableValue(form.phone),
+        dateOfBirth: nullableValue(form.dateOfBirth),
+        fatherName: nullableValue(form.fatherName),
+        motherName: nullableValue(form.motherName),
+        citizenshipNumber: nullableValue(form.citizenshipNumber),
+        panNumber: nullableValue(form.panNumber),
+        permanentAddress: nullableValue(form.permanentAddress),
       });
 
-      syncProfile(updated);
-
+      applyProfile(updated, true);
       setProfileSuccess("Profile updated successfully.");
     } catch (requestError) {
       setProfileError(
@@ -150,25 +197,18 @@ export default function ProfilePage() {
 
   async function handleAvatarUpload(file: File): Promise<void> {
     setUploadingAvatar(true);
-
     setProfileError(null);
-
     setProfileSuccess(null);
 
     try {
-      const updated = await uploadProfileAvatar(file);
-
-      syncProfile(updated);
-
+      applyProfile(await uploadProfileAvatar(file), false);
       setProfileSuccess("Profile picture updated.");
     } catch (requestError) {
-      const message =
+      setProfileError(
         requestError instanceof Error
           ? requestError.message
-          : "Unable to upload profile picture.";
-
-      setProfileError(message);
-
+          : "Unable to upload profile picture.",
+      );
       throw requestError;
     } finally {
       setUploadingAvatar(false);
@@ -177,16 +217,11 @@ export default function ProfilePage() {
 
   async function handleAvatarRemove(): Promise<void> {
     setRemovingAvatar(true);
-
     setProfileError(null);
-
     setProfileSuccess(null);
 
     try {
-      const updated = await removeProfileAvatar();
-
-      syncProfile(updated);
-
+      applyProfile(await removeProfileAvatar(), false);
       setProfileSuccess("Profile picture removed.");
     } catch (requestError) {
       setProfileError(
@@ -194,10 +229,49 @@ export default function ProfilePage() {
           ? requestError.message
           : "Unable to remove profile picture.",
       );
-
       throw requestError;
     } finally {
       setRemovingAvatar(false);
+    }
+  }
+
+  async function handleSignatureUpload(file: File): Promise<void> {
+    setUploadingSignature(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+
+    try {
+      applyProfile(await uploadProfileSignature(file), false);
+      setProfileSuccess("Digital signature updated.");
+    } catch (requestError) {
+      setProfileError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to upload digital signature.",
+      );
+      throw requestError;
+    } finally {
+      setUploadingSignature(false);
+    }
+  }
+
+  async function handleSignatureRemove(): Promise<void> {
+    setRemovingSignature(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+
+    try {
+      applyProfile(await removeProfileSignature(), false);
+      setProfileSuccess("Digital signature removed.");
+    } catch (requestError) {
+      setProfileError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to remove digital signature.",
+      );
+      throw requestError;
+    } finally {
+      setRemovingSignature(false);
     }
   }
 
@@ -205,24 +279,20 @@ export default function ProfilePage() {
     event: FormEvent<HTMLFormElement>,
   ): Promise<void> {
     event.preventDefault();
-
     setPasswordError(null);
 
     if (!currentPassword) {
       setPasswordError("Current password is required.");
-
       return;
     }
 
     if (!isStrongPassword(newPassword)) {
       setPasswordError(PASSWORD_POLICY_MESSAGE);
-
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setPasswordError("New passwords do not match.");
-
       return;
     }
 
@@ -230,7 +300,6 @@ export default function ProfilePage() {
       setPasswordError(
         "New password must be different from your current password.",
       );
-
       return;
     }
 
@@ -238,13 +307,7 @@ export default function ProfilePage() {
 
     try {
       await changePassword(currentPassword, newPassword);
-
-      /*
-       * Changing the password revokes
-       * the user's existing sessions.
-       */
       clearAuthSession();
-
       router.replace("/login?passwordChanged=1");
     } catch (requestError) {
       setPasswordError(
@@ -252,34 +315,29 @@ export default function ProfilePage() {
           ? requestError.message
           : "Unable to change password.",
       );
-
       setChangingPassword(false);
     }
   }
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-7xl">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 w-48 rounded bg-slate-200" />
-
-          <div className="h-64 rounded-2xl bg-slate-100" />
-
-          <div className="h-72 rounded-2xl bg-slate-100" />
+          <div className="h-8 w-64 rounded bg-slate-200" />
+          <div className="h-225 rounded-2xl bg-slate-100" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          My profile
+          My Personal Profile
         </h1>
-
         <p className="mt-1 text-sm text-slate-500">
-          Manage your personal information, profile picture, and password.
+          Manage your account identity and security settings.
         </p>
       </div>
 
@@ -290,124 +348,241 @@ export default function ProfilePage() {
       ) : null}
 
       {profile ? (
-        <>
-          <section className="overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <UserRound size={20} />
-                </div>
+        <section className="overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="grid items-center gap-8 border-b border-slate-100 px-6 py-8 sm:px-10 lg:grid-cols-[176px_1fr]">
+            <div className="flex justify-center lg:justify-start">
+              <ImageUploader
+                preset="profileAvatar"
+                value={resolveMediaUrl(profile.avatarUrl)}
+                emptyLabel="Add photo"
+                disabled={saving}
+                uploading={uploadingAvatar}
+                removing={removingAvatar}
+                onUpload={handleAvatarUpload}
+                onRemove={handleAvatarRemove}
+              />
+            </div>
 
-                <div>
-                  <h2 className="font-semibold text-slate-900">
-                    Personal information
-                  </h2>
+            <div className="text-center lg:text-left">
+              <h2 className="text-2xl font-semibold text-slate-900">
+                {profile.firstName} {profile.lastName}
+              </h2>
+              <div className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-slate-500 lg:justify-start">
+                <span className="inline-flex items-center gap-2">
+                  <BadgeCheck size={17} className="text-blue-600" />
+                  {profile.employeeId ?? "Employee ID not assigned"}
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <BriefcaseBusiness size={17} className="text-blue-600" />
+                  {ROLE_LABELS[profile.role]}
+                </span>
+              </div>
+            </div>
+          </div>
 
-                  <p className="text-sm text-slate-500">
-                    Your photo and basic account information.
-                  </p>
-                </div>
+          <form
+            onSubmit={handleProfileSubmit}
+            className="space-y-9 px-6 py-8 sm:px-10"
+          >
+            <div className="space-y-5">
+              <SectionHeading
+                title="Personal Details"
+                icon={<BadgeCheck size={15} />}
+              />
+              <div className="grid gap-5 md:grid-cols-3">
+                <Input
+                  label="First name"
+                  value={form.firstName}
+                  onChange={(event) =>
+                    updateField("firstName", event.target.value)
+                  }
+                  maxLength={100}
+                  required
+                />
+                <Input
+                  label="Last name"
+                  value={form.lastName}
+                  onChange={(event) =>
+                    updateField("lastName", event.target.value)
+                  }
+                  maxLength={100}
+                  required
+                />
+                <Input
+                  label="Phone contact"
+                  type="tel"
+                  value={form.phone}
+                  onChange={(event) => updateField("phone", event.target.value)}
+                  maxLength={50}
+                />
+              </div>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Input
+                  label="Official email"
+                  type="email"
+                  value={profile.email}
+                  disabled
+                  hint="Contact an administrator to change your login email."
+                />
+                <Input
+                  label="Date of birth"
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={(event) =>
+                    updateField("dateOfBirth", event.target.value)
+                  }
+                />
               </div>
             </div>
 
-            <div className="p-6">
-              <div className="grid gap-8 lg:grid-cols-[200px_1fr]">
-                <div className="flex justify-center lg:justify-start">
-                  <ImageUploader
-                    preset="avatar"
-                    value={resolveMediaUrl(profile.avatarUrl)}
-                    disabled={saving}
-                    uploading={uploadingAvatar}
-                    removing={removingAvatar}
-                    onUpload={handleAvatarUpload}
-                    onRemove={handleAvatarRemove}
-                  />
-                </div>
+            <div className="space-y-5">
+              <SectionHeading
+                title="Identity & Address"
+                icon={<BadgeCheck size={15} />}
+              />
+              <div className="grid gap-5 md:grid-cols-3">
+                <Input
+                  label="Father's name"
+                  value={form.fatherName}
+                  onChange={(event) =>
+                    updateField("fatherName", event.target.value)
+                  }
+                  maxLength={200}
+                />
+                <Input
+                  label="Mother's name"
+                  value={form.motherName}
+                  onChange={(event) =>
+                    updateField("motherName", event.target.value)
+                  }
+                  maxLength={200}
+                />
+                <Input
+                  label="Citizenship no."
+                  value={form.citizenshipNumber}
+                  onChange={(event) =>
+                    updateField("citizenshipNumber", event.target.value)
+                  }
+                  maxLength={100}
+                />
+              </div>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Input
+                  label="PAN number"
+                  value={form.panNumber}
+                  onChange={(event) =>
+                    updateField("panNumber", event.target.value)
+                  }
+                  maxLength={100}
+                />
+                <Input
+                  label="Permanent address"
+                  value={form.permanentAddress}
+                  onChange={(event) =>
+                    updateField("permanentAddress", event.target.value)
+                  }
+                  maxLength={500}
+                />
+              </div>
+            </div>
 
-                <form onSubmit={handleProfileSubmit} className="space-y-5">
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <Input
-                      label="First name"
-                      value={firstName}
-                      onChange={(event) => setFirstName(event.target.value)}
-                      maxLength={100}
-                      required
-                    />
-
-                    <Input
-                      label="Last name"
-                      value={lastName}
-                      onChange={(event) => setLastName(event.target.value)}
-                      maxLength={100}
-                      required
-                    />
-                  </div>
-
-                  <Input
-                    label="Email"
-                    value={profile.email}
-                    leadingIcon={<Mail size={17} />}
-                    disabled
-                    hint="Contact an administrator if your email address needs to be changed."
-                  />
-
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-slate-700">
-                      Role
-                    </p>
-
-                    <div className="flex h-11 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600">
-                      <ShieldCheck size={17} className="text-slate-400" />
-
-                      {profile.role}
-                    </div>
-                  </div>
-
-                  {profileError ? (
-                    <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                      {profileError}
-                    </div>
-                  ) : null}
-
-                  {profileSuccess ? (
-                    <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                      {profileSuccess}
-                    </div>
-                  ) : null}
-
-                  <div className="flex justify-end border-t border-slate-100 pt-5">
-                    <Button
-                      type="submit"
-                      loading={saving}
-                      disabled={uploadingAvatar || removingAvatar}
+            <div className="space-y-5">
+              <SectionHeading
+                title="Digital Authorization Signature"
+                icon={<FileSignature size={15} />}
+              />
+              <div className="grid items-start gap-8 lg:grid-cols-[1fr_320px]">
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-slate-700">
+                    Upload official signature (.PNG only)
+                  </p>
+                  <div className="flex h-11 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <label
+                      htmlFor="profile-signature-upload"
+                      aria-disabled={
+                        saving || uploadingSignature || removingSignature
+                      }
+                      className={[
+                        "flex cursor-pointer items-center border-r border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100",
+                        saving || uploadingSignature || removingSignature
+                          ? "pointer-events-none opacity-60"
+                          : "",
+                      ].join(" ")}
                     >
-                      Save changes
-                    </Button>
+                      Choose PNG file
+                    </label>
+                    <span className="flex min-w-0 flex-1 items-center truncate px-4 text-sm text-slate-500">
+                      {profile.signatureUrl
+                        ? "Official signature uploaded"
+                        : "No file chosen"}
+                    </span>
                   </div>
-                </form>
-              </div>
-            </div>
-          </section>
-
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                  <KeyRound size={20} />
-                </div>
-
-                <div>
-                  <h2 className="font-semibold text-slate-900">Password</h2>
-
-                  <p className="text-sm text-slate-500">
-                    Change your account password.
+                  <p className="text-sm leading-6 text-slate-500">
+                    This signature may be used on authorized company documents.
+                    Use a clear image with a transparent or white background.
                   </p>
+                  <div className="flex items-start gap-2 text-xs text-blue-700">
+                    <Info size={15} className="mt-0.5 shrink-0" />
+                    <span>Normalized to 300 × 197 pixels before upload.</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-medium text-slate-700">
+                    Signature reference preview
+                  </p>
+                  <ImageUploader
+                    preset="signature"
+                    value={resolveMediaUrl(profile.signatureUrl)}
+                    accept="image/png"
+                    emptyLabel="Add signature"
+                    previewAspectRatio
+                    inputId="profile-signature-upload"
+                    disabled={saving}
+                    uploading={uploadingSignature}
+                    removing={removingSignature}
+                    onUpload={handleSignatureUpload}
+                    onRemove={handleSignatureRemove}
+                  />
                 </div>
               </div>
             </div>
 
-            <form onSubmit={handlePasswordSubmit} className="space-y-5 p-6">
-              <div className="max-w-xl space-y-5">
+            {profileError ? (
+              <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                {profileError}
+              </div>
+            ) : null}
+
+            {profileSuccess ? (
+              <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {profileSuccess}
+              </div>
+            ) : null}
+
+            <div className="flex justify-end border-t border-slate-100 pt-6">
+              <Button
+                type="submit"
+                loading={saving}
+                disabled={
+                  uploadingAvatar ||
+                  removingAvatar ||
+                  uploadingSignature ||
+                  removingSignature
+                }
+                className="w-full sm:w-auto sm:min-w-64"
+              >
+                Update My Profile
+              </Button>
+            </div>
+          </form>
+
+          <div className="border-t border-slate-100 px-6 py-8 sm:px-10">
+            <form onSubmit={handlePasswordSubmit} className="space-y-6">
+              <SectionHeading
+                title="Account Security"
+                icon={<KeyRound size={15} />}
+              />
+              <div className="grid items-start gap-5 lg:grid-cols-3">
                 <Input
                   label="Current password"
                   type="password"
@@ -417,7 +592,6 @@ export default function ProfilePage() {
                   maxLength={PASSWORD_MAX_LENGTH}
                   required
                 />
-
                 <div className="space-y-3">
                   <Input
                     label="New password"
@@ -429,10 +603,8 @@ export default function ProfilePage() {
                     maxLength={PASSWORD_MAX_LENGTH}
                     required
                   />
-
                   <PasswordRequirements password={newPassword} />
                 </div>
-
                 <Input
                   label="Confirm new password"
                   type="password"
@@ -443,26 +615,27 @@ export default function ProfilePage() {
                   maxLength={PASSWORD_MAX_LENGTH}
                   required
                 />
-
-                {passwordError ? (
-                  <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {passwordError}
-                  </div>
-                ) : null}
               </div>
 
-              <div className="flex justify-end border-t border-slate-100 pt-5">
+              {passwordError ? (
+                <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {passwordError}
+                </div>
+              ) : null}
+
+              <div className="flex justify-end">
                 <Button
                   type="submit"
                   variant="secondary"
                   loading={changingPassword}
+                  className="w-full sm:w-auto sm:min-w-64"
                 >
-                  Change password
+                  Change Password
                 </Button>
               </div>
             </form>
-          </section>
-        </>
+          </div>
+        </section>
       ) : null}
     </div>
   );

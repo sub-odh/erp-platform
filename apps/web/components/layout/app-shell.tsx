@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { AUTH_SESSION_EXPIRED_EVENT, getAccessToken } from "@/lib/auth";
-import { getCurrentOrganization, resolveMediaUrl } from "@/lib/organizations";
-import type { Organization } from "@/types/organization";
+import { getCurrentCompany, resolveMediaUrl } from "@/lib/company";
+import type { Company } from "@/types/company";
 
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
@@ -20,7 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
 
   const [ready, setReady] = useState(false);
 
@@ -45,10 +45,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const result = await getCurrentOrganization();
+        const result = await getCurrentCompany();
 
         if (active) {
-          setOrganization(result);
+          setCompany(result);
         }
       } catch {
         // Keep shell usable with fallback branding.
@@ -61,34 +61,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     void initialize();
 
-    function handleOrganizationUpdated(event: Event): void {
-      const customEvent = event as CustomEvent<Organization>;
+    function handleCompanyUpdated(event: Event): void {
+      const customEvent = event as CustomEvent<Company>;
 
-      setOrganization(customEvent.detail);
+      setCompany(customEvent.detail);
     }
 
-    window.addEventListener(
-      "erp:organization-updated",
-      handleOrganizationUpdated,
-    );
+    window.addEventListener("erp:company-updated", handleCompanyUpdated);
 
     window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, routeToLogin);
 
     return () => {
       active = false;
 
-      window.removeEventListener(
-        "erp:organization-updated",
-        handleOrganizationUpdated,
-      );
+      window.removeEventListener("erp:company-updated", handleCompanyUpdated);
 
       window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, routeToLogin);
     };
   }, [router]);
 
   useEffect(() => {
-    updateBrowserBranding(organization);
-  }, [organization, pathname]);
+    updateBrowserBranding(company);
+  }, [company, pathname]);
 
   function toggleSidebarCollapsed(): void {
     setSidebarCollapsed((current) => {
@@ -113,7 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar
         open={sidebarOpen}
         collapsed={sidebarCollapsed}
-        organization={organization}
+        company={company}
         onClose={() => setSidebarOpen(false)}
         onToggleCollapsed={toggleSidebarCollapsed}
       />
@@ -132,12 +126,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function updateBrowserBranding(organization: Organization | null): void {
+function updateBrowserBranding(company: Company | null): void {
   if (typeof document === "undefined") {
     return;
   }
 
-  const organizationName = organization?.name?.trim() || "ERP Platform";
+  const companyName = company?.name?.trim() || "ERP Platform";
 
   /*
    * Browser tab:
@@ -147,9 +141,9 @@ function updateBrowserBranding(organization: Organization | null): void {
    * rather than:
    * XYZ - Business workspace
    */
-  document.title = organizationName;
+  document.title = companyName;
 
-  const logoUrl = resolveMediaUrl(organization?.logoUrl);
+  const logoUrl = resolveMediaUrl(company?.logoUrl);
 
   if (!logoUrl) {
     return;
@@ -166,7 +160,7 @@ function updateBrowserBranding(organization: Organization | null): void {
     ),
   );
 
-  const faviconUrl = addFaviconCacheBuster(logoUrl, organization?.updatedAt);
+  const faviconUrl = addFaviconCacheBuster(logoUrl, company?.updatedAt);
 
   if (existingIcons.length > 0) {
     existingIcons.forEach((icon) => {

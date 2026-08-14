@@ -13,6 +13,13 @@ import {
 } from './create-user.dto';
 
 export class UpdateUserDto {
+  @ApiPropertyOptional({ example: 'EMP-001', maxLength: 50 })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  employeeId?: string;
+
   @ApiPropertyOptional({
     example: 'Jane',
     maxLength: 100,

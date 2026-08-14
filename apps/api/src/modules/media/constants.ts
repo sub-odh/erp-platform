@@ -9,6 +9,8 @@ export const MEDIA_ALLOWED_MIME_TYPES = [
 export type MediaMimeType = (typeof MEDIA_ALLOWED_MIME_TYPES)[number];
 
 export const MEDIA_FOLDERS = [
+  'company',
+  // Retained so existing company logos in /uploads/organizations keep working.
   'organizations',
   'users',
   'products',

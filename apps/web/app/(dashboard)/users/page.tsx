@@ -9,7 +9,12 @@ import { EditUserModal } from "@/components/users/edit-user-modal";
 import { ResetUserPasswordModal } from "@/components/users/reset-user-password-modal";
 import { UserTable } from "@/components/users/user-table";
 import { getStoredUser } from "@/lib/auth";
-import { getUsers, restoreUser, updateUserStatus } from "@/lib/users";
+import {
+  getUsers,
+  permanentlyDeleteUser,
+  restoreUser,
+  updateUserStatus,
+} from "@/lib/users";
 import type {
   User,
   UserListCounts,
@@ -167,6 +172,24 @@ export default function UsersPage() {
     }
   }
 
+  async function handleDelete(user: User): Promise<void> {
+    setBusyUserId(user.id);
+    setError(null);
+
+    try {
+      await permanentlyDeleteUser(user.id);
+      await loadUsers(pagination.page);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to delete user",
+      );
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
   return (
     <>
       <div className="mx-auto max-w-7xl">
@@ -184,8 +207,7 @@ export default function UsersPage() {
               <h1 className="text-3xl font-semibold text-slate-900">Users</h1>
 
               <p className="mt-2 text-slate-500">
-                Manage organization access, roles, passwords, and account
-                status.
+                Manage company access, roles, passwords, and account status.
               </p>
             </div>
           </div>
@@ -234,7 +256,7 @@ export default function UsersPage() {
               <input
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search by name, email, or role"
+                placeholder="Search by employee ID, name, email, or role"
                 className="w-full border-0 bg-transparent py-3 outline-none"
               />
             </label>
@@ -277,12 +299,14 @@ export default function UsersPage() {
             <UserTable
               users={users}
               currentUserId={currentUser?.id ?? null}
+              currentUserRole={currentUser?.role ?? null}
               busyUserId={busyUserId}
               archivedView={status === "archived"}
               onEdit={setEditingUser}
               onResetPassword={setResettingUser}
               onToggleStatus={handleToggleStatus}
               onArchive={setArchivingUser}
+              onDelete={handleDelete}
               onRestore={handleRestore}
             />
 

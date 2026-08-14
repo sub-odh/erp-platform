@@ -16,7 +16,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AuthorizationModule } from './modules/auth/permissions/authorization.module';
 import { MediaModule } from './modules/media/media.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { SmtpModule } from './modules/smtp/smtp.module';
+import { CompanyModule } from './modules/company/company.module';
 
 import { CustomersModule } from './modules/sales/customers/customers.module';
 import { LeadsModule } from './modules/sales/leads/leads.module';
@@ -61,6 +62,8 @@ import { UsersModule } from './modules/users/users.module';
 
     NotificationsModule,
 
+    SmtpModule,
+
     AuthModule,
 
     UsersModule,
@@ -73,7 +76,7 @@ import { UsersModule } from './modules/users/users.module';
 
     OpportunitiesModule,
 
-    OrganizationsModule,
+    CompanyModule,
 
     MediaModule,
   ],

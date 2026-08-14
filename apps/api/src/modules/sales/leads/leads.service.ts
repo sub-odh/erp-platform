@@ -254,7 +254,7 @@ export class LeadsService {
 
     if (!stage) {
       throw new BadRequestException(
-        'Pipeline stage must be active and belong to this organization',
+        'Pipeline stage must be active and belong to this company',
       );
     }
 
@@ -272,7 +272,7 @@ export class LeadsService {
 
       if (!customer) {
         throw new BadRequestException(
-          'Customer must be active and belong to this organization',
+          'Customer must be active and belong to this company',
         );
       }
     }
@@ -433,7 +433,7 @@ export class LeadsService {
 
     if (!exists) {
       throw new BadRequestException(
-        'Lead owner must be an active user in this organization',
+        'Lead owner must be an active user in this company',
       );
     }
   }

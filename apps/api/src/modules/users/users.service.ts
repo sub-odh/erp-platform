@@ -39,14 +39,23 @@ import type {
 import type { UpdateUserDto } from './dto/update-user.dto';
 import { LicensingService } from '../../common/licensing/licensing.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MediaService } from '../media/media.service';
 
 export type PublicUser = Pick<
   User,
   | 'id'
   | 'organizationId'
+  | 'employeeId'
   | 'email'
   | 'firstName'
   | 'lastName'
+  | 'phone'
+  | 'dateOfBirth'
+  | 'fatherName'
+  | 'motherName'
+  | 'citizenshipNumber'
+  | 'panNumber'
+  | 'permanentAddress'
   | 'role'
   | 'isActive'
   | 'lastLoginAt'
@@ -54,6 +63,10 @@ export type PublicUser = Pick<
   | 'avatarFileName'
   | 'avatarMimeType'
   | 'avatarSize'
+  | 'signatureUrl'
+  | 'signatureFileName'
+  | 'signatureMimeType'
+  | 'signatureSize'
   | 'createdAt'
   | 'updatedAt'
   | 'deletedAt'
@@ -73,9 +86,17 @@ export interface PaginatedUsersResult extends PaginatedResult<PublicUser> {
 const publicUserSelection = {
   id: users.id,
   organizationId: users.organizationId,
+  employeeId: users.employeeId,
   email: users.email,
   firstName: users.firstName,
   lastName: users.lastName,
+  phone: users.phone,
+  dateOfBirth: users.dateOfBirth,
+  fatherName: users.fatherName,
+  motherName: users.motherName,
+  citizenshipNumber: users.citizenshipNumber,
+  panNumber: users.panNumber,
+  permanentAddress: users.permanentAddress,
   role: users.role,
   isActive: users.isActive,
   lastLoginAt: users.lastLoginAt,
@@ -83,6 +104,10 @@ const publicUserSelection = {
   avatarFileName: users.avatarFileName,
   avatarMimeType: users.avatarMimeType,
   avatarSize: users.avatarSize,
+  signatureUrl: users.signatureUrl,
+  signatureFileName: users.signatureFileName,
+  signatureMimeType: users.signatureMimeType,
+  signatureSize: users.signatureSize,
   createdAt: users.createdAt,
   updatedAt: users.updatedAt,
   deletedAt: users.deletedAt,
@@ -96,8 +121,16 @@ function canAssignRole(
     return true;
   }
 
+  if (actorRole === 'SUPER_ADMIN') {
+    return targetRole !== 'SUPER_ADMIN';
+  }
+
   if (actorRole === 'ADMIN') {
-    return targetRole === 'MANAGER' || targetRole === 'STAFF';
+    return targetRole !== 'SUPER_ADMIN' && targetRole !== 'ADMIN';
+  }
+
+  if (actorRole === 'HR') {
+    return targetRole === 'EMPLOYEE';
   }
 
   return false;
@@ -111,8 +144,16 @@ function canManageUser(
     return true;
   }
 
+  if (actorRole === 'SUPER_ADMIN') {
+    return targetRole !== 'OWNER' && targetRole !== 'SUPER_ADMIN';
+  }
+
   if (actorRole === 'ADMIN') {
-    return targetRole === 'MANAGER' || targetRole === 'STAFF';
+    return !['OWNER', 'SUPER_ADMIN', 'ADMIN'].includes(targetRole);
+  }
+
+  if (actorRole === 'HR') {
+    return targetRole === 'EMPLOYEE';
   }
 
   return false;
@@ -154,6 +195,7 @@ export class UsersService {
   constructor(
     private readonly licensingService: LicensingService,
     private readonly notifications: NotificationsService,
+    private readonly mediaService: MediaService,
   ) {}
 
   async findByOrganizationAndEmail(
@@ -301,23 +343,30 @@ export class UsersService {
     }
 
     const normalizedEmail = createUserDto.email.trim().toLowerCase();
+    const normalizedEmployeeId = createUserDto.employeeId.trim().toUpperCase();
 
     const [existingUser] = await db
       .select({
-        id: users.id,
+        email: users.email,
+        employeeId: users.employeeId,
       })
       .from(users)
       .where(
         and(
           eq(users.organizationId, organizationId),
-          eq(users.email, normalizedEmail),
+          or(
+            eq(users.email, normalizedEmail),
+            eq(users.employeeId, normalizedEmployeeId),
+          ),
         ),
       )
       .limit(1);
 
     if (existingUser) {
       throw new ConflictException(
-        'A user with this email already exists in the organization',
+        existingUser.email === normalizedEmail
+          ? 'A user with this email already exists in the company'
+          : 'A user with this employee ID already exists in the company',
       );
     }
 
@@ -328,6 +377,7 @@ export class UsersService {
         .insert(users)
         .values({
           organizationId,
+          employeeId: normalizedEmployeeId,
           email: normalizedEmail,
           passwordHash,
           firstName: createUserDto.firstName.trim(),
@@ -358,7 +408,7 @@ export class UsersService {
     } catch (error: unknown) {
       if (getDatabaseErrorCode(error) === '23505') {
         throw new ConflictException(
-          'A user with this email already exists in the organization',
+          'A user with this email or employee ID already exists in the company',
         );
       }
 
@@ -414,9 +464,33 @@ export class UsersService {
       updateUserDto.role !== undefined &&
       updateUserDto.role !== targetUser.role;
 
+    const employeeId =
+      updateUserDto.employeeId !== undefined
+        ? updateUserDto.employeeId.trim().toUpperCase()
+        : targetUser.employeeId;
+
+    if (employeeId && employeeId !== targetUser.employeeId) {
+      const [duplicate] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(
+          and(
+            eq(users.organizationId, organizationId),
+            eq(users.employeeId, employeeId),
+          ),
+        )
+        .limit(1);
+      if (duplicate) {
+        throw new ConflictException(
+          'A user with this employee ID already exists in the company',
+        );
+      }
+    }
+
     const [updatedUser] = await db
       .update(users)
       .set({
+        employeeId,
         firstName:
           updateUserDto.firstName !== undefined
             ? updateUserDto.firstName.trim()
@@ -665,6 +739,64 @@ export class UsersService {
     await this.revokeAllUserSessions(targetUserId);
   }
 
+  async permanentlyDeleteUser(
+    organizationId: string,
+    actorUserId: string,
+    actorRole: User['role'],
+    targetUserId: string,
+  ): Promise<void> {
+    if (actorRole !== 'OWNER') {
+      throw new ForbiddenException(
+        'Only the company owner can permanently delete users',
+      );
+    }
+
+    if (actorUserId === targetUserId) {
+      throw new ForbiddenException('You cannot delete your own account');
+    }
+
+    const [targetUser] = await db
+      .select({
+        id: users.id,
+        role: users.role,
+        avatarUrl: users.avatarUrl,
+        signatureUrl: users.signatureUrl,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (targetUser.role === 'OWNER') {
+      throw new ForbiddenException('The owner account cannot be deleted');
+    }
+
+    const [deletedUser] = await db
+      .delete(users)
+      .where(
+        and(
+          eq(users.id, targetUserId),
+          eq(users.organizationId, organizationId),
+        ),
+      )
+      .returning({ id: users.id });
+
+    if (!deletedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.mediaService.deleteImage(targetUser.avatarUrl);
+    await this.mediaService.deleteImage(targetUser.signatureUrl);
+  }
+
   async restoreUser(
     organizationId: string,
     actorRole: User['role'],
@@ -762,6 +894,7 @@ export class UsersService {
         ilike(users.firstName, pattern),
         ilike(users.lastName, pattern),
         ilike(users.email, pattern),
+        ilike(users.employeeId, pattern),
         ilike(users.role, pattern),
       );
 

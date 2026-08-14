@@ -7,6 +7,7 @@ import { Button, Input, Modal, Select } from "@/components/ui";
 import { getStoredUser, updateStoredUser } from "@/lib/auth";
 import { resolveMediaUrl } from "@/lib/media";
 import { removeUserAvatar, updateUser, uploadUserAvatar } from "@/lib/users";
+import { getAssignableRoles, ROLE_LABELS } from "@/lib/user-roles";
 import type { UpdateUserRequest, User, UserRole } from "@/types/user";
 
 interface EditUserModalProps {
@@ -30,6 +31,8 @@ export function EditUserModal({
 
   const [lastName, setLastName] = useState("");
 
+  const [employeeId, setEmployeeId] = useState("");
+
   const [role, setRole] = useState<Exclude<UserRole, "OWNER">>("STAFF");
 
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +55,8 @@ export function EditUserModal({
 
     setLastName(user.lastName);
 
+    setEmployeeId(user.employeeId ?? "");
+
     if (user.role !== "OWNER") {
       setRole(user.role);
     }
@@ -59,13 +64,10 @@ export function EditUserModal({
     setError(null);
   }, [user]);
 
-  const allowedRoles = useMemo(() => {
-    if (currentUser?.role === "OWNER") {
-      return ["ADMIN", "MANAGER", "STAFF"] as const;
-    }
-
-    return ["MANAGER", "STAFF"] as const;
-  }, [currentUser?.role]);
+  const allowedRoles = useMemo(
+    () => getAssignableRoles(currentUser?.role),
+    [currentUser?.role],
+  );
 
   const busy = submitting || uploadingAvatar || removingAvatar;
 
@@ -173,6 +175,8 @@ export function EditUserModal({
     }
 
     const payload: UpdateUserRequest = {
+      employeeId: employeeId.trim().toUpperCase(),
+
       firstName: normalizedFirstName,
 
       lastName: normalizedLastName,
@@ -208,7 +212,7 @@ export function EditUserModal({
     <Modal
       open={open}
       title="Edit user"
-      description="Update the user's profile, avatar, and role."
+      description="Update the employee ID, profile, avatar, and company role."
       onClose={handleClose}
       className="max-w-2xl"
       footer={
@@ -244,6 +248,14 @@ export function EditUserModal({
         ) : null}
 
         <form id="edit-user-form" onSubmit={handleSubmit} className="space-y-5">
+          <Input
+            label="Employee ID"
+            value={employeeId}
+            onChange={(event) => setEmployeeId(event.target.value)}
+            maxLength={50}
+            required
+          />
+
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
               label="First name"
@@ -279,7 +291,7 @@ export function EditUserModal({
           >
             {allowedRoles.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {ROLE_LABELS[option]}
               </option>
             ))}
           </Select>

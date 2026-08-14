@@ -60,7 +60,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Log in to an organization',
+    summary: 'Log in to a company',
   })
   @ApiOkResponse({
     type: LoginResponseDto,

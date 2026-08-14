@@ -82,7 +82,7 @@ export default function LoginPage() {
           </h1>
 
           <p className="mt-6 text-lg leading-8 text-slate-300">
-            Secure organization access, users, inventory, sales, purchasing, and
+            Secure company access, users, inventory, sales, purchasing, and
             reporting.
           </p>
         </div>
@@ -100,14 +100,14 @@ export default function LoginPage() {
             </h2>
 
             <p className="mt-2 text-sm text-slate-500">
-              Enter your organization and account details.
+              Enter your company and account details.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-slate-700">
-                Organization code
+                Company code
               </span>
 
               <div className="flex items-center gap-3 rounded-lg border border-slate-300 px-3 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">

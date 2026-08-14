@@ -48,7 +48,7 @@ export class LicensingService implements OnModuleInit {
   assertTenant(tenantId: string): void {
     const license = this.getLicense();
     if (license.tenantId !== '*' && license.tenantId !== tenantId) {
-      throw new ForbiddenException('License does not belong to this organization');
+      throw new ForbiddenException('License does not belong to this company');
     }
     if (license.status === 'blocked') {
       throw new ForbiddenException('License has expired');
@@ -63,7 +63,9 @@ export class LicensingService implements OnModuleInit {
 
   assertWritable(): void {
     if (this.getLicense().status === 'read_only') {
-      throw new ForbiddenException('License is expired; the system is read-only');
+      throw new ForbiddenException(
+        'License is expired; the system is read-only',
+      );
     }
   }
 

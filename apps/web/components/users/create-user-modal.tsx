@@ -18,6 +18,8 @@ import {
 
 import { createUser, uploadUserAvatar } from "@/lib/users";
 
+import { getAssignableRoles, ROLE_LABELS } from "@/lib/user-roles";
+
 import type { CreateUserRequest, User } from "@/types/user";
 
 interface CreateUserModalProps {
@@ -29,6 +31,8 @@ interface CreateUserModalProps {
 }
 
 const initialForm: CreateUserRequest = {
+  employeeId: "",
+
   firstName: "",
 
   lastName: "",
@@ -37,7 +41,7 @@ const initialForm: CreateUserRequest = {
 
   password: "",
 
-  role: "STAFF",
+  role: "EMPLOYEE",
 };
 
 export function CreateUserModal({
@@ -61,13 +65,10 @@ export function CreateUserModal({
 
   const [submitting, setSubmitting] = useState(false);
 
-  const allowedRoles = useMemo(() => {
-    if (currentUser?.role === "OWNER") {
-      return ["ADMIN", "MANAGER", "STAFF"] as const;
-    }
-
-    return ["MANAGER", "STAFF"] as const;
-  }, [currentUser?.role]);
+  const allowedRoles = useMemo(
+    () => getAssignableRoles(currentUser?.role),
+    [currentUser?.role],
+  );
 
   function updateField<Key extends keyof CreateUserRequest>(
     key: Key,
@@ -130,6 +131,8 @@ export function CreateUserModal({
       const created = await createUser({
         ...form,
 
+        employeeId: form.employeeId.trim().toUpperCase(),
+
         firstName: form.firstName.trim(),
 
         lastName: form.lastName.trim(),
@@ -181,7 +184,7 @@ export function CreateUserModal({
     <Modal
       open={open}
       title="Create user"
-      description="Add a user to the current organization."
+      description="Add an employee login and access role to this company."
       onClose={resetAndClose}
       className="max-w-2xl"
       footer={
@@ -215,6 +218,17 @@ export function CreateUserModal({
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
+          <Input
+            label="Employee ID"
+            value={form.employeeId}
+            onChange={(event) => updateField("employeeId", event.target.value)}
+            maxLength={50}
+            disabled={userAlreadyCreated}
+            required
+          />
+
+          <div className="hidden sm:block" />
+
           <Input
             label="First name"
             value={form.firstName}
@@ -301,7 +315,7 @@ export function CreateUserModal({
         >
           {allowedRoles.map((role) => (
             <option key={role} value={role}>
-              {role}
+              {ROLE_LABELS[role]}
             </option>
           ))}
         </Select>

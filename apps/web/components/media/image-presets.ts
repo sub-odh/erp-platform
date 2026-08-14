@@ -10,6 +10,28 @@ export const IMAGE_UPLOAD_PRESETS = {
     label: "Profile picture",
   },
 
+  profileAvatar: {
+    aspectRatio: 1,
+    width: 256,
+    height: 256,
+    maxFileSize: 2 * 1024 * 1024,
+    outputType: "image/webp",
+    outputQuality: 0.9,
+    cropShape: "rect",
+    label: "Profile picture",
+  },
+
+  signature: {
+    aspectRatio: 300 / 197,
+    width: 300,
+    height: 197,
+    maxFileSize: 2 * 1024 * 1024,
+    outputType: "image/png",
+    outputQuality: 1,
+    cropShape: "rect",
+    label: "Official signature",
+  },
+
   companyLogo: {
     aspectRatio: 1,
     width: 512,

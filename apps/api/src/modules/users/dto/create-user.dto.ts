@@ -16,11 +16,28 @@ import {
   PASSWORD_POLICY_MESSAGE,
 } from '../../../common/security/password-policy';
 
-export const ASSIGNABLE_USER_ROLES = ['ADMIN', 'MANAGER', 'STAFF'] as const;
+export const ASSIGNABLE_USER_ROLES = [
+  'SUPER_ADMIN',
+  'ADMIN',
+  'HR',
+  'OPERATIONS',
+  'EMPLOYEE',
+  'SALES',
+  'MANAGEMENT',
+  'HEAD',
+  'MANAGER',
+  'STAFF',
+] as const;
 
 export type AssignableUserRole = (typeof ASSIGNABLE_USER_ROLES)[number];
 
 export class CreateUserDto {
+  @ApiProperty({ example: 'EMP-001', maxLength: 50 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  employeeId!: string;
+
   @ApiProperty({
     example: 'employee@mycompany.com',
   })

@@ -107,6 +107,12 @@ export function archiveUser(userId: string) {
   });
 }
 
+export function permanentlyDeleteUser(userId: string) {
+  return apiRequest<void>(`/users/${userId}/permanent`, {
+    method: "DELETE",
+  });
+}
+
 export function restoreUser(userId: string) {
   return apiRequest<User>(`/users/${userId}/restore`, {
     method: "POST",

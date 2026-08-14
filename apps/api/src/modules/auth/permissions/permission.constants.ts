@@ -3,6 +3,7 @@ export const PERMISSIONS = {
   ORGANIZATION_MANAGE: 'platform.organization.manage',
   AUDIT_READ: 'platform.audit.read',
   NOTIFICATIONS_MANAGE: 'platform.notifications.manage',
+  SMTP_MANAGE: 'platform.smtp.manage',
   CRM_ACCESS: 'sales.crm.access',
   CRM_PERMANENT_DELETE: 'sales.crm.permanent-delete',
 } as const;
@@ -11,7 +12,14 @@ export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const DEFAULT_ROLE_PERMISSIONS = {
   OWNER: Object.values(PERMISSIONS),
+  SUPER_ADMIN: Object.values(PERMISSIONS),
   ADMIN: Object.values(PERMISSIONS),
+  HR: [PERMISSIONS.USERS_MANAGE],
+  OPERATIONS: [],
+  EMPLOYEE: [],
+  SALES: [PERMISSIONS.CRM_ACCESS],
+  MANAGEMENT: [PERMISSIONS.CRM_ACCESS, PERMISSIONS.AUDIT_READ],
+  HEAD: [PERMISSIONS.CRM_ACCESS],
   MANAGER: [PERMISSIONS.CRM_ACCESS],
   STAFF: [PERMISSIONS.CRM_ACCESS],
 } as const;

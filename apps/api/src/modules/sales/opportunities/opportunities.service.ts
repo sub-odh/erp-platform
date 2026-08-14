@@ -381,7 +381,7 @@ export class OpportunitiesService {
 
     if (!stage) {
       throw new BadRequestException(
-        'Pipeline stage must be active and belong to this organization',
+        'Pipeline stage must be active and belong to this company',
       );
     }
 
@@ -427,7 +427,7 @@ export class OpportunitiesService {
 
       if (!customer) {
         throw new BadRequestException(
-          'Customer must be active and belong to this organization',
+          'Customer must be active and belong to this company',
         );
       }
     }
@@ -439,7 +439,7 @@ export class OpportunitiesService {
       );
 
       if (!lead) {
-        throw new BadRequestException('Lead must belong to this organization');
+        throw new BadRequestException('Lead must belong to this company');
       }
     }
 
@@ -451,7 +451,7 @@ export class OpportunitiesService {
 
       if (!ownerExists) {
         throw new BadRequestException(
-          'Opportunity owner must be an active user in this organization',
+          'Opportunity owner must be an active user in this company',
         );
       }
     }

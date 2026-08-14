@@ -2,11 +2,13 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
+  IsDateString,
   IsOptional,
   IsString,
   IsUrl,
   Length,
   MaxLength,
+  Matches,
 } from 'class-validator';
 
 const trimString = ({ value }: { value: unknown }): unknown =>
@@ -15,7 +17,7 @@ const trimString = ({ value }: { value: unknown }): unknown =>
 const trimUppercaseString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim().toUpperCase() : value;
 
-export class UpdateOrganizationDto {
+export class UpdateCompanyDto {
   @ApiPropertyOptional({
     example: 'My Company',
     maxLength: 200,
@@ -45,6 +47,11 @@ export class UpdateOrganizationDto {
   @MaxLength(100)
   @Transform(trimString)
   registrationNumber?: string;
+
+  @ApiPropertyOptional({ example: '2018-03-10', format: 'date' })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  registrationDate?: string;
 
   @ApiPropertyOptional({
     example: 'VAT-987654',
@@ -168,4 +175,14 @@ export class UpdateOrganizationDto {
   @MaxLength(100)
   @Transform(trimString)
   timezone?: string;
+
+  @ApiPropertyOptional({ example: '10:00' })
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  officeStartTime?: string;
+
+  @ApiPropertyOptional({ example: '17:30' })
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  officeEndTime?: string;
 }

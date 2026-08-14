@@ -1,4 +1,15 @@
-export type UserRole = "OWNER" | "ADMIN" | "MANAGER" | "STAFF";
+export type UserRole =
+  | "OWNER"
+  | "SUPER_ADMIN"
+  | "ADMIN"
+  | "HR"
+  | "OPERATIONS"
+  | "EMPLOYEE"
+  | "SALES"
+  | "MANAGEMENT"
+  | "HEAD"
+  | "MANAGER"
+  | "STAFF";
 
 export interface AuthUser {
   id: string;

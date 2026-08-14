@@ -14,7 +14,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { apiRequest } from "@/lib/api";
 import { clearAuthSession, getStoredUser } from "@/lib/auth";
-import { resolveMediaUrl } from "@/lib/organizations";
+import { resolveMediaUrl } from "@/lib/company";
+import { ROLE_LABELS } from "@/lib/user-roles";
 import { NotificationsDropdown } from "./notifications-dropdown";
 
 interface TopbarProps {
@@ -147,9 +148,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             onClick={() => setCalendarOpen((current) => !current)}
             aria-expanded={calendarOpen}
             className={[
-              "hidden h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium transition sm:flex",
+              "hidden h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium shadow-[0_8px_18px_-10px_rgba(15,23,42,0.48)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-10px_rgba(15,23,42,0.42)] sm:flex",
               calendarOpen
-                ? "border-blue-300 bg-blue-50 text-blue-700 ring-2 ring-blue-100"
+                ? "border-blue-300 bg-blue-50 text-blue-700 ring-2 ring-blue-100 shadow-[0_12px_24px_-10px_rgba(37,99,235,0.45)]"
                 : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
             ].join(" ")}
           >
@@ -163,7 +164,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           <button
             type="button"
             onClick={() => setCalendarOpen((current) => !current)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 sm:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-600 shadow-[0_8px_18px_-10px_rgba(15,23,42,0.48)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-[0_12px_24px_-10px_rgba(15,23,42,0.42)] sm:hidden"
             aria-label="Open calendar"
           >
             <CalendarDays size={18} />
@@ -187,7 +188,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           type="button"
           onClick={() => router.push("/profile")}
           title="Open profile"
-          className="group flex items-center gap-3 rounded-xl px-1.5 py-1 transition hover:bg-slate-50"
+          className="group flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-2 py-1 shadow-[0_8px_18px_-10px_rgba(15,23,42,0.48)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-[0_12px_24px_-10px_rgba(15,23,42,0.42)]"
         >
           <div className="hidden text-right sm:block">
             <p className="text-sm font-semibold text-slate-900 transition group-hover:text-blue-600">
@@ -195,7 +196,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             </p>
 
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-              {user?.role ?? ""}
+              {user?.role ? ROLE_LABELS[user.role] : ""}
             </p>
           </div>
 

@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  date,
   foreignKey,
   index,
   integer,
@@ -16,7 +17,14 @@ import { organizations } from "./organization";
 
 export const userRoleEnum = pgEnum("user_role", [
   "OWNER",
+  "SUPER_ADMIN",
   "ADMIN",
+  "HR",
+  "OPERATIONS",
+  "EMPLOYEE",
+  "SALES",
+  "MANAGEMENT",
+  "HEAD",
   "MANAGER",
   "STAFF",
 ]);
@@ -36,6 +44,8 @@ export const users = pgTable(
       length: 320,
     }).notNull(),
 
+    employeeId: varchar("employee_id", { length: 50 }),
+
     passwordHash: varchar("password_hash", {
       length: 255,
     }).notNull(),
@@ -47,6 +57,32 @@ export const users = pgTable(
     lastName: varchar("last_name", {
       length: 100,
     }).notNull(),
+
+    phone: varchar("phone", {
+      length: 50,
+    }),
+
+    dateOfBirth: date("date_of_birth"),
+
+    fatherName: varchar("father_name", {
+      length: 200,
+    }),
+
+    motherName: varchar("mother_name", {
+      length: 200,
+    }),
+
+    citizenshipNumber: varchar("citizenship_number", {
+      length: 100,
+    }),
+
+    panNumber: varchar("pan_number", {
+      length: 100,
+    }),
+
+    permanentAddress: varchar("permanent_address", {
+      length: 500,
+    }),
 
     role: userRoleEnum("role").default("STAFF").notNull(),
 
@@ -80,6 +116,20 @@ export const users = pgTable(
 
     avatarSize: integer("avatar_size"),
 
+    signatureUrl: varchar("signature_url", {
+      length: 1000,
+    }),
+
+    signatureFileName: varchar("signature_file_name", {
+      length: 255,
+    }),
+
+    signatureMimeType: varchar("signature_mime_type", {
+      length: 100,
+    }),
+
+    signatureSize: integer("signature_size"),
+
     deletedAt: timestamp("deleted_at", {
       withTimezone: true,
     }),
@@ -102,6 +152,11 @@ export const users = pgTable(
     uniqueIndex("users_organization_email_unique").on(
       table.organizationId,
       table.email,
+    ),
+
+    uniqueIndex("users_organization_employee_id_unique").on(
+      table.organizationId,
+      table.employeeId,
     ),
 
     index("users_organization_id_index").on(table.organizationId),

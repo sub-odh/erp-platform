@@ -1,19 +1,29 @@
 "use client";
 
-import { Archive, KeyRound, MoreHorizontal, Pencil, Power } from "lucide-react";
+import {
+  Archive,
+  KeyRound,
+  MoreHorizontal,
+  Pencil,
+  Power,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { User } from "@/types/user";
+import { canManageUserRole } from "@/lib/user-roles";
+import type { User, UserRole } from "@/types/user";
 
 interface UserActionsMenuProps {
   user: User;
   currentUserId: string | null;
+  currentUserRole: UserRole | null;
   busy: boolean;
   onEdit: (user: User) => void;
   onResetPassword: (user: User) => void;
   onToggleStatus: (user: User) => void;
   onArchive: (user: User) => void;
+  onDelete: (user: User) => void;
 }
 
 interface MenuPosition {
@@ -27,11 +37,13 @@ const MENU_GAP = 8;
 export function UserActionsMenu({
   user,
   currentUserId,
+  currentUserRole,
   busy,
   onEdit,
   onResetPassword,
   onToggleStatus,
   onArchive,
+  onDelete,
 }: UserActionsMenuProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -42,7 +54,10 @@ export function UserActionsMenu({
 
   const isOwner = user.role === "OWNER";
   const isCurrentUser = user.id === currentUserId;
-  const actionsDisabled = busy || isOwner;
+  const actionsDisabled =
+    busy ||
+    isOwner ||
+    !canManageUserRole(currentUserRole ?? undefined, user.role);
 
   useEffect(() => {
     setMounted(true);
@@ -70,7 +85,7 @@ export function UserActionsMenu({
         Math.min(left, window.innerWidth - MENU_WIDTH - viewportPadding),
       );
 
-      const estimatedMenuHeight = 220;
+      const estimatedMenuHeight = currentUserRole === "OWNER" ? 276 : 220;
       const spaceBelow = window.innerHeight - rect.bottom;
       const shouldOpenAbove =
         spaceBelow < estimatedMenuHeight && rect.top > estimatedMenuHeight;
@@ -92,7 +107,7 @@ export function UserActionsMenu({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [open]);
+  }, [currentUserRole, open]);
 
   useEffect(() => {
     if (!open) {
@@ -183,6 +198,17 @@ export function UserActionsMenu({
             >
               Archive user
             </MenuButton>
+
+            {currentUserRole === "OWNER" ? (
+              <MenuButton
+                icon={<Trash2 size={16} />}
+                disabled={actionsDisabled || isCurrentUser}
+                danger
+                onClick={() => runAction(() => onDelete(user))}
+              >
+                Delete permanently
+              </MenuButton>
+            ) : null}
           </div>,
           document.body,
         )

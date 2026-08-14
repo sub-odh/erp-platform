@@ -1,32 +1,36 @@
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Trash2 } from "lucide-react";
 
 import { Avatar } from "@/components/users/avatar";
 import { RoleBadge } from "@/components/users/role-badge";
 import { StatusBadge } from "@/components/users/status-badge";
 import { UserActionsMenu } from "@/components/users/user-actions-menu";
-import type { User } from "@/types/user";
+import type { User, UserRole } from "@/types/user";
 
 interface UserTableProps {
   users: User[];
   currentUserId: string | null;
+  currentUserRole: UserRole | null;
   busyUserId: string | null;
   archivedView: boolean;
   onEdit: (user: User) => void;
   onResetPassword: (user: User) => void;
   onToggleStatus: (user: User) => void;
   onArchive: (user: User) => void;
+  onDelete: (user: User) => void;
   onRestore: (user: User) => void;
 }
 
 export function UserTable({
   users,
   currentUserId,
+  currentUserRole,
   busyUserId,
   archivedView,
   onEdit,
   onResetPassword,
   onToggleStatus,
   onArchive,
+  onDelete,
   onRestore,
 }: UserTableProps) {
   if (users.length === 0) {
@@ -52,6 +56,7 @@ export function UserTable({
           <thead className="bg-slate-50">
             <tr>
               <TableHeader>User</TableHeader>
+              <TableHeader>Employee ID</TableHeader>
               <TableHeader>Email</TableHeader>
               <TableHeader>Role</TableHeader>
               <TableHeader>Last login</TableHeader>
@@ -87,6 +92,10 @@ export function UserTable({
                     </div>
                   </td>
 
+                  <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-600">
+                    {user.employeeId ?? "—"}
+                  </td>
+
                   <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
                     {user.email}
                   </td>
@@ -115,25 +124,42 @@ export function UserTable({
 
                   <td className="whitespace-nowrap px-5 py-4 text-right">
                     {archivedView ? (
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => onRestore(user)}
-                        className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <RotateCcw size={16} />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => onRestore(user)}
+                          className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <RotateCcw size={16} />
 
-                        {isBusy ? "Restoring..." : "Restore"}
-                      </button>
+                          {isBusy ? "Working..." : "Restore"}
+                        </button>
+
+                        {currentUserRole === "OWNER" &&
+                        user.id !== currentUserId &&
+                        user.role !== "OWNER" ? (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => onDelete(user)}
+                            className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 size={16} /> Delete
+                          </button>
+                        ) : null}
+                      </div>
                     ) : (
                       <UserActionsMenu
                         user={user}
                         currentUserId={currentUserId}
+                        currentUserRole={currentUserRole}
                         busy={isBusy}
                         onEdit={onEdit}
                         onResetPassword={onResetPassword}
                         onToggleStatus={onToggleStatus}
                         onArchive={onArchive}
+                        onDelete={onDelete}
                       />
                     )}
                   </td>

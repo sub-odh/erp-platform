@@ -38,7 +38,7 @@ export class LicensingGuard implements CanActivate {
     if (/\/(customers|leads|opportunities|pipeline-stages)(\/|$)/.test(path)) {
       return 'sales';
     }
-    if (/\/(users|organizations|audit-logs)(\/|$)/.test(path)) {
+    if (/\/(users|company|organizations|audit-logs)(\/|$)/.test(path)) {
       return 'admin';
     }
     return undefined;

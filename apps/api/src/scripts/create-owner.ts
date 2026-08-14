@@ -2,6 +2,7 @@ import { hash } from 'bcrypt';
 import dotenv from 'dotenv';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import path from 'node:path';
+import type { User } from '@erp/db';
 
 import { DEFAULT_ROLE_PERMISSIONS } from '../modules/auth/permissions/permission.constants';
 
@@ -33,14 +34,8 @@ async function createOwner(): Promise<void> {
   }
 
   // Import after dotenv has loaded the database environment variables.
-  const {
-    client,
-    db,
-    organizations,
-    permissions,
-    rolePermissions,
-    users,
-  } = await import('@erp/db');
+  const { client, db, organizations, permissions, rolePermissions, users } =
+    await import('@erp/db');
 
   try {
     const passwordHash = await hash(password, 12);
@@ -74,7 +69,9 @@ async function createOwner(): Promise<void> {
         sql`select set_config('app.local_tenant_id', ${organization.id}, true)`,
       );
 
-      const permissionCodes = [...new Set(Object.values(DEFAULT_ROLE_PERMISSIONS).flat())];
+      const permissionCodes = [
+        ...new Set(Object.values(DEFAULT_ROLE_PERMISSIONS).flat()),
+      ];
       const availablePermissions = await transaction
         .select({ id: permissions.id, code: permissions.code })
         .from(permissions)
@@ -89,13 +86,15 @@ async function createOwner(): Promise<void> {
         ([role, codes]) =>
           codes.map((code) => ({
             organizationId: organization.id,
-            role: role as 'OWNER' | 'ADMIN' | 'MANAGER' | 'STAFF',
+            role: role as User['role'],
             permissionId: permissionIds.get(code),
           })),
       );
 
       if (assignments.some(({ permissionId }) => !permissionId)) {
-        throw new Error('Permission catalog is incomplete; run migrations first');
+        throw new Error(
+          'Permission catalog is incomplete; run migrations first',
+        );
       }
 
       await transaction
@@ -150,7 +149,7 @@ async function createOwner(): Promise<void> {
       };
     });
 
-    console.log('Organization owner created successfully.');
+    console.log('Company owner created successfully.');
     console.log({
       organizationCode: result.organization.code,
       email: result.owner.email,
@@ -162,7 +161,7 @@ async function createOwner(): Promise<void> {
 }
 
 createOwner().catch((error: unknown) => {
-  console.error('Failed to create organization owner.');
+  console.error('Failed to create company owner.');
 
   if (error instanceof Error) {
     console.error(error.message);

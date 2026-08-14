@@ -13,6 +13,9 @@ export class UserResponseDto {
   })
   organizationId!: string;
 
+  @ApiProperty({ type: String, nullable: true, example: 'EMP-001' })
+  employeeId!: string | null;
+
   @ApiProperty({
     example: 'employee@mycompany.com',
   })
@@ -28,8 +31,41 @@ export class UserResponseDto {
   })
   lastName!: string;
 
+  @ApiProperty({ type: String, nullable: true })
+  phone!: string | null;
+
+  @ApiProperty({ type: String, format: 'date', nullable: true })
+  dateOfBirth!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  fatherName!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  motherName!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  citizenshipNumber!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  panNumber!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  permanentAddress!: string | null;
+
   @ApiProperty({
-    enum: ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'],
+    enum: [
+      'OWNER',
+      'SUPER_ADMIN',
+      'ADMIN',
+      'HR',
+      'OPERATIONS',
+      'EMPLOYEE',
+      'SALES',
+      'MANAGEMENT',
+      'HEAD',
+      'MANAGER',
+      'STAFF',
+    ],
   })
   role!: User['role'];
 
@@ -70,6 +106,22 @@ export class UserResponseDto {
     example: 48291,
   })
   avatarSize!: number | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '/uploads/users/550e8400-e29b-41d4-a716-446655440000.png',
+  })
+  signatureUrl!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  signatureFileName!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'image/png' })
+  signatureMimeType!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  signatureSize!: number | null;
 
   @ApiProperty({
     type: String,

@@ -4,6 +4,13 @@ import type { User } from "@/types/user";
 export interface UpdateProfileRequest {
   firstName: string;
   lastName: string;
+  phone: string | null;
+  dateOfBirth: string | null;
+  fatherName: string | null;
+  motherName: string | null;
+  citizenshipNumber: string | null;
+  panNumber: string | null;
+  permanentAddress: string | null;
 }
 
 export function getProfile(): Promise<User> {
@@ -30,6 +37,23 @@ export function uploadProfileAvatar(file: File): Promise<User> {
 
 export function removeProfileAvatar(): Promise<User> {
   return apiRequest<User>("/profile/avatar", {
+    method: "DELETE",
+  });
+}
+
+export function uploadProfileSignature(file: File): Promise<User> {
+  const formData = new FormData();
+
+  formData.append("file", file);
+
+  return apiRequest<User>("/profile/signature", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function removeProfileSignature(): Promise<User> {
+  return apiRequest<User>("/profile/signature", {
     method: "DELETE",
   });
 }

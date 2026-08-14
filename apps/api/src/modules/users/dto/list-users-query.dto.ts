@@ -18,7 +18,19 @@ export const USER_LIST_STATUSES = [
 
 export type UserListStatus = (typeof USER_LIST_STATUSES)[number];
 
-export const USER_LIST_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'] as const;
+export const USER_LIST_ROLES = [
+  'OWNER',
+  'SUPER_ADMIN',
+  'ADMIN',
+  'HR',
+  'OPERATIONS',
+  'EMPLOYEE',
+  'SALES',
+  'MANAGEMENT',
+  'HEAD',
+  'MANAGER',
+  'STAFF',
+] as const;
 
 export type UserListRole = (typeof USER_LIST_ROLES)[number];
 

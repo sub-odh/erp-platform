@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class OrganizationResponseDto {
+export class CompanyResponseDto {
   @ApiProperty({
     format: 'uuid',
   })
@@ -21,6 +21,9 @@ export class OrganizationResponseDto {
     nullable: true,
   })
   registrationNumber!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date' })
+  registrationDate!: string | null;
 
   @ApiPropertyOptional({
     nullable: true,
@@ -78,6 +81,12 @@ export class OrganizationResponseDto {
   @ApiProperty()
   timezone!: string;
 
+  @ApiPropertyOptional({ nullable: true, example: '10:00' })
+  officeStartTime!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: '17:30' })
+  officeEndTime!: string | null;
+
   @ApiPropertyOptional({
     nullable: true,
   })
@@ -97,6 +106,18 @@ export class OrganizationResponseDto {
     nullable: true,
   })
   logoSize!: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  invoiceLogoUrl!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  invoiceLogoFileName!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  invoiceLogoMimeType!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  invoiceLogoSize!: number | null;
 
   @ApiProperty({
     format: 'date-time',

@@ -31,9 +31,15 @@ Producers call the shared `NotificationsService` after the business mutation. Be
 
 ## Email outbox
 
-`EMAIL_DELIVERY_MODE` defaults to `disabled`. In this mode, messages stay safely queued and normal ERP requests never attempt network email delivery. Set it to `log` for local testing; the worker processes each tenant independently every minute and records messages as sent through the local log adapter.
+`EMAIL_DELIVERY_MODE` defaults to `smtp`. Each company configures its own host, port, encryption mode, username, password, sender address, and sender name from **Administration → SMTP Settings**. A connection test verifies the saved transport before it is used. Companies without an active SMTP configuration retain their messages safely in the queue without consuming retry attempts. Set the mode to `log` for local testing or `disabled` to pause delivery globally.
 
-The worker limits batches, prevents overlapping runs, retries failed deliveries with exponential backoff, and marks an item `FAILED` after five attempts. A production SMTP or transactional-email adapter can replace the log adapter without changing producers or the outbox schema. Private credentials must remain in deployment secrets rather than the database or repository.
+The worker limits batches, prevents overlapping runs, processes every company inside its tenant context, retries failed deliveries with exponential backoff, and marks an item `FAILED` after five attempts. SMTP passwords are encrypted with AES-256-GCM before storage and are never returned by the API. `SMTP_CREDENTIAL_ENCRYPTION_KEY` supplies the deployment-side encryption secret and must be unique and protected in production.
+
+SMTP administration endpoints require `platform.smtp.manage`:
+
+- `GET /api/v1/smtp/current` returns the masked company configuration;
+- `PATCH /api/v1/smtp/current` creates or updates it;
+- `POST /api/v1/smtp/current/test` verifies the active connection.
 
 ## Web behavior
 

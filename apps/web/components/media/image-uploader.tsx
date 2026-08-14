@@ -21,6 +21,10 @@ interface ImageUploaderProps {
   onRemove?: () => Promise<void> | void;
   deferUpload?: boolean;
   onCroppedFileChange?: (file: File | null) => void;
+  accept?: string;
+  emptyLabel?: string;
+  previewAspectRatio?: boolean;
+  inputId?: string;
 }
 
 export function ImageUploader({
@@ -33,6 +37,10 @@ export function ImageUploader({
   onRemove,
   deferUpload = false,
   onCroppedFileChange,
+  accept = "image/png,image/jpeg,image/webp",
+  emptyLabel,
+  previewAspectRatio = false,
+  inputId,
 }: ImageUploaderProps) {
   const settings = IMAGE_UPLOAD_PRESETS[preset];
 
@@ -55,6 +63,8 @@ export function ImageUploader({
   const displayedValue = localPreviewUrl ?? value ?? null;
 
   const round = settings.cropShape === "round";
+
+  const usePresetPreviewRatio = !round && previewAspectRatio;
 
   const canRemove = Boolean(
     displayedValue && (onRemove || (deferUpload && localPreviewUrl)),
@@ -229,9 +239,18 @@ export function ImageUploader({
           <div
             className={[
               "overflow-hidden bg-slate-100 shadow-sm ring-1 ring-slate-200",
-              round ? "h-40 w-40 rounded-full" : "h-40 w-full rounded-2xl",
+              round
+                ? "h-40 w-40 rounded-full"
+                : usePresetPreviewRatio
+                  ? "w-full rounded-2xl"
+                  : "h-40 w-full rounded-2xl",
               busy ? "opacity-70" : "",
             ].join(" ")}
+            style={
+              usePresetPreviewRatio
+                ? { aspectRatio: settings.aspectRatio }
+                : undefined
+            }
           >
             {displayedValue ? (
               <img
@@ -251,7 +270,9 @@ export function ImageUploader({
               >
                 {round ? <Camera size={34} /> : <ImagePlus size={36} />}
 
-                <span className="mt-2 text-sm font-medium">Add photo</span>
+                <span className="mt-2 text-sm font-medium">
+                  {emptyLabel ?? (round ? "Add photo" : "Add image")}
+                </span>
               </button>
             )}
           </div>
@@ -263,7 +284,7 @@ export function ImageUploader({
                 disabled={busy}
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
-                aria-label="Edit profile photo"
+                aria-label={`Edit ${settings.label.toLowerCase()}`}
                 onClick={() => setMenuOpen((current) => !current)}
                 className={[
                   "flex h-9 w-9 items-center justify-center rounded-full border-2 border-white shadow-md transition",
@@ -302,7 +323,7 @@ export function ImageUploader({
                     className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                   >
                     <Camera size={17} className="shrink-0 text-slate-500" />
-                    Change photo
+                    Change image
                   </button>
 
                   {canRemove ? (
@@ -322,7 +343,7 @@ export function ImageUploader({
                           <Trash2 size={17} className="shrink-0" />
                         )}
 
-                        {removing ? "Removing..." : "Remove photo"}
+                        {removing ? "Removing..." : "Remove image"}
                       </button>
                     </>
                   ) : null}
@@ -348,9 +369,10 @@ export function ImageUploader({
         </div>
 
         <input
+          id={inputId}
           ref={inputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept={accept}
           className="hidden"
           disabled={busy}
           onChange={handleSelection}

@@ -72,7 +72,7 @@ export class UsersController {
 
   @Get()
   @ApiOperation({
-    summary: 'List users in the current organization',
+    summary: 'List users in the current company',
   })
   @ApiOkResponse({
     type: PaginatedUsersResponseDto,
@@ -97,7 +97,7 @@ export class UsersController {
 
   @Post()
   @ApiOperation({
-    summary: 'Create a user in the current organization',
+    summary: 'Create a user in the current company',
   })
   @ApiCreatedResponse({
     type: UserResponseDto,
@@ -112,7 +112,7 @@ export class UsersController {
     description: 'Authenticated user cannot create the requested role',
   })
   @ApiConflictResponse({
-    description: 'Email already exists in the organization',
+    description: 'Email already exists in the company',
   })
   createUser(
     @CurrentUser()
@@ -129,7 +129,7 @@ export class UsersController {
 
   @Patch(':id')
   @ApiOperation({
-    summary: 'Update an organization user',
+    summary: 'Update a company user',
   })
   @ApiOkResponse({
     type: UserResponseDto,
@@ -144,7 +144,7 @@ export class UsersController {
     description: 'The authenticated user cannot modify this account',
   })
   @ApiNotFoundResponse({
-    description: 'User was not found in the organization',
+    description: 'User was not found in the company',
   })
   updateUser(
     @CurrentUser()
@@ -165,7 +165,7 @@ export class UsersController {
 
   @Patch(':id/status')
   @ApiOperation({
-    summary: 'Activate or deactivate an organization user',
+    summary: 'Activate or deactivate a company user',
   })
   @ApiOkResponse({
     type: UserResponseDto,
@@ -180,7 +180,7 @@ export class UsersController {
     description: 'The authenticated user cannot modify this account',
   })
   @ApiNotFoundResponse({
-    description: 'User was not found in the organization',
+    description: 'User was not found in the company',
   })
   updateUserStatus(
     @CurrentUser()
@@ -222,7 +222,7 @@ export class UsersController {
     },
   })
   @ApiOperation({
-    summary: 'Upload or replace an organization user avatar',
+    summary: 'Upload or replace a company user avatar',
   })
   @ApiOkResponse({
     type: UserResponseDto,
@@ -237,7 +237,7 @@ export class UsersController {
     description: 'The authenticated user cannot modify this avatar',
   })
   @ApiNotFoundResponse({
-    description: 'User was not found in the organization',
+    description: 'User was not found in the company',
   })
   uploadAvatar(
     @CurrentUser()
@@ -258,7 +258,7 @@ export class UsersController {
 
   @Delete(':id/avatar')
   @ApiOperation({
-    summary: 'Remove an organization user avatar',
+    summary: 'Remove a company user avatar',
   })
   @ApiOkResponse({
     type: UserResponseDto,
@@ -273,7 +273,7 @@ export class UsersController {
     description: 'The authenticated user cannot modify this avatar',
   })
   @ApiNotFoundResponse({
-    description: 'User was not found in the organization',
+    description: 'User was not found in the company',
   })
   removeAvatar(
     @CurrentUser()
@@ -291,7 +291,7 @@ export class UsersController {
 
   @Post(':id/reset-password')
   @ApiOperation({
-    summary: 'Generate a temporary password for an organization user',
+    summary: 'Generate a temporary password for a company user',
   })
   @ApiOkResponse({
     type: ResetUserPasswordResponseDto,
@@ -308,7 +308,7 @@ export class UsersController {
     description: 'The authenticated user cannot reset this account password',
   })
   @ApiNotFoundResponse({
-    description: 'User was not found in the organization',
+    description: 'User was not found in the company',
   })
   resetPassword(
     @CurrentUser()
@@ -327,7 +327,7 @@ export class UsersController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary: 'Archive an organization user',
+    summary: 'Archive a company user',
   })
   @ApiNoContentResponse({
     description: 'User archived successfully',
@@ -342,7 +342,7 @@ export class UsersController {
     description: 'The authenticated user cannot archive this account',
   })
   @ApiNotFoundResponse({
-    description: 'User was not found in the organization',
+    description: 'User was not found in the company',
   })
   archiveUser(
     @CurrentUser()
@@ -358,9 +358,43 @@ export class UsersController {
     );
   }
 
+  @Delete(':id/permanent')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Permanently delete a company user',
+  })
+  @ApiNoContentResponse({
+    description: 'User permanently deleted',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid user ID',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired token',
+  })
+  @ApiForbiddenResponse({
+    description: 'Only the company owner can permanently delete users',
+  })
+  @ApiNotFoundResponse({
+    description: 'User was not found in the company',
+  })
+  permanentlyDeleteUser(
+    @CurrentUser()
+    currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe())
+    userId: string,
+  ): Promise<void> {
+    return this.usersService.permanentlyDeleteUser(
+      currentUser.organizationId,
+      currentUser.sub,
+      currentUser.role,
+      userId,
+    );
+  }
+
   @Post(':id/restore')
   @ApiOperation({
-    summary: 'Restore an archived organization user as inactive',
+    summary: 'Restore an archived company user as inactive',
   })
   @ApiOkResponse({
     type: UserResponseDto,
@@ -375,7 +409,7 @@ export class UsersController {
     description: 'The authenticated user cannot restore this account',
   })
   @ApiNotFoundResponse({
-    description: 'User was not found in the organization',
+    description: 'User was not found in the company',
   })
   @ApiConflictResponse({
     description: 'User is not archived',

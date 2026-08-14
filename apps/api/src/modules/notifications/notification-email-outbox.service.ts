@@ -14,6 +14,7 @@ import {
   withTenantContext,
   type NotificationEmailOutbox,
 } from '@erp/db';
+import { SmtpService } from '../smtp/smtp.service';
 
 const MAX_ATTEMPTS = 5;
 
@@ -24,6 +25,8 @@ export class NotificationEmailOutboxService
   private readonly logger = new Logger(NotificationEmailOutboxService.name);
   private timer?: NodeJS.Timeout;
   private processing = false;
+
+  constructor(private readonly smtp: SmtpService) {}
 
   onModuleInit(): void {
     if (env.EMAIL_DELIVERY_MODE === 'disabled') {
@@ -57,6 +60,13 @@ export class NotificationEmailOutboxService
   }
 
   private async processTenant(organizationId: string): Promise<void> {
+    if (
+      env.EMAIL_DELIVERY_MODE === 'smtp' &&
+      !(await this.smtp.hasActiveConfiguration(organizationId))
+    ) {
+      return;
+    }
+
     const items = await db
       .select()
       .from(notificationEmailOutbox)
@@ -75,9 +85,15 @@ export class NotificationEmailOutboxService
 
   private async deliver(item: NotificationEmailOutbox): Promise<void> {
     try {
-      // The log adapter is deliberately local/offline-safe. A future SMTP adapter
-      // can replace this method without changing producers or the outbox schema.
-      this.logger.log(`Email to ${item.recipientEmail}: ${item.subject}`);
+      if (env.EMAIL_DELIVERY_MODE === 'log') {
+        this.logger.log(`Email to ${item.recipientEmail}: ${item.subject}`);
+      } else {
+        await this.smtp.send(item.organizationId, {
+          to: item.recipientEmail,
+          subject: item.subject,
+          text: item.body,
+        });
+      }
       await db
         .update(notificationEmailOutbox)
         .set({ status: 'SENT', sentAt: new Date(), updatedAt: new Date() })

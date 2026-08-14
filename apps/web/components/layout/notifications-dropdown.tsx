@@ -102,7 +102,7 @@ export function NotificationsDropdown() {
         onClick={() => setOpen((value) => !value)}
         aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
         aria-expanded={open}
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-600 shadow-[0_8px_18px_-10px_rgba(15,23,42,0.48)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-[0_12px_24px_-10px_rgba(15,23,42,0.42)]"
       >
         <Bell size={18} />
         {unreadCount > 0 ? (

@@ -408,7 +408,7 @@ export function EditCustomerModal({
 
         <FormSection
           title="Internal notes"
-          description="Private notes visible to your organization."
+          description="Private notes visible to your company."
         >
           <Textarea
             value={form.notes}

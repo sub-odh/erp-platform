@@ -12,6 +12,7 @@ import {
   FileText,
   Gauge,
   Handshake,
+  Mail,
   LayoutDashboard,
   Package,
   ReceiptText,
@@ -28,16 +29,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType } from "react";
 
-import { resolveMediaUrl } from "@/lib/organizations";
+import { resolveMediaUrl } from "@/lib/company";
 import { getStoredLicense } from "@/lib/auth";
 import type { LicenseSummary } from "@/types/auth";
-import type { Organization } from "@/types/organization";
+import type { Company } from "@/types/company";
 
 interface SidebarProps {
   open: boolean;
   collapsed: boolean;
 
-  organization: Organization | null;
+  company: Company | null;
 
   onClose: () => void;
 
@@ -219,9 +220,15 @@ const navigationSections: NavigationSection[] = [
       },
 
       {
-        href: "/settings/organization",
-        label: "Organization Settings",
+        href: "/settings/company",
+        label: "Company Settings",
         icon: Settings,
+      },
+
+      {
+        href: "/settings/smtp",
+        label: "SMTP Settings",
+        icon: Mail,
       },
 
       {
@@ -236,7 +243,7 @@ const navigationSections: NavigationSection[] = [
 export function Sidebar({
   open,
   collapsed,
-  organization,
+  company,
   onClose,
   onToggleCollapsed,
 }: SidebarProps) {
@@ -245,7 +252,7 @@ export function Sidebar({
 
   useEffect(() => setLicense(getStoredLicense()), []);
 
-  const logoUrl = resolveMediaUrl(organization?.logoUrl);
+  const logoUrl = resolveMediaUrl(company?.logoUrl);
 
   const crmActive =
     pathname.startsWith("/customers") ||
@@ -325,7 +332,7 @@ export function Sidebar({
       >
         <SidebarHeader
           collapsed={collapsed}
-          organization={organization}
+          company={company}
           logoUrl={logoUrl}
           onClose={onClose}
         />
@@ -384,16 +391,16 @@ export function Sidebar({
                 license?.licensedModules.includes(section.requiredModule),
             )
             .map((section, sectionIndex) => (
-            <NavigationSectionBlock
-              key={section.title}
-              section={section}
-              sectionIndex={sectionIndex}
-              pathname={pathname}
-              collapsed={collapsed}
-              expandedGroups={expandedGroups}
-              onToggleGroup={toggleGroup}
-              onNavigate={onClose}
-            />
+              <NavigationSectionBlock
+                key={section.title}
+                section={section}
+                sectionIndex={sectionIndex}
+                pathname={pathname}
+                collapsed={collapsed}
+                expandedGroups={expandedGroups}
+                onToggleGroup={toggleGroup}
+                onNavigate={onClose}
+              />
             ))}
         </nav>
 
@@ -405,13 +412,13 @@ export function Sidebar({
 
 function SidebarHeader({
   collapsed,
-  organization,
+  company,
   logoUrl,
   onClose,
 }: {
   collapsed: boolean;
 
-  organization: Organization | null;
+  company: Company | null;
 
   logoUrl: string | null;
 
@@ -429,7 +436,7 @@ function SidebarHeader({
       <Link
         href="/dashboard"
         onClick={onClose}
-        title={collapsed ? (organization?.name ?? "ERP Platform") : undefined}
+        title={collapsed ? (company?.name ?? "ERP Platform") : undefined}
         className={[
           "flex min-w-0 items-center gap-3",
           collapsed ? "lg:justify-center" : "",
@@ -444,7 +451,7 @@ function SidebarHeader({
           {logoUrl ? (
             <img
               src={logoUrl}
-              alt={`${organization?.name ?? "Organization"} logo`}
+              alt={`${company?.name ?? "Company"} logo`}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -454,13 +461,11 @@ function SidebarHeader({
 
         <div className={["min-w-0", collapsed ? "lg:hidden" : ""].join(" ")}>
           <p className="truncate text-sm font-semibold text-white">
-            {organization?.name ?? "ERP Platform"}
+            {company?.name ?? "ERP Platform"}
           </p>
 
           <p className="mt-0.5 truncate text-[11px] text-slate-400">
-            {organization
-              ? `${organization.code} workspace`
-              : "Business management"}
+            {company ? `${company.code} workspace` : "Business management"}
           </p>
         </div>
       </Link>

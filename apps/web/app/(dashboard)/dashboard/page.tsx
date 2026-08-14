@@ -2,7 +2,7 @@ import { Building2, Package, ShoppingCart, Users } from "lucide-react";
 
 const cards = [
   {
-    label: "Organization",
+    label: "Company",
     value: "Active",
     icon: Building2,
   },
@@ -34,7 +34,7 @@ export default function DashboardPage() {
         </h1>
 
         <p className="mt-2 text-slate-500">
-          Monitor your organization and ERP modules.
+          Monitor your company and ERP modules.
         </p>
       </div>
 

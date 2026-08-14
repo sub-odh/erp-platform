@@ -1,6 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-const USER_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'] as const;
+const USER_ROLES = [
+  'OWNER',
+  'SUPER_ADMIN',
+  'ADMIN',
+  'HR',
+  'OPERATIONS',
+  'EMPLOYEE',
+  'SALES',
+  'MANAGEMENT',
+  'HEAD',
+  'MANAGER',
+  'STAFF',
+] as const;
 
 export class LoginUserDto {
   @ApiProperty({
