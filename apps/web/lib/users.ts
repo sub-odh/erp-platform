@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api";
 import type {
   CreateUserRequest,
+  EmployeeRole,
   PaginatedUsersResponse,
   ResetUserPasswordResponse,
   UpdateUserRequest,
@@ -49,6 +50,23 @@ export function getUsers(query: UserListQuery = {}) {
   return apiRequest<PaginatedUsersResponse>(
     `/users${createQueryString(query)}`,
   );
+}
+
+export function getEmployeeRoles() {
+  return apiRequest<EmployeeRole[]>("/users/employee-roles");
+}
+
+export function createEmployeeRole(name: string) {
+  return apiRequest<EmployeeRole>("/users/employee-roles", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteEmployeeRole(roleId: string) {
+  return apiRequest<void>(`/users/employee-roles/${roleId}`, {
+    method: "DELETE",
+  });
 }
 
 export function createUser(payload: CreateUserRequest) {

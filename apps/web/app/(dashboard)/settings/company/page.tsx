@@ -13,11 +13,13 @@ import {
 import { type FormEvent, useEffect, useState } from "react";
 
 import { ImageUploader } from "@/components/media";
+import type { ImageUploadPreset } from "@/components/media/image-presets";
 import { Button, Input } from "@/components/ui";
 import { getStoredUser } from "@/lib/auth";
 import {
   getCompanyBackup,
   getCurrentCompany,
+  removeFavicon,
   removeInvoiceLogo,
   removeCompanyLogo,
   resetCompanyData,
@@ -26,6 +28,7 @@ import {
   updateCurrentCompany,
   uploadInvoiceLogo,
   uploadCompanyLogo,
+  uploadFavicon,
 } from "@/lib/company";
 import type { Company, UpdateCompanyInput } from "@/types/company";
 
@@ -46,7 +49,7 @@ const emptyCompany: Company = {
   state: null,
   postalCode: null,
   country: null,
-  currencyCode: "USD",
+  currencyCode: "NPR",
   timezone: "UTC",
   officeStartTime: null,
   officeEndTime: null,
@@ -58,6 +61,10 @@ const emptyCompany: Company = {
   invoiceLogoFileName: null,
   invoiceLogoMimeType: null,
   invoiceLogoSize: null,
+  faviconUrl: null,
+  faviconFileName: null,
+  faviconMimeType: null,
+  faviconSize: null,
   createdAt: "",
   updatedAt: "",
 };
@@ -72,6 +79,7 @@ export default function CompanySettingsPage() {
   const [saving, setSaving] = useState(false);
   const [logoBusy, setLogoBusy] = useState(false);
   const [invoiceLogoBusy, setInvoiceLogoBusy] = useState(false);
+  const [faviconBusy, setFaviconBusy] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
@@ -253,7 +261,7 @@ export default function CompanySettingsPage() {
     return <LoadingState />;
   }
 
-  const busy = saving || logoBusy || invoiceLogoBusy;
+  const busy = saving || logoBusy || invoiceLogoBusy || faviconBusy;
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -269,9 +277,10 @@ export default function CompanySettingsPage() {
 
       {activeTab === "information" ? (
         <form onSubmit={handleSubmit} className="space-y-6">
-          <section className="grid gap-6 lg:grid-cols-2">
+          <section className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
             <LogoCard
-              title="System logo (main)"
+              title="System Logo (Main)"
+              preset="companyLogo"
               description="Shown in the navigation and main application shell."
               value={resolveMediaUrl(company.logoUrl)}
               fileName={company.logoFileName}
@@ -294,7 +303,8 @@ export default function CompanySettingsPage() {
             />
 
             <LogoCard
-              title="Invoice logo (light background)"
+              title="Invoice Logo (Light Background)"
+              preset="invoiceLogo"
               description="Used on invoices, delivery orders, and other print documents."
               value={resolveMediaUrl(company.invoiceLogoUrl)}
               fileName={company.invoiceLogoFileName}
@@ -315,11 +325,35 @@ export default function CompanySettingsPage() {
                 )
               }
             />
+
+            <LogoCard
+              title="Favicon & App Icon"
+              preset="favicon"
+              description="Square icon used in browser tabs and app shortcuts. A clean symbol or initials works best."
+              value={resolveMediaUrl(company.faviconUrl)}
+              fileName={company.faviconFileName}
+              busy={faviconBusy}
+              disabled={busy && !faviconBusy}
+              onUpload={(file) =>
+                updateLogo(
+                  () => uploadFavicon(file),
+                  setFaviconBusy,
+                  "Favicon updated successfully.",
+                )
+              }
+              onRemove={() =>
+                updateLogo(
+                  removeFavicon,
+                  setFaviconBusy,
+                  "Favicon removed successfully.",
+                )
+              }
+            />
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">
-              Company information
+              Company Information
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
@@ -860,6 +894,7 @@ function Feedback({
 
 function LogoCard({
   title,
+  preset,
   description,
   value,
   fileName,
@@ -869,6 +904,7 @@ function LogoCard({
   onRemove,
 }: {
   title: string;
+  preset: ImageUploadPreset;
   description: string;
   value: string | null;
   fileName: string | null;
@@ -883,7 +919,7 @@ function LogoCard({
       <p className="mt-1 text-sm text-slate-500">{description}</p>
       <div className="mt-5">
         <ImageUploader
-          preset="companyLogo"
+          preset={preset}
           value={value}
           uploading={busy}
           removing={busy}

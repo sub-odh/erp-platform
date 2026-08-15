@@ -20,6 +20,7 @@ import {
 
 import {
   authSessions,
+  companyEmployeeRoles,
   db,
   organizations,
   users,
@@ -51,12 +52,14 @@ export type PublicUser = Pick<
   | 'lastName'
   | 'phone'
   | 'dateOfBirth'
+  | 'joinedDate'
   | 'fatherName'
   | 'motherName'
   | 'citizenshipNumber'
   | 'panNumber'
   | 'permanentAddress'
   | 'role'
+  | 'employeeRole'
   | 'isActive'
   | 'lastLoginAt'
   | 'avatarUrl'
@@ -92,12 +95,14 @@ const publicUserSelection = {
   lastName: users.lastName,
   phone: users.phone,
   dateOfBirth: users.dateOfBirth,
+  joinedDate: users.joinedDate,
   fatherName: users.fatherName,
   motherName: users.motherName,
   citizenshipNumber: users.citizenshipNumber,
   panNumber: users.panNumber,
   permanentAddress: users.permanentAddress,
   role: users.role,
+  employeeRole: users.employeeRole,
   isActive: users.isActive,
   lastLoginAt: users.lastLoginAt,
   avatarUrl: users.avatarUrl,
@@ -344,6 +349,12 @@ export class UsersService {
 
     const normalizedEmail = createUserDto.email.trim().toLowerCase();
     const normalizedEmployeeId = createUserDto.employeeId.trim().toUpperCase();
+    const employeeRole = createUserDto.employeeRole
+      ? await this.requireEmployeeRole(
+          organizationId,
+          createUserDto.employeeRole,
+        )
+      : null;
 
     const [existingUser] = await db
       .select({
@@ -382,7 +393,9 @@ export class UsersService {
           passwordHash,
           firstName: createUserDto.firstName.trim(),
           lastName: createUserDto.lastName.trim(),
+          joinedDate: createUserDto.joinedDate,
           role: createUserDto.role,
+          employeeRole,
           isActive: true,
           mustChangePassword: false,
         })
@@ -464,6 +477,14 @@ export class UsersService {
       updateUserDto.role !== undefined &&
       updateUserDto.role !== targetUser.role;
 
+    const employeeRole =
+      updateUserDto.employeeRole !== undefined
+        ? await this.requireEmployeeRole(
+            organizationId,
+            updateUserDto.employeeRole,
+          )
+        : targetUser.employeeRole;
+
     const employeeId =
       updateUserDto.employeeId !== undefined
         ? updateUserDto.employeeId.trim().toUpperCase()
@@ -502,6 +523,13 @@ export class UsersService {
             : targetUser.lastName,
 
         role: updateUserDto.role ?? targetUser.role,
+
+        employeeRole,
+
+        joinedDate:
+          updateUserDto.joinedDate !== undefined
+            ? updateUserDto.joinedDate
+            : targetUser.joinedDate,
 
         tokenVersion: roleChanged
           ? sql`${users.tokenVersion} + 1`
@@ -597,6 +625,70 @@ export class UsersService {
     }
 
     return updatedUser;
+  }
+
+  async listEmployeeRoles(organizationId: string) {
+    await this.seedEmployeeRoles(organizationId);
+    return db
+      .select({ id: companyEmployeeRoles.id, name: companyEmployeeRoles.name })
+      .from(companyEmployeeRoles)
+      .where(eq(companyEmployeeRoles.organizationId, organizationId))
+      .orderBy(asc(companyEmployeeRoles.name));
+  }
+
+  async createEmployeeRole(organizationId: string, name: string) {
+    const normalized = name.trim().replace(/\s+/g, ' ');
+    if (normalized.length < 2) {
+      throw new ConflictException(
+        'Employee role must contain at least 2 characters',
+      );
+    }
+    await this.seedEmployeeRoles(organizationId);
+    const existing = await this.findEmployeeRole(organizationId, normalized);
+    if (existing)
+      throw new ConflictException('This employee role already exists');
+    const [created] = await db
+      .insert(companyEmployeeRoles)
+      .values({ organizationId, name: normalized })
+      .returning({
+        id: companyEmployeeRoles.id,
+        name: companyEmployeeRoles.name,
+      });
+    if (!created) throw new NotFoundException('Unable to create employee role');
+    return created;
+  }
+
+  async deleteEmployeeRole(organizationId: string, roleId: string) {
+    const [role] = await db
+      .select({ id: companyEmployeeRoles.id, name: companyEmployeeRoles.name })
+      .from(companyEmployeeRoles)
+      .where(
+        and(
+          eq(companyEmployeeRoles.id, roleId),
+          eq(companyEmployeeRoles.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (!role) throw new NotFoundException('Employee role not found');
+    const [assigned] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          eq(users.organizationId, organizationId),
+          eq(users.employeeRole, role.name),
+          isNull(users.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (assigned) {
+      throw new ConflictException(
+        'Reassign employees before deleting this role',
+      );
+    }
+    await db
+      .delete(companyEmployeeRoles)
+      .where(eq(companyEmployeeRoles.id, role.id));
   }
 
   async updatePassword(
@@ -896,6 +988,7 @@ export class UsersService {
         ilike(users.email, pattern),
         ilike(users.employeeId, pattern),
         ilike(users.role, pattern),
+        ilike(users.employeeRole, pattern),
       );
 
       if (searchCondition) {
@@ -936,6 +1029,53 @@ export class UsersService {
       .where(
         and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)),
       );
+  }
+
+  private async seedEmployeeRoles(organizationId: string): Promise<void> {
+    const roles = [
+      'CEO',
+      'COO',
+      'CFO',
+      'CTO',
+      'Director',
+      'Department Head',
+      'Manager',
+      'HR',
+      'Finance & Accounts',
+      'Operations',
+      'Sales',
+      'Marketing',
+      'IT & Technical',
+      'Procurement',
+      'Storekeeper',
+      'Customer Support',
+    ];
+    await db
+      .insert(companyEmployeeRoles)
+      .values(roles.map((name) => ({ organizationId, name })))
+      .onConflictDoNothing();
+  }
+
+  private async findEmployeeRole(organizationId: string, name: string) {
+    const [role] = await db
+      .select({ id: companyEmployeeRoles.id, name: companyEmployeeRoles.name })
+      .from(companyEmployeeRoles)
+      .where(
+        and(
+          eq(companyEmployeeRoles.organizationId, organizationId),
+          sql`lower(${companyEmployeeRoles.name}) = lower(${name})`,
+        ),
+      )
+      .limit(1);
+    return role;
+  }
+
+  private async requireEmployeeRole(organizationId: string, name: string) {
+    await this.seedEmployeeRoles(organizationId);
+    const role = await this.findEmployeeRole(organizationId, name.trim());
+    if (!role)
+      throw new NotFoundException('Employee role not found in this company');
+    return role.name;
   }
 
   private async assertUserCapacity(organizationId: string): Promise<void> {

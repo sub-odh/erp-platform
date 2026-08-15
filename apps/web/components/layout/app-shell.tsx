@@ -114,13 +114,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div
         className={[
-          "min-h-screen transition-[padding] duration-200",
+          "flex min-h-screen flex-col transition-[padding] duration-200",
           sidebarCollapsed ? "lg:pl-18" : "lg:pl-70",
         ].join(" ")}
       >
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
-        <main className="p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+
+        <footer className="border-t border-slate-200 bg-white px-6 py-5 text-center text-sm text-slate-600">
+          © {new Date().getFullYear()} EMSPro | Powered by Leapfuse Technology
+          Pvt. Ltd.
+        </footer>
       </div>
     </div>
   );
@@ -143,11 +148,7 @@ function updateBrowserBranding(company: Company | null): void {
    */
   document.title = companyName;
 
-  const logoUrl = resolveMediaUrl(company?.logoUrl);
-
-  if (!logoUrl) {
-    return;
-  }
+  const faviconImageUrl = resolveMediaUrl(company?.faviconUrl);
 
   /*
    * Next.js can insert its own favicon link.
@@ -160,7 +161,9 @@ function updateBrowserBranding(company: Company | null): void {
     ),
   );
 
-  const faviconUrl = addFaviconCacheBuster(logoUrl, company?.updatedAt);
+  const faviconUrl = faviconImageUrl
+    ? addFaviconCacheBuster(faviconImageUrl, company?.updatedAt)
+    : createInitialsFavicon(companyName);
 
   if (existingIcons.length > 0) {
     existingIcons.forEach((icon) => {
@@ -191,6 +194,18 @@ function updateBrowserBranding(company: Company | null): void {
   }
 
   shortcutIcon.href = faviconUrl;
+}
+
+function createInitialsFavicon(companyName: string): string {
+  const initials = companyName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("") || "E";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2563eb"/><text x="32" y="40" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" font-weight="700" fill="white">${initials}</text></svg>`;
+
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 function addFaviconCacheBuster(

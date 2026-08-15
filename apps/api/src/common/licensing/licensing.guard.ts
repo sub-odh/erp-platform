@@ -41,6 +41,9 @@ export class LicensingGuard implements CanActivate {
     if (/\/(users|company|organizations|audit-logs)(\/|$)/.test(path)) {
       return 'admin';
     }
+    if (/\/operations\/inventory(\/|$)/.test(path)) {
+      return 'inventory';
+    }
     return undefined;
   }
 }

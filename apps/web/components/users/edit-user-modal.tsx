@@ -6,9 +6,19 @@ import { ImageUploader } from "@/components/media/image-uploader";
 import { Button, Input, Modal, Select } from "@/components/ui";
 import { getStoredUser, updateStoredUser } from "@/lib/auth";
 import { resolveMediaUrl } from "@/lib/media";
-import { removeUserAvatar, updateUser, uploadUserAvatar } from "@/lib/users";
+import {
+  getEmployeeRoles,
+  removeUserAvatar,
+  updateUser,
+  uploadUserAvatar,
+} from "@/lib/users";
 import { getAssignableRoles, ROLE_LABELS } from "@/lib/user-roles";
-import type { UpdateUserRequest, User, UserRole } from "@/types/user";
+import type {
+  EmployeeRole,
+  UpdateUserRequest,
+  User,
+  UserRole,
+} from "@/types/user";
 
 interface EditUserModalProps {
   open: boolean;
@@ -32,6 +42,12 @@ export function EditUserModal({
   const [lastName, setLastName] = useState("");
 
   const [employeeId, setEmployeeId] = useState("");
+
+  const [joinedDate, setJoinedDate] = useState("");
+
+  const [employeeRole, setEmployeeRole] = useState("");
+
+  const [employeeRoles, setEmployeeRoles] = useState<EmployeeRole[]>([]);
 
   const [role, setRole] = useState<Exclude<UserRole, "OWNER">>("STAFF");
 
@@ -57,6 +73,10 @@ export function EditUserModal({
 
     setEmployeeId(user.employeeId ?? "");
 
+    setJoinedDate(user.joinedDate ?? user.createdAt.slice(0, 10));
+
+    setEmployeeRole(user.employeeRole ?? "");
+
     if (user.role !== "OWNER") {
       setRole(user.role);
     }
@@ -64,9 +84,24 @@ export function EditUserModal({
     setError(null);
   }, [user]);
 
+  useEffect(() => {
+    if (!open) return;
+    void getEmployeeRoles()
+      .then(setEmployeeRoles)
+      .catch(() => {});
+  }, [open]);
+
   const allowedRoles = useMemo(
     () => getAssignableRoles(currentUser?.role),
     [currentUser?.role],
+  );
+
+  // Preserve a legacy access level while it is being updated. New accounts can
+  // only be assigned the current access levels shown in `allowedRoles`.
+  const selectableRoles = useMemo(
+    () =>
+      allowedRoles.includes(role) ? allowedRoles : [role, ...allowedRoles],
+    [allowedRoles, role],
   );
 
   const busy = submitting || uploadingAvatar || removingAvatar;
@@ -181,7 +216,10 @@ export function EditUserModal({
 
       lastName: normalizedLastName,
 
-      role,
+      joinedDate,
+
+      employeeRole,
+      ...(role !== workingUser.role ? { role } : {}),
     };
 
     setSubmitting(true);
@@ -212,7 +250,7 @@ export function EditUserModal({
     <Modal
       open={open}
       title="Edit user"
-      description="Update the employee ID, profile, avatar, and company role."
+      description="Update the employee ID, profile, avatar, access level, and job title."
       onClose={handleClose}
       className="max-w-2xl"
       footer={
@@ -256,6 +294,14 @@ export function EditUserModal({
             required
           />
 
+          <Input
+            label="Joined Date"
+            type="date"
+            value={joinedDate}
+            onChange={(event) => setJoinedDate(event.target.value)}
+            required
+          />
+
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
               label="First name"
@@ -282,16 +328,32 @@ export function EditUserModal({
           />
 
           <Select
-            label="Role"
+            label="Access Level"
             value={role}
             onChange={(event) =>
               setRole(event.target.value as Exclude<UserRole, "OWNER">)
             }
             required
           >
-            {allowedRoles.map((option) => (
+            {selectableRoles.map((option) => (
               <option key={option} value={option}>
                 {ROLE_LABELS[option]}
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            label="Employee Role"
+            value={employeeRole}
+            onChange={(event) => setEmployeeRole(event.target.value)}
+            required
+          >
+            <option value="" disabled>
+              Select employee role
+            </option>
+            {employeeRoles.map((option) => (
+              <option key={option.id} value={option.name}>
+                {option.name}
               </option>
             ))}
           </Select>

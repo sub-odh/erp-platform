@@ -84,7 +84,7 @@ export class LicensingService implements OnModuleInit {
         licenseId: 'development',
         tenantId: '*',
         customer: 'Local development',
-        licensedModules: ['admin', 'sales'],
+        licensedModules: ['admin', 'sales', 'inventory'],
         validUntil: '2099-12-31',
         maxUsers: 10000,
         issuedAt: '2020-01-01',

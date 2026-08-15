@@ -76,7 +76,7 @@ export const organizations = pgTable("organizations", {
   currencyCode: varchar("currency_code", {
     length: 3,
   })
-    .default("USD")
+    .default("NPR")
     .notNull(),
 
   timezone: varchar("timezone", {
@@ -110,6 +110,14 @@ export const organizations = pgTable("organizations", {
   invoiceLogoMimeType: varchar("invoice_logo_mime_type", { length: 100 }),
 
   invoiceLogoSize: integer("invoice_logo_size"),
+
+  faviconUrl: varchar("favicon_url", { length: 1000 }),
+
+  faviconFileName: varchar("favicon_file_name", { length: 255 }),
+
+  faviconMimeType: varchar("favicon_mime_type", { length: 100 }),
+
+  faviconSize: integer("favicon_size"),
 
   createdAt: timestamp("created_at", {
     withTimezone: true,

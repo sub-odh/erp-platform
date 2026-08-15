@@ -120,7 +120,13 @@ export class SmtpService {
 
   async send(
     organizationId: string,
-    input: { to: string; subject: string; text: string },
+    input: {
+      to: string;
+      subject: string;
+      text: string;
+      html?: string;
+      attachments?: Array<{ filename: string; path: string; cid: string }>;
+    },
   ): Promise<void> {
     const config = await this.requireActive(organizationId);
     await this.createTransport(config).sendMail({
@@ -128,6 +134,8 @@ export class SmtpService {
       to: input.to,
       subject: input.subject,
       text: input.text,
+      html: input.html,
+      attachments: input.attachments,
     });
   }
 

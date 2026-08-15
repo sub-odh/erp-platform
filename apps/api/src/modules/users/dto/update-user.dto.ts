@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsIn,
+  IsDateString,
   IsOptional,
   IsString,
   MaxLength,
@@ -47,4 +48,15 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(ASSIGNABLE_USER_ROLES)
   role?: AssignableUserRole;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  employeeRole?: string;
+
+  @ApiPropertyOptional({ format: 'date', example: '2026-08-15' })
+  @IsOptional()
+  @IsDateString()
+  joinedDate?: string;
 }

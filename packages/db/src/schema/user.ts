@@ -64,6 +64,8 @@ export const users = pgTable(
 
     dateOfBirth: date("date_of_birth"),
 
+    joinedDate: date("joined_date"),
+
     fatherName: varchar("father_name", {
       length: 200,
     }),
@@ -85,6 +87,8 @@ export const users = pgTable(
     }),
 
     role: userRoleEnum("role").default("STAFF").notNull(),
+
+    employeeRole: varchar("employee_role", { length: 100 }),
 
     isActive: boolean("is_active").default(true).notNull(),
 

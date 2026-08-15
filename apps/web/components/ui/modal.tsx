@@ -66,8 +66,8 @@ export function Modal({
 
       <div
         className={cn(
-          "relative z-10 w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl",
-          className,
+          "relative z-10 w-full overflow-hidden rounded-2xl bg-white shadow-2xl",
+          className ?? "max-w-lg",
         )}
       >
         <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">

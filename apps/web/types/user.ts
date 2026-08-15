@@ -27,12 +27,14 @@ export interface User {
   lastName: string;
   phone: string | null;
   dateOfBirth: string | null;
+  joinedDate: string | null;
   fatherName: string | null;
   motherName: string | null;
   citizenshipNumber: string | null;
   panNumber: string | null;
   permanentAddress: string | null;
   role: UserRole;
+  employeeRole: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
 
@@ -51,6 +53,11 @@ export interface User {
   deletedAt: string | null;
 }
 
+export interface EmployeeRole {
+  id: string;
+  name: string;
+}
+
 export interface CreateUserRequest {
   employeeId: string;
   firstName: string;
@@ -58,6 +65,8 @@ export interface CreateUserRequest {
   email: string;
   password: string;
   role: Exclude<UserRole, "OWNER">;
+  employeeRole: string;
+  joinedDate: string;
 }
 
 export interface UpdateUserRequest {
@@ -65,6 +74,8 @@ export interface UpdateUserRequest {
   firstName?: string;
   lastName?: string;
   role?: Exclude<UserRole, "OWNER">;
+  employeeRole?: string;
+  joinedDate?: string;
 }
 
 export interface UpdateUserStatusRequest {

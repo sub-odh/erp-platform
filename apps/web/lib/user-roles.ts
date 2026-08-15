@@ -2,7 +2,7 @@ import type { UserRole } from "@/types/user";
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   OWNER: "Owner",
-  SUPER_ADMIN: "SuperAdmin",
+  SUPER_ADMIN: "Super Admin",
   ADMIN: "Admin",
   HR: "HR",
   OPERATIONS: "Operations",
@@ -17,14 +17,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 const ASSIGNABLE_ROLES: Array<Exclude<UserRole, "OWNER">> = [
   "SUPER_ADMIN",
   "ADMIN",
-  "HR",
-  "OPERATIONS",
   "EMPLOYEE",
-  "SALES",
-  "MANAGEMENT",
-  "HEAD",
-  "MANAGER",
-  "STAFF",
 ];
 
 export function getAssignableRoles(

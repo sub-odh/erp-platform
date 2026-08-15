@@ -27,6 +27,10 @@ export interface Company {
   invoiceLogoFileName: string | null;
   invoiceLogoMimeType: string | null;
   invoiceLogoSize: number | null;
+  faviconUrl: string | null;
+  faviconFileName: string | null;
+  faviconMimeType: string | null;
+  faviconSize: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,6 +65,14 @@ export interface CompanyDataCounts {
   customerContacts: number;
   leads: number;
   opportunities: number;
+  inventoryAssets: number;
+  inventoryMovements: number;
+  categories: number;
+  units: number;
+  vendors: number;
+  products: number;
+  purchaseOrders: number;
+  purchaseOrderItems: number;
 }
 
 export interface CompanyBackup {
@@ -74,6 +86,14 @@ export interface CompanyBackup {
     customerContacts: unknown[];
     leads: unknown[];
     opportunities: unknown[];
+    inventoryAssets: unknown[];
+    inventoryMovements: unknown[];
+    categories: unknown[];
+    units: unknown[];
+    vendors: unknown[];
+    products: unknown[];
+    purchaseOrders: unknown[];
+    purchaseOrderItems: unknown[];
   };
   counts: CompanyDataCounts;
 }

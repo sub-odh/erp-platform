@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ImageUploader } from "@/components/media/image-uploader";
 import { PasswordRequirements } from "@/components/security/password-requirements";
@@ -16,11 +16,11 @@ import {
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/password-policy";
 
-import { createUser, uploadUserAvatar } from "@/lib/users";
+import { createUser, getEmployeeRoles, uploadUserAvatar } from "@/lib/users";
 
 import { getAssignableRoles, ROLE_LABELS } from "@/lib/user-roles";
 
-import type { CreateUserRequest, User } from "@/types/user";
+import type { CreateUserRequest, EmployeeRole, User } from "@/types/user";
 
 interface CreateUserModalProps {
   open: boolean;
@@ -40,6 +40,10 @@ const initialForm: CreateUserRequest = {
   email: "",
 
   password: "",
+
+  joinedDate: new Date().toISOString().slice(0, 10),
+
+  employeeRole: "CEO",
 
   role: "EMPLOYEE",
 };
@@ -64,6 +68,15 @@ export function CreateUserModal({
   const [error, setError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+
+  const [employeeRoles, setEmployeeRoles] = useState<EmployeeRole[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    void getEmployeeRoles()
+      .then(setEmployeeRoles)
+      .catch(() => {});
+  }, [open]);
 
   const allowedRoles = useMemo(
     () => getAssignableRoles(currentUser?.role),
@@ -227,7 +240,14 @@ export function CreateUserModal({
             required
           />
 
-          <div className="hidden sm:block" />
+          <Input
+            label="Joined Date"
+            type="date"
+            value={form.joinedDate}
+            onChange={(event) => updateField("joinedDate", event.target.value)}
+            disabled={userAlreadyCreated}
+            required
+          />
 
           <Input
             label="First name"
@@ -301,7 +321,7 @@ export function CreateUserModal({
         </div>
 
         <Select
-          label="Role"
+          label="Access Level"
           value={form.role}
           onChange={(event) =>
             updateField(
@@ -316,6 +336,23 @@ export function CreateUserModal({
           {allowedRoles.map((role) => (
             <option key={role} value={role}>
               {ROLE_LABELS[role]}
+            </option>
+          ))}
+        </Select>
+
+        <Select
+          label="Employee Role"
+          value={form.employeeRole}
+          onChange={(event) => updateField("employeeRole", event.target.value)}
+          disabled={userAlreadyCreated}
+          required
+        >
+          <option value="" disabled>
+            Select employee role
+          </option>
+          {employeeRoles.map((employeeRole) => (
+            <option key={employeeRole.id} value={employeeRole.name}>
+              {employeeRole.name}
             </option>
           ))}
         </Select>

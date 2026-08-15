@@ -7,6 +7,14 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 import {
   db,
+  inventoryAssets,
+  inventoryMovements,
+  operationsCategories,
+  operationsPurchaseOrderItems,
+  operationsPurchaseOrders,
+  operationsProducts,
+  operationsUnits,
+  operationsVendors,
   organizations,
   salesCustomerContacts,
   salesCustomers,
@@ -14,6 +22,16 @@ import {
   salesOpportunities,
   salesPipelineStages,
   users,
+  type InventoryAsset,
+  type InventoryMovement,
+  type NewInventoryAsset,
+  type NewInventoryMovement,
+  type NewOperationsCategory,
+  type NewOperationsPurchaseOrder,
+  type NewOperationsPurchaseOrderItem,
+  type NewOperationsProduct,
+  type NewOperationsUnit,
+  type NewOperationsVendor,
   type NewSalesCustomer,
   type NewSalesCustomerContact,
   type NewSalesLead,
@@ -24,6 +42,12 @@ import {
   type SalesLead,
   type SalesOpportunity,
   type SalesPipelineStage,
+  type OperationsCategory,
+  type OperationsPurchaseOrder,
+  type OperationsPurchaseOrderItem,
+  type OperationsProduct,
+  type OperationsUnit,
+  type OperationsVendor,
 } from '@erp/db';
 
 import { OwnerVerificationService } from '../users/owner-verification.service';
@@ -48,6 +72,14 @@ interface ParsedCompanyBackup {
     customerContacts: BackupRecord[];
     leads: BackupRecord[];
     opportunities: BackupRecord[];
+    inventoryAssets?: BackupRecord[];
+    inventoryMovements?: BackupRecord[];
+    categories?: BackupRecord[];
+    units?: BackupRecord[];
+    vendors?: BackupRecord[];
+    products?: BackupRecord[];
+    purchaseOrders?: BackupRecord[];
+    purchaseOrderItems?: BackupRecord[];
   };
 }
 
@@ -57,6 +89,14 @@ export interface CompanyDataCounts {
   customerContacts: number;
   leads: number;
   opportunities: number;
+  inventoryAssets: number;
+  inventoryMovements: number;
+  categories: number;
+  units: number;
+  vendors: number;
+  products: number;
+  purchaseOrders: number;
+  purchaseOrderItems: number;
 }
 
 export interface CompanyBackup {
@@ -74,6 +114,14 @@ export interface CompanyBackup {
     customerContacts: SalesCustomerContact[];
     leads: SalesLead[];
     opportunities: SalesOpportunity[];
+    inventoryAssets: InventoryAsset[];
+    inventoryMovements: InventoryMovement[];
+    categories: OperationsCategory[];
+    units: OperationsUnit[];
+    vendors: OperationsVendor[];
+    products: OperationsProduct[];
+    purchaseOrders: OperationsPurchaseOrder[];
+    purchaseOrderItems: OperationsPurchaseOrderItem[];
   };
   counts: CompanyDataCounts;
 }
@@ -91,29 +139,74 @@ export class CompanyDataService {
   async createBackup(organizationId: string): Promise<CompanyBackup> {
     const company = await this.findCompany(organizationId);
 
-    const [pipelineStages, customers, customerContacts, leads, opportunities] =
-      await Promise.all([
-        db
-          .select()
-          .from(salesPipelineStages)
-          .where(eq(salesPipelineStages.tenantId, organizationId)),
-        db
-          .select()
-          .from(salesCustomers)
-          .where(eq(salesCustomers.tenantId, organizationId)),
-        db
-          .select()
-          .from(salesCustomerContacts)
-          .where(eq(salesCustomerContacts.tenantId, organizationId)),
-        db
-          .select()
-          .from(salesLeads)
-          .where(eq(salesLeads.tenantId, organizationId)),
-        db
-          .select()
-          .from(salesOpportunities)
-          .where(eq(salesOpportunities.tenantId, organizationId)),
-      ]);
+    const [
+      pipelineStages,
+      customers,
+      customerContacts,
+      leads,
+      opportunities,
+      inventoryAssetRows,
+      inventoryMovementRows,
+      categoryRows,
+      unitRows,
+      vendorRows,
+      productRows,
+      purchaseOrderRows,
+      purchaseOrderItemRows,
+    ] = await Promise.all([
+      db
+        .select()
+        .from(salesPipelineStages)
+        .where(eq(salesPipelineStages.tenantId, organizationId)),
+      db
+        .select()
+        .from(salesCustomers)
+        .where(eq(salesCustomers.tenantId, organizationId)),
+      db
+        .select()
+        .from(salesCustomerContacts)
+        .where(eq(salesCustomerContacts.tenantId, organizationId)),
+      db
+        .select()
+        .from(salesLeads)
+        .where(eq(salesLeads.tenantId, organizationId)),
+      db
+        .select()
+        .from(salesOpportunities)
+        .where(eq(salesOpportunities.tenantId, organizationId)),
+      db
+        .select()
+        .from(inventoryAssets)
+        .where(eq(inventoryAssets.tenantId, organizationId)),
+      db
+        .select()
+        .from(inventoryMovements)
+        .where(eq(inventoryMovements.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsCategories)
+        .where(eq(operationsCategories.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsUnits)
+        .where(eq(operationsUnits.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsVendors)
+        .where(eq(operationsVendors.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsProducts)
+        .where(eq(operationsProducts.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsPurchaseOrders)
+        .where(eq(operationsPurchaseOrders.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsPurchaseOrderItems)
+        .where(eq(operationsPurchaseOrderItems.tenantId, organizationId)),
+    ]);
 
     return {
       format: BACKUP_FORMAT,
@@ -130,6 +223,14 @@ export class CompanyDataService {
         customerContacts,
         leads,
         opportunities,
+        inventoryAssets: inventoryAssetRows,
+        inventoryMovements: inventoryMovementRows,
+        categories: categoryRows,
+        units: unitRows,
+        vendors: vendorRows,
+        products: productRows,
+        purchaseOrders: purchaseOrderRows,
+        purchaseOrderItems: purchaseOrderItemRows,
       },
       counts: this.counts({
         pipelineStages,
@@ -137,6 +238,14 @@ export class CompanyDataService {
         customerContacts,
         leads,
         opportunities,
+        inventoryAssets: inventoryAssetRows,
+        inventoryMovements: inventoryMovementRows,
+        categories: categoryRows,
+        units: unitRows,
+        vendors: vendorRows,
+        products: productRows,
+        purchaseOrders: purchaseOrderRows,
+        purchaseOrderItems: purchaseOrderItemRows,
       }),
     };
   }
@@ -185,6 +294,32 @@ export class CompanyDataService {
       if (rows.opportunities.length > 0) {
         await db.insert(salesOpportunities).values(rows.opportunities);
       }
+      if (rows.categories.length > 0) {
+        await db.insert(operationsCategories).values(rows.categories);
+      }
+      if (rows.units.length > 0) {
+        await db.insert(operationsUnits).values(rows.units);
+      }
+      if (rows.vendors.length > 0) {
+        await db.insert(operationsVendors).values(rows.vendors);
+      }
+      if (rows.products.length > 0) {
+        await db.insert(operationsProducts).values(rows.products);
+      }
+      if (rows.purchaseOrders.length > 0) {
+        await db.insert(operationsPurchaseOrders).values(rows.purchaseOrders);
+      }
+      if (rows.purchaseOrderItems.length > 0) {
+        await db
+          .insert(operationsPurchaseOrderItems)
+          .values(rows.purchaseOrderItems);
+      }
+      if (rows.inventoryAssets.length > 0) {
+        await db.insert(inventoryAssets).values(rows.inventoryAssets);
+      }
+      if (rows.inventoryMovements.length > 0) {
+        await db.insert(inventoryMovements).values(rows.inventoryMovements);
+      }
     } catch (error: unknown) {
       if (error instanceof BadRequestException) {
         throw error;
@@ -219,7 +354,7 @@ export class CompanyDataService {
 
     return {
       success: true,
-      message: 'Company Sales/CRM data was reset successfully.',
+      message: 'Company operational data was reset successfully.',
       counts,
     };
   }
@@ -291,6 +426,27 @@ export class CompanyDataService {
       }
     }
 
+    for (const collection of [
+      'inventoryAssets',
+      'inventoryMovements',
+      'categories',
+      'units',
+      'vendors',
+      'products',
+      'purchaseOrders',
+      'purchaseOrderItems',
+    ] as const) {
+      const value = data[collection];
+      if (
+        value !== undefined &&
+        (!Array.isArray(value) || !value.every((row) => this.isRecord(row)))
+      ) {
+        throw new BadRequestException(
+          `Backup collection ${collection} is invalid`,
+        );
+      }
+    }
+
     return parsed as unknown as ParsedCompanyBackup;
   }
 
@@ -303,6 +459,14 @@ export class CompanyDataService {
     customerContacts: NewSalesCustomerContact[];
     leads: NewSalesLead[];
     opportunities: NewSalesOpportunity[];
+    inventoryAssets: NewInventoryAsset[];
+    inventoryMovements: NewInventoryMovement[];
+    categories: NewOperationsCategory[];
+    units: NewOperationsUnit[];
+    vendors: NewOperationsVendor[];
+    products: NewOperationsProduct[];
+    purchaseOrders: NewOperationsPurchaseOrder[];
+    purchaseOrderItems: NewOperationsPurchaseOrderItem[];
   } {
     return {
       pipelineStages: backup.data.pipelineStages.map((row) =>
@@ -320,6 +484,30 @@ export class CompanyDataService {
       opportunities: backup.data.opportunities.map((row) =>
         this.normalizeRow<NewSalesOpportunity>(row, organizationId),
       ),
+      inventoryAssets: (backup.data.inventoryAssets ?? []).map((row) =>
+        this.normalizeRow<NewInventoryAsset>(row, organizationId),
+      ),
+      inventoryMovements: (backup.data.inventoryMovements ?? []).map((row) =>
+        this.normalizeRow<NewInventoryMovement>(row, organizationId),
+      ),
+      categories: (backup.data.categories ?? []).map((row) =>
+        this.normalizeRow<NewOperationsCategory>(row, organizationId),
+      ),
+      units: (backup.data.units ?? []).map((row) =>
+        this.normalizeRow<NewOperationsUnit>(row, organizationId),
+      ),
+      vendors: (backup.data.vendors ?? []).map((row) =>
+        this.normalizeRow<NewOperationsVendor>(row, organizationId),
+      ),
+      products: (backup.data.products ?? []).map((row) =>
+        this.normalizeRow<NewOperationsProduct>(row, organizationId),
+      ),
+      purchaseOrders: (backup.data.purchaseOrders ?? []).map((row) =>
+        this.normalizeRow<NewOperationsPurchaseOrder>(row, organizationId),
+      ),
+      purchaseOrderItems: (backup.data.purchaseOrderItems ?? []).map((row) =>
+        this.normalizeRow<NewOperationsPurchaseOrderItem>(row, organizationId),
+      ),
     };
   }
 
@@ -335,6 +523,7 @@ export class CompanyDataService {
       'deletedAt',
       'convertedAt',
       'closedAt',
+      'deliveryDate',
     ]) {
       const value = normalized[field];
 
@@ -359,12 +548,28 @@ export class CompanyDataService {
       customerContacts: NewSalesCustomerContact[];
       leads: NewSalesLead[];
       opportunities: NewSalesOpportunity[];
+      inventoryAssets: NewInventoryAsset[];
+      inventoryMovements: NewInventoryMovement[];
+      categories: NewOperationsCategory[];
+      units: NewOperationsUnit[];
+      vendors: NewOperationsVendor[];
+      products: NewOperationsProduct[];
+      purchaseOrders: NewOperationsPurchaseOrder[];
+      purchaseOrderItems: NewOperationsPurchaseOrderItem[];
     },
     organizationId: string,
   ): Promise<void> {
     const stageIds = new Set(rows.pipelineStages.map((row) => row.id));
     const customerIds = new Set(rows.customers.map((row) => row.id));
     const leadIds = new Set(rows.leads.map((row) => row.id));
+    const inventoryAssetIds = new Set(
+      rows.inventoryAssets.map((row) => row.id),
+    );
+    const categoryIds = new Set(rows.categories.map((row) => row.id));
+    const unitIds = new Set(rows.units.map((row) => row.id));
+    const vendorIds = new Set(rows.vendors.map((row) => row.id));
+    const productIds = new Set(rows.products.map((row) => row.id));
+    const purchaseOrderIds = new Set(rows.purchaseOrders.map((row) => row.id));
 
     if (
       rows.customerContacts.some((row) => !customerIds.has(row.customerId)) ||
@@ -377,10 +582,29 @@ export class CompanyDataService {
           (row.leadId !== null &&
             row.leadId !== undefined &&
             !leadIds.has(row.leadId)),
+      ) ||
+      rows.inventoryMovements.some(
+        (row) => !inventoryAssetIds.has(row.assetId),
+      ) ||
+      rows.products.some(
+        (row) =>
+          !categoryIds.has(row.categoryId) ||
+          !unitIds.has(row.unitId) ||
+          (row.defaultVendorId !== null &&
+            row.defaultVendorId !== undefined &&
+            !vendorIds.has(row.defaultVendorId)),
+      ) ||
+      rows.purchaseOrders.some((row) => !vendorIds.has(row.vendorId)) ||
+      rows.purchaseOrderItems.some(
+        (row) =>
+          !purchaseOrderIds.has(row.purchaseOrderId) ||
+          (row.productId !== null &&
+            row.productId !== undefined &&
+            !productIds.has(row.productId)),
       )
     ) {
       throw new BadRequestException(
-        'The backup contains broken Sales/CRM relationships',
+        'The backup contains broken operational relationships',
       );
     }
 
@@ -392,8 +616,21 @@ export class CompanyDataService {
       ...rows.customerContacts,
       ...rows.leads,
       ...rows.opportunities,
+      ...rows.inventoryAssets,
+      ...rows.inventoryMovements,
+      ...rows.categories,
+      ...rows.units,
+      ...rows.vendors,
+      ...rows.products,
+      ...rows.purchaseOrders,
+      ...rows.purchaseOrderItems,
     ]) {
-      for (const field of ['createdBy', 'updatedBy', 'ownerUserId'] as const) {
+      for (const field of [
+        'createdBy',
+        'updatedBy',
+        'ownerUserId',
+        'performedBy',
+      ] as const) {
         const value = row[field as keyof typeof row];
         if (typeof value === 'string') referencedUserIds.add(value);
       }
@@ -418,8 +655,21 @@ export class CompanyDataService {
       ...rows.customerContacts,
       ...rows.leads,
       ...rows.opportunities,
+      ...rows.inventoryAssets,
+      ...rows.inventoryMovements,
+      ...rows.categories,
+      ...rows.units,
+      ...rows.vendors,
+      ...rows.products,
+      ...rows.purchaseOrders,
+      ...rows.purchaseOrderItems,
     ] as Array<Record<string, unknown>>) {
-      for (const field of ['createdBy', 'updatedBy', 'ownerUserId']) {
+      for (const field of [
+        'createdBy',
+        'updatedBy',
+        'ownerUserId',
+        'performedBy',
+      ]) {
         const value = row[field];
         if (typeof value === 'string' && !existingUserIds.has(value)) {
           row[field] = null;
@@ -431,6 +681,38 @@ export class CompanyDataService {
   private async deleteOperationalData(
     organizationId: string,
   ): Promise<CompanyDataCounts> {
+    const movementRows = await db
+      .delete(inventoryMovements)
+      .where(eq(inventoryMovements.tenantId, organizationId))
+      .returning({ id: inventoryMovements.id });
+    const assetRows = await db
+      .delete(inventoryAssets)
+      .where(eq(inventoryAssets.tenantId, organizationId))
+      .returning({ id: inventoryAssets.id });
+    const purchaseOrderItemRows = await db
+      .delete(operationsPurchaseOrderItems)
+      .where(eq(operationsPurchaseOrderItems.tenantId, organizationId))
+      .returning({ id: operationsPurchaseOrderItems.id });
+    const purchaseOrderRows = await db
+      .delete(operationsPurchaseOrders)
+      .where(eq(operationsPurchaseOrders.tenantId, organizationId))
+      .returning({ id: operationsPurchaseOrders.id });
+    const productRows = await db
+      .delete(operationsProducts)
+      .where(eq(operationsProducts.tenantId, organizationId))
+      .returning({ id: operationsProducts.id });
+    const vendorRows = await db
+      .delete(operationsVendors)
+      .where(eq(operationsVendors.tenantId, organizationId))
+      .returning({ id: operationsVendors.id });
+    const unitRows = await db
+      .delete(operationsUnits)
+      .where(eq(operationsUnits.tenantId, organizationId))
+      .returning({ id: operationsUnits.id });
+    const categoryRows = await db
+      .delete(operationsCategories)
+      .where(eq(operationsCategories.tenantId, organizationId))
+      .returning({ id: operationsCategories.id });
     const opportunities = await db
       .delete(salesOpportunities)
       .where(eq(salesOpportunities.tenantId, organizationId))
@@ -458,6 +740,14 @@ export class CompanyDataService {
       customerContacts: customerContacts.length,
       leads: leads.length,
       opportunities: opportunities.length,
+      inventoryAssets: assetRows.length,
+      inventoryMovements: movementRows.length,
+      categories: categoryRows.length,
+      units: unitRows.length,
+      vendors: vendorRows.length,
+      products: productRows.length,
+      purchaseOrders: purchaseOrderRows.length,
+      purchaseOrderItems: purchaseOrderItemRows.length,
     };
   }
 
@@ -469,6 +759,20 @@ export class CompanyDataService {
       readonly SalesCustomerContact[] | readonly NewSalesCustomerContact[];
     leads: readonly SalesLead[] | readonly NewSalesLead[];
     opportunities: readonly SalesOpportunity[] | readonly NewSalesOpportunity[];
+    inventoryAssets: readonly InventoryAsset[] | readonly NewInventoryAsset[];
+    inventoryMovements:
+      readonly InventoryMovement[] | readonly NewInventoryMovement[];
+    categories:
+      readonly OperationsCategory[] | readonly NewOperationsCategory[];
+    units: readonly OperationsUnit[] | readonly NewOperationsUnit[];
+    vendors: readonly OperationsVendor[] | readonly NewOperationsVendor[];
+    products: readonly OperationsProduct[] | readonly NewOperationsProduct[];
+    purchaseOrders:
+      | readonly OperationsPurchaseOrder[]
+      | readonly NewOperationsPurchaseOrder[];
+    purchaseOrderItems:
+      | readonly OperationsPurchaseOrderItem[]
+      | readonly NewOperationsPurchaseOrderItem[];
   }): CompanyDataCounts {
     return {
       pipelineStages: data.pipelineStages.length,
@@ -476,6 +780,14 @@ export class CompanyDataService {
       customerContacts: data.customerContacts.length,
       leads: data.leads.length,
       opportunities: data.opportunities.length,
+      inventoryAssets: data.inventoryAssets.length,
+      inventoryMovements: data.inventoryMovements.length,
+      categories: data.categories.length,
+      units: data.units.length,
+      vendors: data.vendors.length,
+      products: data.products.length,
+      purchaseOrders: data.purchaseOrders.length,
+      purchaseOrderItems: data.purchaseOrderItems.length,
     };
   }
 

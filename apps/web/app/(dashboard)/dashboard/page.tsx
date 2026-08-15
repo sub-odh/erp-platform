@@ -1,4 +1,5 @@
 import { Building2, Package, ShoppingCart, Users } from "lucide-react";
+import Link from "next/link";
 
 const cards = [
   {
@@ -13,8 +14,9 @@ const cards = [
   },
   {
     label: "Inventory",
-    value: "Coming next",
+    value: "Open workspace",
     icon: Package,
+    href: "/inventory",
   },
   {
     label: "Sales",
@@ -43,8 +45,9 @@ export default function DashboardPage() {
           const Icon = card.icon;
 
           return (
-            <div
+            <Link
               key={card.label}
+              href={card.href ?? "#"}
               className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
             >
               <div className="flex items-center justify-between">
@@ -58,7 +61,7 @@ export default function DashboardPage() {
               <p className="mt-1 text-xl font-semibold text-slate-900">
                 {card.value}
               </p>
-            </div>
+            </Link>
           );
         })}
       </div>

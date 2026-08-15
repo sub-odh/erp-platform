@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   Package,
   ReceiptText,
+  RotateCcw,
   Settings,
   ShoppingCart,
   Target,
@@ -139,22 +140,88 @@ const navigationSections: NavigationSection[] = [
         icon: CircleDollarSign,
         disabled: true,
       },
+
+      {
+        label: "Sales Reports",
+        icon: BarChart3,
+        disabled: true,
+      },
     ],
   },
 
   {
-    title: "Inventory",
+    title: "Inventory & Logistics",
+    requiredModule: "inventory",
 
     items: [
       {
-        label: "Products",
-        icon: Package,
+        href: "/inventory",
+        label: "Inventory Intelligence",
+        icon: BarChart3,
+      },
+
+      {
+        href: "/inventory/master",
+        label: "Inventory Master",
+        icon: Boxes,
+      },
+
+      {
+        href: "/assets",
+        label: "Assets",
+        icon: Boxes,
+      },
+
+      {
+        label: "Inventory Logs",
+        icon: ClipboardList,
         disabled: true,
       },
 
       {
-        label: "Inventory",
-        icon: Boxes,
+        label: "Item Return",
+        icon: RotateCcw,
+        disabled: true,
+      },
+
+      {
+        href: "/products",
+        label: "Products",
+        icon: Package,
+      },
+
+      {
+        href: "/vendors",
+        label: "Vendors",
+        icon: Building2,
+      },
+
+      {
+        label: "Purchase Orders",
+        icon: ShoppingCart,
+        children: [
+          {
+            href: "/purchase-orders/new",
+            label: "Create PO",
+            icon: FileText,
+          },
+          {
+            href: "/purchase-orders",
+            label: "View All POs",
+            icon: ClipboardList,
+          },
+        ],
+      },
+
+      {
+        label: "Goods Receipts",
+        icon: ClipboardList,
+        disabled: true,
+      },
+
+      {
+        label: "Delivery Orders",
+        icon: Truck,
         disabled: true,
       },
 
@@ -165,33 +232,9 @@ const navigationSections: NavigationSection[] = [
       },
 
       {
+        href: "/inventory/movements",
         label: "Stock Movements",
         icon: Truck,
-        disabled: true,
-      },
-    ],
-  },
-
-  {
-    title: "Procurement",
-
-    items: [
-      {
-        label: "Suppliers",
-        icon: Building2,
-        disabled: true,
-      },
-
-      {
-        label: "Purchase Orders",
-        icon: ShoppingCart,
-        disabled: true,
-      },
-
-      {
-        label: "Goods Receipts",
-        icon: ClipboardList,
-        disabled: true,
       },
     ],
   },
@@ -252,17 +295,19 @@ export function Sidebar({
 
   useEffect(() => setLicense(getStoredLicense()), []);
 
-  const logoUrl = resolveMediaUrl(company?.logoUrl);
+  const logoUrl = resolveMediaUrl(company?.logoUrl ?? company?.invoiceLogoUrl);
 
   const crmActive =
     pathname.startsWith("/customers") ||
     pathname.startsWith("/leads") ||
     pathname.startsWith("/opportunities") ||
     pathname.startsWith("/pipeline");
+  const purchaseOrdersActive = pathname.startsWith("/purchase-orders");
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {
       CRM: crmActive,
+      "Purchase Orders": purchaseOrdersActive,
     },
   );
 
@@ -273,7 +318,13 @@ export function Sidebar({
         CRM: true,
       }));
     }
-  }, [crmActive]);
+    if (purchaseOrdersActive) {
+      setExpandedGroups((current) => ({
+        ...current,
+        "Purchase Orders": true,
+      }));
+    }
+  }, [crmActive, purchaseOrdersActive]);
 
   function toggleGroup(label: string): void {
     /*
@@ -309,6 +360,7 @@ export function Sidebar({
     setExpandedGroups((current) => ({
       ...current,
       CRM: crmActive,
+      "Purchase Orders": purchaseOrdersActive,
     }));
   }
 
@@ -424,6 +476,15 @@ function SidebarHeader({
 
   onClose: () => void;
 }) {
+  const [logoShape, setLogoShape] = useState<"square" | "wide" | "tall" | null>(
+    null,
+  );
+  const showWideLogo = logoShape === "wide" && !collapsed;
+
+  useEffect(() => {
+    setLogoShape(null);
+  }, [logoUrl]);
+
   return (
     <div
       className={[
@@ -438,13 +499,17 @@ function SidebarHeader({
         onClick={onClose}
         title={collapsed ? (company?.name ?? "ERP Platform") : undefined}
         className={[
-          "flex min-w-0 items-center gap-3",
+          "flex min-w-0",
+          showWideLogo
+            ? "w-full flex-col items-start gap-1"
+            : "items-center gap-3",
           collapsed ? "lg:justify-center" : "",
         ].join(" ")}
       >
         <div
           className={[
-            "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl",
+            "flex shrink-0 items-center justify-center overflow-hidden rounded-xl",
+            showWideLogo ? "h-12 w-full max-w-[188px]" : "h-11 w-11",
             logoUrl ? "bg-white" : "bg-blue-600",
           ].join(" ")}
         >
@@ -452,14 +517,27 @@ function SidebarHeader({
             <img
               src={logoUrl}
               alt={`${company?.name ?? "Company"} logo`}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain p-1"
+              onLoad={(event) => {
+                const { naturalHeight, naturalWidth } = event.currentTarget;
+                if (!naturalWidth || !naturalHeight) return;
+                const ratio = naturalWidth / naturalHeight;
+                setLogoShape(
+                  ratio > 1.25 ? "wide" : ratio < 0.8 ? "tall" : "square",
+                );
+              }}
             />
           ) : (
             <Package size={21} className="text-white" />
           )}
         </div>
 
-        <div className={["min-w-0", collapsed ? "lg:hidden" : ""].join(" ")}>
+        <div
+          className={[
+            "min-w-0",
+            showWideLogo ? "hidden" : collapsed ? "lg:hidden" : "",
+          ].join(" ")}
+        >
           <p className="truncate text-sm font-semibold text-white">
             {company?.name ?? "ERP Platform"}
           </p>
@@ -752,5 +830,9 @@ function SidebarFooter({
 }
 
 function isPathActive(pathname: string, href: string): boolean {
+  if (href === "/inventory") {
+    return pathname === href;
+  }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }

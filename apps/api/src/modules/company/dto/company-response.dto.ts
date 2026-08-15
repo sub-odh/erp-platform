@@ -119,6 +119,18 @@ export class CompanyResponseDto {
   @ApiPropertyOptional({ nullable: true })
   invoiceLogoSize!: number | null;
 
+  @ApiPropertyOptional({ nullable: true })
+  faviconUrl!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  faviconFileName!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  faviconMimeType!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  faviconSize!: number | null;
+
   @ApiProperty({
     format: 'date-time',
   })

@@ -54,6 +54,21 @@ export function removeInvoiceLogo() {
   });
 }
 
+export function uploadFavicon(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<Company>("/company/current/favicon", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function removeFavicon() {
+  return apiRequest<Company>("/company/current/favicon", {
+    method: "DELETE",
+  });
+}
+
 export function getCompanyBackup() {
   return apiRequest<CompanyBackup>("/company/current/backup");
 }

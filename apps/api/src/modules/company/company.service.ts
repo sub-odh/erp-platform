@@ -147,4 +147,49 @@ export class CompanyService {
     await this.mediaService.deleteImage(current.invoiceLogoUrl);
     return updated;
   }
+
+  async uploadFavicon(
+    organizationId: string,
+    file: Express.Multer.File | undefined,
+  ): Promise<Organization> {
+    const current = await this.findCurrent(organizationId);
+    const uploaded = await this.mediaService.uploadImage(file, 'company');
+    try {
+      const [updated] = await db
+        .update(organizations)
+        .set({
+          faviconUrl: uploaded.url,
+          faviconFileName: uploaded.fileName,
+          faviconMimeType: uploaded.mimeType,
+          faviconSize: uploaded.size,
+          updatedAt: new Date(),
+        })
+        .where(eq(organizations.id, organizationId))
+        .returning();
+      if (!updated) throw new NotFoundException('Company not found');
+      await this.mediaService.deleteImage(current.faviconUrl);
+      return updated;
+    } catch (error: unknown) {
+      await this.mediaService.deleteImage(uploaded.url);
+      throw error;
+    }
+  }
+
+  async removeFavicon(organizationId: string): Promise<Organization> {
+    const current = await this.findCurrent(organizationId);
+    const [updated] = await db
+      .update(organizations)
+      .set({
+        faviconUrl: null,
+        faviconFileName: null,
+        faviconMimeType: null,
+        faviconSize: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, organizationId))
+      .returning();
+    if (!updated) throw new NotFoundException('Company not found');
+    await this.mediaService.deleteImage(current.faviconUrl);
+    return updated;
+  }
 }

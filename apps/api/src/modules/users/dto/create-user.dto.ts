@@ -2,7 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import {
   IsEmail,
+  IsDateString,
   IsIn,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -19,20 +21,14 @@ import {
 export const ASSIGNABLE_USER_ROLES = [
   'SUPER_ADMIN',
   'ADMIN',
-  'HR',
-  'OPERATIONS',
   'EMPLOYEE',
-  'SALES',
-  'MANAGEMENT',
-  'HEAD',
-  'MANAGER',
-  'STAFF',
 ] as const;
 
 export type AssignableUserRole = (typeof ASSIGNABLE_USER_ROLES)[number];
 
 export class CreateUserDto {
   @ApiProperty({ example: 'EMP-001', maxLength: 50 })
+  @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(50)
@@ -80,8 +76,17 @@ export class CreateUserDto {
 
   @ApiProperty({
     enum: ASSIGNABLE_USER_ROLES,
-    example: 'STAFF',
+    example: 'EMPLOYEE',
   })
   @IsIn(ASSIGNABLE_USER_ROLES)
   role!: AssignableUserRole;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  employeeRole!: string;
+
+  @ApiProperty({ format: 'date', example: '2026-08-15' })
+  @IsDateString()
+  joinedDate!: string;
 }

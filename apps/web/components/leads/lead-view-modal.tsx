@@ -95,7 +95,7 @@ export function LeadViewModal({ open, lead, onClose }: LeadViewModalProps) {
         </div>
 
         <section>
-          <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h4 className="mb-3 text-xs font-semibold tracking-wide text-slate-500">
             Contact
           </h4>
 
@@ -127,7 +127,7 @@ export function LeadViewModal({ open, lead, onClose }: LeadViewModalProps) {
         </section>
 
         <section>
-          <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h4 className="mb-3 text-xs font-semibold tracking-wide text-slate-500">
             Sales information
           </h4>
 
@@ -164,7 +164,7 @@ export function LeadViewModal({ open, lead, onClose }: LeadViewModalProps) {
 
         {lead.notes ? (
           <section>
-            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <h4 className="mb-3 text-xs font-semibold tracking-wide text-slate-500">
               Notes
             </h4>
 
@@ -175,7 +175,7 @@ export function LeadViewModal({ open, lead, onClose }: LeadViewModalProps) {
         ) : null}
 
         <section>
-          <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h4 className="mb-3 text-xs font-semibold tracking-wide text-slate-500">
             Record information
           </h4>
 

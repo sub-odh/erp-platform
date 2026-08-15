@@ -37,6 +37,9 @@ export class UserResponseDto {
   @ApiProperty({ type: String, format: 'date', nullable: true })
   dateOfBirth!: string | null;
 
+  @ApiProperty({ type: String, format: 'date', nullable: true })
+  joinedDate!: string | null;
+
   @ApiProperty({ type: String, nullable: true })
   fatherName!: string | null;
 
@@ -68,6 +71,9 @@ export class UserResponseDto {
     ],
   })
   role!: User['role'];
+
+  @ApiProperty({ type: String, nullable: true })
+  employeeRole!: string | null;
 
   @ApiProperty()
   isActive!: boolean;

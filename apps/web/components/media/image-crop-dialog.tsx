@@ -1,7 +1,7 @@
 "use client";
 
 import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Cropper, { type Area, type Point } from "react-easy-crop";
 
 import { Button, Modal } from "@/components/ui";
@@ -42,6 +42,20 @@ export function ImageCropDialog({
 
   const [error, setError] = useState<string | null>(null);
 
+  const [sourceAspectRatio, setSourceAspectRatio] = useState<number | null>(
+    null,
+  );
+
+  const cropAspectRatio = settings.preserveAspectRatio
+    ? (sourceAspectRatio ?? settings.aspectRatio)
+    : settings.aspectRatio;
+
+  useEffect(() => {
+    if (!open) {
+      setSourceAspectRatio(null);
+    }
+  }, [open]);
+
   const handleCropComplete = useCallback(
     (_croppedAreaPercent: Area, croppedAreaPixels: Area) => {
       setCroppedArea(croppedAreaPixels);
@@ -68,11 +82,15 @@ export function ImageCropDialog({
     setError(null);
 
     try {
+      const outputSize = settings.preserveAspectRatio
+        ? fitWithin(croppedArea.width, croppedArea.height, settings.width, settings.height)
+        : { width: settings.width, height: settings.height };
+
       const croppedFile = await createCroppedImage({
         sourceUrl: imageUrl,
         crop: croppedArea,
-        outputWidth: settings.width,
-        outputHeight: settings.height,
+        outputWidth: outputSize.width,
+        outputHeight: outputSize.height,
         outputType: settings.outputType,
         outputQuality: settings.outputQuality,
         fileName: originalFileName,
@@ -94,8 +112,12 @@ export function ImageCropDialog({
   return (
     <Modal
       open={open}
-      title={`Crop ${settings.label.toLowerCase()}`}
-      description={`The uploaded image will be saved at ${settings.width} × ${settings.height}px.`}
+      title={`Crop ${toTitleCase(settings.label)}`}
+      description={
+        settings.preserveAspectRatio
+          ? `The logo shape will be preserved, up to ${settings.width} × ${settings.height}px.`
+          : `The uploaded image will be saved at ${settings.width} × ${settings.height}px.`
+      }
       onClose={onCancel}
       className="max-w-3xl"
       footer={
@@ -105,7 +127,7 @@ export function ImageCropDialog({
           </Button>
 
           <Button loading={processing} onClick={() => void handleComplete()}>
-            Crop image
+            Crop Image
           </Button>
         </>
       }
@@ -118,13 +140,20 @@ export function ImageCropDialog({
               crop={crop}
               zoom={zoom}
               rotation={rotation}
-              aspect={settings.aspectRatio}
+              aspect={cropAspectRatio}
               cropShape={settings.cropShape}
               showGrid={settings.cropShape !== "round"}
               onCropChange={setCrop}
               onZoomChange={setZoom}
               onRotationChange={setRotation}
               onCropComplete={handleCropComplete}
+              onMediaLoaded={(mediaSize) => {
+                if (settings.preserveAspectRatio) {
+                  setSourceAspectRatio(
+                    mediaSize.naturalWidth / mediaSize.naturalHeight,
+                  );
+                }
+              }}
             />
           ) : null}
         </div>
@@ -184,4 +213,22 @@ export function ImageCropDialog({
       </div>
     </Modal>
   );
+}
+
+function fitWithin(
+  sourceWidth: number,
+  sourceHeight: number,
+  maxWidth: number,
+  maxHeight: number,
+): { width: number; height: number } {
+  const scale = Math.min(maxWidth / sourceWidth, maxHeight / sourceHeight, 1);
+
+  return {
+    width: Math.max(1, Math.round(sourceWidth * scale)),
+    height: Math.max(1, Math.round(sourceHeight * scale)),
+  };
+}
+
+function toTitleCase(value: string): string {
+  return value.replace(/\b\w/g, (character) => character.toUpperCase());
 }

@@ -42,6 +42,7 @@ import { PERMISSIONS } from '../auth/permissions/permission.constants';
 import type { JwtPayload } from '../auth/types/jwt-payload.type';
 import { MEDIA_MAX_FILE_SIZE } from '../media/constants';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CreateEmployeeRoleDto } from './dto/employee-role.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { ResetUserPasswordResponseDto } from './dto/reset-user-password-response.dto';
 import {
@@ -93,6 +94,34 @@ export class UsersController {
     query: ListUsersQueryDto,
   ): Promise<PaginatedUsersResponseDto> {
     return this.usersService.listUsers(currentUser.organizationId, query);
+  }
+
+  @Get('employee-roles')
+  listEmployeeRoles(@CurrentUser() currentUser: JwtPayload) {
+    return this.usersService.listEmployeeRoles(currentUser.organizationId);
+  }
+
+  @Post('employee-roles')
+  createEmployeeRole(
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() dto: CreateEmployeeRoleDto,
+  ) {
+    return this.usersService.createEmployeeRole(
+      currentUser.organizationId,
+      dto.name,
+    );
+  }
+
+  @Delete('employee-roles/:roleId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteEmployeeRole(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('roleId', new ParseUUIDPipe()) roleId: string,
+  ) {
+    return this.usersService.deleteEmployeeRole(
+      currentUser.organizationId,
+      roleId,
+    );
   }
 
   @Post()

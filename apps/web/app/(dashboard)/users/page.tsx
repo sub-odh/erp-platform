@@ -5,16 +5,13 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import { ArchiveUserModal } from "@/components/users/archive-user-modal";
 import { CreateUserModal } from "@/components/users/create-user-modal";
+import { DeleteUserModal } from "@/components/users/delete-user-modal";
 import { EditUserModal } from "@/components/users/edit-user-modal";
+import { EmployeeRolesModal } from "@/components/users/employee-roles-modal";
 import { ResetUserPasswordModal } from "@/components/users/reset-user-password-modal";
 import { UserTable } from "@/components/users/user-table";
 import { getStoredUser } from "@/lib/auth";
-import {
-  getUsers,
-  permanentlyDeleteUser,
-  restoreUser,
-  updateUserStatus,
-} from "@/lib/users";
+import { getUsers, restoreUser, updateUserStatus } from "@/lib/users";
 import type {
   User,
   UserListCounts,
@@ -67,6 +64,10 @@ export default function UsersPage() {
   const [resettingUser, setResettingUser] = useState<User | null>(null);
 
   const [archivingUser, setArchivingUser] = useState<User | null>(null);
+
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+
+  const [employeeRolesOpen, setEmployeeRolesOpen] = useState(false);
 
   const loadUsers = useCallback(
     async (page = 1): Promise<void> => {
@@ -172,24 +173,6 @@ export default function UsersPage() {
     }
   }
 
-  async function handleDelete(user: User): Promise<void> {
-    setBusyUserId(user.id);
-    setError(null);
-
-    try {
-      await permanentlyDeleteUser(user.id);
-      await loadUsers(pagination.page);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to delete user",
-      );
-    } finally {
-      setBusyUserId(null);
-    }
-  }
-
   return (
     <>
       <div className="mx-auto max-w-7xl">
@@ -212,14 +195,22 @@ export default function UsersPage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setCreateModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700"
-          >
-            <Plus size={18} />
-            Create user
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setEmployeeRolesOpen(true)}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Employee Roles
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700"
+            >
+              <Plus size={18} /> Create user
+            </button>
+          </div>
         </div>
 
         <div className="mb-5 flex flex-wrap gap-2">
@@ -306,7 +297,7 @@ export default function UsersPage() {
               onResetPassword={setResettingUser}
               onToggleStatus={handleToggleStatus}
               onArchive={setArchivingUser}
-              onDelete={handleDelete}
+              onDelete={setDeletingUser}
               onRestore={handleRestore}
             />
 
@@ -378,6 +369,21 @@ export default function UsersPage() {
           setArchivingUser(null);
           void loadUsers(pagination.page);
         }}
+      />
+
+      <DeleteUserModal
+        open={deletingUser !== null}
+        user={deletingUser}
+        onClose={() => setDeletingUser(null)}
+        onDeleted={() => {
+          setDeletingUser(null);
+          void loadUsers(pagination.page);
+        }}
+      />
+
+      <EmployeeRolesModal
+        open={employeeRolesOpen}
+        onClose={() => setEmployeeRolesOpen(false)}
       />
     </>
   );

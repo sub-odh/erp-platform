@@ -208,6 +208,34 @@ export class CompanyController {
     return this.companyService.removeInvoiceLogo(currentUser.organizationId);
   }
 
+  @Post('current/favicon')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MEDIA_MAX_FILE_SIZE },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload the current company favicon' })
+  uploadFavicon(
+    @CurrentUser() currentUser: JwtPayload,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ): Promise<CompanyResponseDto> {
+    return this.companyService.uploadFavicon(currentUser.organizationId, file);
+  }
+
+  @Delete('current/favicon')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
+  @ApiOperation({ summary: 'Remove the current company favicon' })
+  removeFavicon(
+    @CurrentUser() currentUser: JwtPayload,
+  ): Promise<CompanyResponseDto> {
+    return this.companyService.removeFavicon(currentUser.organizationId);
+  }
+
   @Get('current/backup')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)

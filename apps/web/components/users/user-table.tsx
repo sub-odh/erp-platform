@@ -58,7 +58,9 @@ export function UserTable({
               <TableHeader>User</TableHeader>
               <TableHeader>Employee ID</TableHeader>
               <TableHeader>Email</TableHeader>
-              <TableHeader>Role</TableHeader>
+              <TableHeader>Access Level</TableHeader>
+              <TableHeader>Employee Role</TableHeader>
+              <TableHeader>Joined</TableHeader>
               <TableHeader>Last login</TableHeader>
               <TableHeader>{archivedView ? "Archived" : "Status"}</TableHeader>
               <TableHeader align="right">Actions</TableHeader>
@@ -86,7 +88,7 @@ export function UserTable({
                         </p>
 
                         <p className="mt-1 text-xs text-slate-500">
-                          Created {formatDate(user.createdAt)}
+                          Joined {formatDate(user.joinedDate ?? user.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -102,6 +104,14 @@ export function UserTable({
 
                   <td className="whitespace-nowrap px-5 py-4">
                     <RoleBadge role={user.role} />
+                  </td>
+
+                  <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                    {user.employeeRole ?? "—"}
+                  </td>
+
+                  <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                    {formatDate(user.joinedDate ?? user.createdAt)}
                   </td>
 
                   <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600">

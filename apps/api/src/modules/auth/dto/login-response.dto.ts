@@ -69,7 +69,7 @@ export class LoginResponseDto {
   @ApiProperty({
     example: {
       status: 'valid',
-      licensedModules: ['admin', 'sales'],
+      licensedModules: ['admin', 'sales', 'inventory'],
       validUntil: '2027-12-31',
       maxUsers: 50,
       daysUntilExpiry: 365,

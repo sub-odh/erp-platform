@@ -23,6 +23,9 @@ import { CustomersModule } from './modules/sales/customers/customers.module';
 import { LeadsModule } from './modules/sales/leads/leads.module';
 import { OpportunitiesModule } from './modules/sales/opportunities/opportunities.module';
 import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-stages.module';
+import { InventoryModule } from './modules/operations/inventory/inventory.module';
+import { MasterDataModule } from './modules/operations/master-data/master-data.module';
+import { PurchaseOrdersModule } from './modules/operations/purchase-orders/purchase-orders.module';
 
 import { UsersModule } from './modules/users/users.module';
 
@@ -75,6 +78,12 @@ import { UsersModule } from './modules/users/users.module';
     LeadsModule,
 
     OpportunitiesModule,
+
+    InventoryModule,
+
+    MasterDataModule,
+
+    PurchaseOrdersModule,
 
     CompanyModule,
 
