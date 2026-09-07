@@ -121,6 +121,7 @@ export interface InventoryMovement {
   stockQuantityAfter: number;
   remarks: string | null;
   performedBy: string | null;
+  performerName: string | null;
   createdAt: string;
 }
 

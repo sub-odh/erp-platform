@@ -22,10 +22,14 @@ import { CompanyModule } from './modules/company/company.module';
 import { CustomersModule } from './modules/sales/customers/customers.module';
 import { LeadsModule } from './modules/sales/leads/leads.module';
 import { OpportunitiesModule } from './modules/sales/opportunities/opportunities.module';
+import { QuotationsModule } from './modules/sales/quotations/quotations.module';
 import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-stages.module';
 import { InventoryModule } from './modules/operations/inventory/inventory.module';
 import { MasterDataModule } from './modules/operations/master-data/master-data.module';
 import { PurchaseOrdersModule } from './modules/operations/purchase-orders/purchase-orders.module';
+import { GoodsReceiptsModule } from './modules/operations/goods-receipts/goods-receipts.module';
+import { DeliveryOrdersModule } from './modules/operations/delivery-orders/delivery-orders.module';
+import { ItemReturnsModule } from './modules/operations/item-returns/item-returns.module';
 
 import { UsersModule } from './modules/users/users.module';
 
@@ -79,11 +83,19 @@ import { UsersModule } from './modules/users/users.module';
 
     OpportunitiesModule,
 
+    QuotationsModule,
+
     InventoryModule,
 
     MasterDataModule,
 
     PurchaseOrdersModule,
+
+    GoodsReceiptsModule,
+
+    DeliveryOrdersModule,
+
+    ItemReturnsModule,
 
     CompanyModule,
 

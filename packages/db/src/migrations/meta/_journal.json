@@ -162,6 +162,34 @@
       "when": 1787385600000,
       "tag": "0022_company_employee_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1787472000000,
+      "tag": "0023_goods_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1787558400000,
+      "tag": "0024_delivery_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787644800000,
+      "tag": "0025_item_returns",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788422400000,
+      "tag": "0026_quotations",
+      "breakpoints": true
     }
   ]
 }
