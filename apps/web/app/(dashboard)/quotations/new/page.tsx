@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { getCustomers } from "@/lib/customers";
 import { createQuotation, getNextQuotationNumber } from "@/lib/quotations";
@@ -178,20 +178,19 @@ export default function CreateQuotationPage() {
                 className="h-10 w-full rounded-md border border-rose-200 px-3 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
               />
             </Field>
-            <Field label="Client / Customer Profile">
-              <select
-                value={customerId}
-                onChange={(event) => setCustomerId(event.target.value)}
-                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="">Select a customer…</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name} ({customer.customerCode})
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <Select
+              label="Client / Customer Profile"
+              value={customerId}
+              onChange={(event) => setCustomerId(event.target.value)}
+              className="h-10 py-2"
+            >
+              <option value="">Select a Customer…</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name} ({customer.customerCode})
+                </option>
+              ))}
+            </Select>
             <Field label="Destination Address">
               <textarea
                 value={address}

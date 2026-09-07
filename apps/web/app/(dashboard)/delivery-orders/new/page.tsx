@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input, Modal, Spinner, Textarea } from "@/components/ui";
+import { Button, Input, Modal, Select, Spinner, Textarea } from "@/components/ui";
 import {
   createDeliveryOrder,
   getDeliverableAssets,
@@ -198,7 +198,7 @@ export default function CreateDeliveryOrderPage() {
             onClick={() => setBillable(false)}
             className={`rounded-md px-4 py-2 text-sm font-medium ${!billable ? "bg-red-500 text-white" : "border text-slate-600"}`}
           >
-            Non-billable
+            Non-Billable
           </button>
         </div>
         <div className="grid gap-4 md:grid-cols-4">
@@ -340,7 +340,7 @@ export default function CreateDeliveryOrderPage() {
           <div className="border-t bg-slate-50 p-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-3 text-sm">
-                <label className="flex items-center gap-2 font-medium">
+                <div className="flex items-center gap-2 font-medium">
                   <span>Discount</span>
                   <input
                     type="number"
@@ -349,17 +349,19 @@ export default function CreateDeliveryOrderPage() {
                     onChange={(e) => setDiscountValue(e.target.value)}
                     className="w-24 rounded border p-1"
                   />
-                  <select
+                  <Select
+                    aria-label="Discount type"
                     value={discountMode}
                     onChange={(e) =>
                       setDiscountMode(e.target.value as "amount" | "percent")
                     }
-                    className="rounded border p-1"
+                    wrapperClassName="w-20"
+                    className="h-8 py-1 text-sm"
                   >
                     <option value="percent">%</option>
                     <option value="amount">Rs.</option>
-                  </select>
-                </label>
+                  </Select>
+                </div>
                 <div className="flex items-center gap-2 py-1">
                   <button
                     type="button"

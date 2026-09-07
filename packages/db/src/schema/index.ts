@@ -7,3 +7,4 @@ export * from "./permission";
 export * from "./notification";
 export * from "./sales";
 export * from "./operations";
+export * from "./finance";

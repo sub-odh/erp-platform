@@ -23,6 +23,7 @@ import { CustomersModule } from './modules/sales/customers/customers.module';
 import { LeadsModule } from './modules/sales/leads/leads.module';
 import { OpportunitiesModule } from './modules/sales/opportunities/opportunities.module';
 import { QuotationsModule } from './modules/sales/quotations/quotations.module';
+import { SalesOrdersModule } from './modules/sales/sales-orders/sales-orders.module';
 import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-stages.module';
 import { InventoryModule } from './modules/operations/inventory/inventory.module';
 import { MasterDataModule } from './modules/operations/master-data/master-data.module';
@@ -30,6 +31,7 @@ import { PurchaseOrdersModule } from './modules/operations/purchase-orders/purch
 import { GoodsReceiptsModule } from './modules/operations/goods-receipts/goods-receipts.module';
 import { DeliveryOrdersModule } from './modules/operations/delivery-orders/delivery-orders.module';
 import { ItemReturnsModule } from './modules/operations/item-returns/item-returns.module';
+import { InvoicesModule } from './modules/finance/invoices/invoices.module';
 
 import { UsersModule } from './modules/users/users.module';
 
@@ -85,6 +87,8 @@ import { UsersModule } from './modules/users/users.module';
 
     QuotationsModule,
 
+    SalesOrdersModule,
+
     InventoryModule,
 
     MasterDataModule,
@@ -96,6 +100,8 @@ import { UsersModule } from './modules/users/users.module';
     DeliveryOrdersModule,
 
     ItemReturnsModule,
+
+    InvoicesModule,
 
     CompanyModule,
 

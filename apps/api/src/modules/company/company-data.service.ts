@@ -21,6 +21,9 @@ import {
   operationsUnits,
   operationsVendors,
   organizations,
+  financeInvoiceItems,
+  financeInvoices,
+  financePayments,
   salesCustomerContacts,
   salesCustomers,
   salesLeads,
@@ -895,6 +898,15 @@ export class CompanyDataService {
       .delete(salesQuotations)
       .where(eq(salesQuotations.tenantId, organizationId))
       .returning({ id: salesQuotations.id });
+    await db
+      .delete(financePayments)
+      .where(eq(financePayments.tenantId, organizationId));
+    await db
+      .delete(financeInvoiceItems)
+      .where(eq(financeInvoiceItems.tenantId, organizationId));
+    await db
+      .delete(financeInvoices)
+      .where(eq(financeInvoices.tenantId, organizationId));
     const movementRows = await db
       .delete(inventoryMovements)
       .where(eq(inventoryMovements.tenantId, organizationId))

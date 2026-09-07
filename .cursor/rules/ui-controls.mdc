@@ -1,0 +1,13 @@
+---
+description: Dropdown arrow placement and button label casing for ERP web UI
+globs: apps/web/**/*.tsx
+alwaysApply: true
+---
+
+# Dropdowns and Button Labels
+
+- Use the shared `Select` from `@/components/ui` for page filters and form dropdowns. Do not use a raw `<select>` for those controls.
+- Match the product page chevron: hide the native arrow with `appearance-none` and `pr-10`, then place `ChevronDown` at `absolute right-4 top-1/2 -translate-y-1/2 text-slate-700`.
+- For a compact select that cannot use `Select` (nested label or tiny control), wrap it in `relative` and use the same chevron placement, scaled only if the control is smaller than the default field.
+- Button and action-control labels use proper case (Title Case): `Generate Invoice`, `Save Payment`, `View Invoice`. Do not use `uppercase` CSS on button or action-link text. Acronyms such as DO stay uppercase.
+- Table column headers and sidebar section labels may stay uppercase. Status chips that are not buttons may stay as designed.

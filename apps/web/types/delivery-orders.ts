@@ -6,6 +6,8 @@ export interface DeliveryOrderListItem {
   contactName: string | null;
   totalQuantity: number;
   totalValue: string | number;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
   createdAt: string;
 }
 
