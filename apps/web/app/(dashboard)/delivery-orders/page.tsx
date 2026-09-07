@@ -1,11 +1,14 @@
 "use client";
 
 import { ClipboardList, PackagePlus, RefreshCw, Truck } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button, Spinner } from "@/components/ui";
+import { ApiError } from "@/lib/api";
 import { getDeliverableAssets, getDeliveryOrders } from "@/lib/delivery-orders";
+import { generateInvoice } from "@/lib/invoices";
 import type {
   DeliverableAsset,
   DeliveryOrderListItem,
@@ -16,6 +19,7 @@ export default function DeliveryOrdersPage() {
   const [assets, setAssets] = useState<DeliverableAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -40,6 +44,24 @@ export default function DeliveryOrdersPage() {
   }, []);
 
   useEffect(() => void load(), [load]);
+
+  async function handleGenerate(deliveryOrderId: string): Promise<void> {
+    setGeneratingId(deliveryOrderId);
+    setError(null);
+    try {
+      const created = await generateInvoice(deliveryOrderId);
+      await load();
+      router.push(`/invoices/${created.id}`);
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError
+          ? cause.message
+          : "Unable to generate invoice.",
+      );
+    } finally {
+      setGeneratingId(null);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -93,12 +115,13 @@ export default function DeliveryOrdersPage() {
                   <th className="px-3 py-3">Contact Person</th>
                   <th className="px-3 py-3 text-right">Items Delivered</th>
                   <th className="px-3 py-3 text-right">Value</th>
+                  <th className="px-3 py-3 text-center">Invoice</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="h-32 text-center text-slate-400">
+                    <td colSpan={7} className="h-32 text-center text-slate-400">
                       No delivery orders recorded yet.
                     </td>
                   </tr>
@@ -122,6 +145,27 @@ export default function DeliveryOrdersPage() {
                       </td>
                       <td className="px-3 py-4 text-right font-semibold">
                         {formatCurrency(order.totalValue)}
+                      </td>
+                      <td className="px-3 py-4 text-center">
+                        {order.invoiceId ? (
+                          <Link
+                            href={`/invoices/${order.invoiceId}`}
+                            className="inline-flex rounded-md bg-cyan-500 px-3 py-1 text-[11px] font-bold text-white"
+                          >
+                            View Invoice
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={generatingId === order.id}
+                            onClick={() => void handleGenerate(order.id)}
+                            className="inline-flex rounded-md bg-amber-400 px-3 py-1 text-[11px] font-bold text-slate-900 disabled:opacity-60"
+                          >
+                            {generatingId === order.id
+                              ? "Generating..."
+                              : "Generate Invoice"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

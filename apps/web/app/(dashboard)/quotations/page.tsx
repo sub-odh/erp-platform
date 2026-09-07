@@ -4,7 +4,7 @@ import { Eye, FileText, Filter, Plus, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { deleteQuotation, getQuotations } from "@/lib/quotations";
 import type { QuotationListItem, QuotationStatus } from "@/types/quotations";
@@ -129,21 +129,22 @@ export default function QuotationsPage() {
             className="h-10 w-full rounded-md border border-slate-200 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
         </label>
-        <select
-          aria-label="Quotation status"
+        <Select
+          aria-label="Quotation Status"
           value={statusInput}
           onChange={(event) =>
             setStatusInput(event.target.value as "" | QuotationStatus)
           }
-          className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 lg:w-80"
+          wrapperClassName="lg:w-80"
+          className="h-10 py-2"
         >
-          <option value="">All boundary statuses</option>
+          <option value="">All Boundary Statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="ACCEPTED">Accepted</option>
           <option value="REJECTED">Rejected</option>
           <option value="EXPIRED">Expired</option>
           <option value="CANCELLED">Cancelled</option>
-        </select>
+        </Select>
         <Button
           variant="secondary"
           className="lg:min-w-44"

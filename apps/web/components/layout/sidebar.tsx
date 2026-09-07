@@ -126,27 +126,21 @@ const navigationSections: NavigationSection[] = [
       },
 
       {
-        label: "Sales Orders",
-        icon: ClipboardList,
-        disabled: true,
-      },
-
-      {
-        label: "Invoices",
-        icon: ReceiptText,
-        disabled: true,
-      },
-
-      {
-        label: "Payments",
-        icon: CircleDollarSign,
-        disabled: true,
-      },
-
-      {
+        href: "/sales-reports",
         label: "Sales Reports",
         icon: BarChart3,
-        disabled: true,
+      },
+
+      {
+        href: "/invoices",
+        label: "Invoices",
+        icon: ReceiptText,
+      },
+
+      {
+        href: "/payments",
+        label: "Payments & Recovery",
+        icon: CircleDollarSign,
       },
     ],
   },

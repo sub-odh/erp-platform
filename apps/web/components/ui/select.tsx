@@ -7,6 +7,7 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
   hint?: string;
+  wrapperClassName?: string;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
@@ -16,6 +17,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       label,
       error,
       hint,
+      wrapperClassName,
       id,
       required,
       disabled,
@@ -28,7 +30,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       id ?? props.name ?? label?.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
     return (
-      <label htmlFor={selectId} className="block">
+      <label htmlFor={selectId} className={cn("block", wrapperClassName)}>
         {label ? (
           <span className="mb-2 block text-sm font-medium text-slate-700">
             {label}
@@ -43,7 +45,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             required={required}
             disabled={disabled}
             className={cn(
-              "w-full appearance-none rounded-lg border bg-white px-3 py-2.5 pr-10 text-sm text-slate-900 outline-none transition",
+              "w-full appearance-none rounded-lg border bg-white px-3 pr-10 text-sm text-slate-900 outline-none transition",
+              !/\b(h-|py-)/.test(className ?? "") && "py-2.5",
               "focus:ring-2",
               error
                 ? "border-red-400 focus:border-red-500 focus:ring-red-100"

@@ -3,6 +3,7 @@ import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 
 import {
   db,
+  financeInvoices,
   inventoryAssets,
   inventoryMovements,
   operationsDeliveryOrderItems,
@@ -34,6 +35,8 @@ export class DeliveryOrdersRepository {
         contactName: operationsDeliveryOrders.contactName,
         totalQuantity: sql<number>`coalesce(sum(${operationsDeliveryOrderItems.quantity}), 0)::int`,
         totalValue: sql<string>`coalesce(sum(${operationsDeliveryOrderItems.quantity} * ${operationsDeliveryOrderItems.unitPrice}), 0)::numeric`,
+        invoiceId: financeInvoices.id,
+        invoiceNumber: financeInvoices.invoiceNumber,
         createdAt: operationsDeliveryOrders.createdAt,
       })
       .from(operationsDeliveryOrders)
@@ -44,8 +47,12 @@ export class DeliveryOrdersRepository {
           operationsDeliveryOrders.id,
         ),
       )
+      .leftJoin(
+        financeInvoices,
+        eq(financeInvoices.deliveryOrderId, operationsDeliveryOrders.id),
+      )
       .where(eq(operationsDeliveryOrders.tenantId, tenantId))
-      .groupBy(operationsDeliveryOrders.id)
+      .groupBy(operationsDeliveryOrders.id, financeInvoices.id)
       .orderBy(
         desc(operationsDeliveryOrders.deliveryDate),
         desc(operationsDeliveryOrders.createdAt),
