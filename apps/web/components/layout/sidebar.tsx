@@ -23,7 +23,6 @@ import {
   Truck,
   UserRound,
   Users,
-  Warehouse,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -120,7 +119,10 @@ const navigationSections: NavigationSection[] = [
       {
         label: "Quotations",
         icon: FileText,
-        disabled: true,
+        children: [
+          { href: "/quotations/new", label: "Create Quotation", icon: FileText },
+          { href: "/quotations", label: "View Quotations", icon: ClipboardList },
+        ],
       },
 
       {
@@ -173,15 +175,15 @@ const navigationSections: NavigationSection[] = [
       },
 
       {
+        href: "/inventory/logs",
         label: "Inventory Logs",
         icon: ClipboardList,
-        disabled: true,
       },
 
       {
+        href: "/item-returns",
         label: "Item Return",
         icon: RotateCcw,
-        disabled: true,
       },
 
       {
@@ -214,28 +216,28 @@ const navigationSections: NavigationSection[] = [
       },
 
       {
+        href: "/goods-receipts",
         label: "Goods Receipts",
         icon: ClipboardList,
-        disabled: true,
       },
 
       {
         label: "Delivery Orders",
         icon: Truck,
-        disabled: true,
+        children: [
+          {
+            href: "/delivery-orders/new",
+            label: "Create New DO",
+            icon: FileText,
+          },
+          {
+            href: "/delivery-orders",
+            label: "View All Orders",
+            icon: ClipboardList,
+          },
+        ],
       },
 
-      {
-        label: "Warehouses",
-        icon: Warehouse,
-        disabled: true,
-      },
-
-      {
-        href: "/inventory/movements",
-        label: "Stock Movements",
-        icon: Truck,
-      },
     ],
   },
 
@@ -303,11 +305,15 @@ export function Sidebar({
     pathname.startsWith("/opportunities") ||
     pathname.startsWith("/pipeline");
   const purchaseOrdersActive = pathname.startsWith("/purchase-orders");
+  const deliveryOrdersActive = pathname.startsWith("/delivery-orders");
+  const quotationsActive = pathname.startsWith("/quotations");
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {
       CRM: crmActive,
       "Purchase Orders": purchaseOrdersActive,
+      "Delivery Orders": deliveryOrdersActive,
+      Quotations: quotationsActive,
     },
   );
 
@@ -324,7 +330,11 @@ export function Sidebar({
         "Purchase Orders": true,
       }));
     }
-  }, [crmActive, purchaseOrdersActive]);
+    if (deliveryOrdersActive) {
+      setExpandedGroups((current) => ({ ...current, "Delivery Orders": true }));
+    }
+    if (quotationsActive) setExpandedGroups((current) => ({ ...current, Quotations: true }));
+  }, [crmActive, purchaseOrdersActive, deliveryOrdersActive, quotationsActive]);
 
   function toggleGroup(label: string): void {
     /*
@@ -361,6 +371,8 @@ export function Sidebar({
       ...current,
       CRM: crmActive,
       "Purchase Orders": purchaseOrdersActive,
+      "Delivery Orders": deliveryOrdersActive,
+      Quotations: quotationsActive,
     }));
   }
 
@@ -830,7 +842,7 @@ function SidebarFooter({
 }
 
 function isPathActive(pathname: string, href: string): boolean {
-  if (href === "/inventory") {
+  if (href === "/inventory" || href === "/purchase-orders" || href === "/delivery-orders" || href === "/quotations") {
     return pathname === href;
   }
 

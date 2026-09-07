@@ -15,6 +15,7 @@ import {
   db,
   inventoryAssets,
   inventoryMovements,
+  users,
   type InventoryAsset,
   type InventoryMovementType,
   type NewInventoryAsset,
@@ -69,6 +70,7 @@ export interface InventoryMovementListRow {
   stockQuantityAfter: number;
   remarks: string | null;
   performedBy: string | null;
+  performerName: string | null;
   createdAt: Date;
 }
 
@@ -287,6 +289,8 @@ export class InventoryRepository {
       const search = or(
         ilike(inventoryAssets.itemName, pattern),
         ilike(inventoryAssets.serialNumber, pattern),
+        ilike(users.firstName, pattern),
+        ilike(users.lastName, pattern),
       );
       if (search) conditions.push(search);
     }
@@ -303,6 +307,9 @@ export class InventoryRepository {
           stockQuantityAfter: inventoryMovements.stockQuantityAfter,
           remarks: inventoryMovements.remarks,
           performedBy: inventoryMovements.performedBy,
+          performerName: sql<
+            string | null
+          >`nullif(concat_ws(' ', ${users.firstName}, ${users.lastName}), '')`,
           createdAt: inventoryMovements.createdAt,
         })
         .from(inventoryMovements)
@@ -310,6 +317,7 @@ export class InventoryRepository {
           inventoryAssets,
           eq(inventoryAssets.id, inventoryMovements.assetId),
         )
+        .leftJoin(users, eq(users.id, inventoryMovements.performedBy))
         .where(and(...conditions))
         .orderBy(desc(inventoryMovements.createdAt))
         .limit(input.limit)
@@ -321,6 +329,7 @@ export class InventoryRepository {
           inventoryAssets,
           eq(inventoryAssets.id, inventoryMovements.assetId),
         )
+        .leftJoin(users, eq(users.id, inventoryMovements.performedBy))
         .where(and(...conditions)),
     ]);
     return { data, total: countRows[0]?.total ?? 0 };

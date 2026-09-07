@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowLeft, RefreshCw, Search } from "lucide-react";
-import Link from "next/link";
+import { RefreshCw, Search } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { Button, Select, Spinner } from "@/components/ui";
@@ -13,8 +12,8 @@ import type {
 
 const PAGE_SIZE = 20;
 
-export default function StockMovementsPage() {
-  const [movements, setMovements] = useState<InventoryMovement[]>([]);
+export default function InventoryLogsPage() {
+  const [logs, setLogs] = useState<InventoryMovement[]>([]);
   const [pagination, setPagination] = useState<
     InventoryMovementsResponse["pagination"] | null
   >(null);
@@ -35,20 +34,22 @@ export default function StockMovementsPage() {
         page,
         limit: PAGE_SIZE,
       });
-      setMovements(result.data);
+      setLogs(result.data);
       setPagination(result.pagination);
     } catch (requestError) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Unable to load stock movements.",
+          : "Unable to load inventory logs.",
       );
     } finally {
       setLoading(false);
     }
   }, [page, search, type]);
 
-  useEffect(() => void load(), [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -57,37 +58,17 @@ export default function StockMovementsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div className="space-y-5">
+      <section className="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
-          <Link
-            href="/inventory"
-            className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600"
-          >
-            <ArrowLeft size={16} /> Inventory
-          </Link>
           <h1 className="text-2xl font-semibold text-[#16266b]">
-            Stock Movements
+            Inventory Logs
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Immutable history of inventory additions, adjustments, and removals.
+            History of all stock movements and adjustments.
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => void load()}
-          disabled={loading}
-        >
-          <RefreshCw
-            size={16}
-            className={loading ? "animate-spin" : undefined}
-          />{" "}
-          Refresh
-        </Button>
-      </div>
-
-      <div className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm sm:flex-row">
-        <form onSubmit={submit} className="relative flex-1">
+        <form onSubmit={submit} className="relative w-full md:w-96">
           <Search
             size={17}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -95,10 +76,13 @@ export default function StockMovementsPage() {
           <input
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search item or serial..."
-            className="h-11 w-full rounded-lg border border-slate-300 pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            placeholder="Search item, serial, or operator..."
+            className="h-11 w-full rounded-xl bg-slate-50 pl-10 pr-3 text-sm outline-none"
           />
         </form>
+      </section>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="sm:w-52">
           <Select
             value={type}
@@ -116,80 +100,96 @@ export default function StockMovementsPage() {
             <option value="DAMAGE">Damage</option>
           </Select>
         </div>
+        <Button variant="outline" onClick={() => void load()} loading={loading}>
+          <RefreshCw size={16} />
+          Refresh
+        </Button>
       </div>
+
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       ) : null}
-      <div className="overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
-        {loading && movements.length === 0 ? (
+
+      <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
+        {loading && logs.length === 0 ? (
           <div className="flex min-h-60 items-center justify-center">
             <Spinner />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-[800px] w-full text-sm">
+          <div className="overflow-x-auto p-5">
+            <table className="min-w-[1000px] w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400">
-                  <th className="px-5 py-4">Date</th>
-                  <th className="px-5 py-4">Item</th>
-                  <th className="px-5 py-4">Serial</th>
-                  <th className="px-5 py-4">Type</th>
-                  <th className="px-5 py-4">Change</th>
-                  <th className="px-5 py-4">Stock After</th>
-                  <th className="px-5 py-4">Remarks</th>
+                <tr className="border-b text-left text-xs uppercase text-slate-400">
+                  <th className="p-3">Date & Time</th>
+                  <th className="p-3">Item Details</th>
+                  <th className="p-3">Action</th>
+                  <th className="p-3">Qty Change</th>
+                  <th className="p-3">Performed By</th>
+                  <th className="p-3">Remarks</th>
                 </tr>
               </thead>
               <tbody>
-                {movements.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="h-28 text-center text-slate-500">
-                      No stock movements recorded.
-                    </td>
-                  </tr>
-                ) : (
-                  movements.map((movement) => (
-                    <tr
-                      key={movement.id}
-                      className="border-b border-slate-100 text-slate-700"
-                    >
-                      <td className="px-5 py-4">
-                        {new Date(movement.createdAt).toLocaleString()}
+                {logs.length ? (
+                  logs.map((log) => (
+                    <tr key={log.id} className="border-b border-slate-100">
+                      <td className="p-3">
+                        {new Date(log.createdAt).toLocaleDateString()}
+                        <p className="text-xs text-slate-400">
+                          {new Date(log.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
                       </td>
-                      <td className="px-5 py-4 font-medium text-[#16266b]">
-                        {movement.itemName}
+                      <td className="p-3 font-medium text-[#16266b]">
+                        {log.itemName}
+                        <p className="text-xs font-normal text-slate-400">
+                          S/N: {log.serialNumber ?? "N/A"}
+                        </p>
                       </td>
-                      <td className="px-5 py-4">
-                        {movement.serialNumber ?? "—"}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-                          {movement.type}
+                      <td className="p-3">
+                        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700">
+                          {log.type}
                         </span>
                       </td>
                       <td
-                        className={`px-5 py-4 font-semibold ${movement.quantityDelta < 0 ? "text-red-600" : "text-emerald-600"}`}
+                        className={
+                          "p-3 font-semibold " +
+                          (log.quantityDelta < 0
+                            ? "text-red-600"
+                            : "text-emerald-600")
+                        }
                       >
-                        {movement.quantityDelta > 0 ? "+" : ""}
-                        {movement.quantityDelta}
+                        {log.quantityDelta > 0 ? "+" : ""}
+                        {log.quantityDelta}
                       </td>
-                      <td className="px-5 py-4">
-                        {movement.stockQuantityAfter}
+                      <td className="p-3">
+                        <span className="rounded bg-slate-50 px-2 py-1 text-xs text-blue-700">
+                          {log.performerName ?? "System"}
+                        </span>
                       </td>
-                      <td className="px-5 py-4 text-slate-500">
-                        {movement.remarks ?? "—"}
+                      <td className="p-3 text-slate-500">
+                        {log.remarks ?? "—"}
                       </td>
                     </tr>
                   ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="h-32 text-center text-slate-400">
+                      No inventory logs recorded.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </section>
+
       <div className="flex items-center justify-between text-sm text-slate-500">
-        <span>{pagination?.total ?? 0} movements</span>
+        <span>{pagination?.total ?? 0} logs</span>
         {(pagination?.totalPages ?? 1) > 1 ? (
           <div className="flex items-center gap-2">
             <Button

@@ -73,6 +73,13 @@ export interface CompanyDataCounts {
   products: number;
   purchaseOrders: number;
   purchaseOrderItems: number;
+  quotations: number;
+  quotationItems: number;
+  goodsReceipts: number;
+  goodsReceiptItems: number;
+  deliveryOrders: number;
+  deliveryOrderItems: number;
+  itemReturns: number;
 }
 
 export interface CompanyBackup {
@@ -94,6 +101,13 @@ export interface CompanyBackup {
     products: unknown[];
     purchaseOrders: unknown[];
     purchaseOrderItems: unknown[];
+    quotations: unknown[];
+    quotationItems: unknown[];
+    goodsReceipts: unknown[];
+    goodsReceiptItems: unknown[];
+    deliveryOrders: unknown[];
+    deliveryOrderItems: unknown[];
+    itemReturns: unknown[];
   };
   counts: CompanyDataCounts;
 }

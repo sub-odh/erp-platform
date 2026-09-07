@@ -10,6 +10,11 @@ import {
   inventoryAssets,
   inventoryMovements,
   operationsCategories,
+  operationsDeliveryOrderItems,
+  operationsDeliveryOrders,
+  operationsGoodsReceiptItems,
+  operationsGoodsReceipts,
+  operationsItemReturns,
   operationsPurchaseOrderItems,
   operationsPurchaseOrders,
   operationsProducts,
@@ -21,12 +26,19 @@ import {
   salesLeads,
   salesOpportunities,
   salesPipelineStages,
+  salesQuotationItems,
+  salesQuotations,
   users,
   type InventoryAsset,
   type InventoryMovement,
   type NewInventoryAsset,
   type NewInventoryMovement,
   type NewOperationsCategory,
+  type NewOperationsDeliveryOrder,
+  type NewOperationsDeliveryOrderItem,
+  type NewOperationsGoodsReceipt,
+  type NewOperationsGoodsReceiptItem,
+  type NewOperationsItemReturn,
   type NewOperationsPurchaseOrder,
   type NewOperationsPurchaseOrderItem,
   type NewOperationsProduct,
@@ -37,17 +49,26 @@ import {
   type NewSalesLead,
   type NewSalesOpportunity,
   type NewSalesPipelineStage,
-  type SalesCustomer,
-  type SalesCustomerContact,
-  type SalesLead,
-  type SalesOpportunity,
-  type SalesPipelineStage,
+  type NewSalesQuotation,
+  type NewSalesQuotationItem,
   type OperationsCategory,
+  type OperationsDeliveryOrder,
+  type OperationsDeliveryOrderItem,
+  type OperationsGoodsReceipt,
+  type OperationsGoodsReceiptItem,
+  type OperationsItemReturn,
   type OperationsPurchaseOrder,
   type OperationsPurchaseOrderItem,
   type OperationsProduct,
   type OperationsUnit,
   type OperationsVendor,
+  type SalesCustomer,
+  type SalesCustomerContact,
+  type SalesLead,
+  type SalesOpportunity,
+  type SalesPipelineStage,
+  type SalesQuotation,
+  type SalesQuotationItem,
 } from '@erp/db';
 
 import { OwnerVerificationService } from '../users/owner-verification.service';
@@ -80,6 +101,13 @@ interface ParsedCompanyBackup {
     products?: BackupRecord[];
     purchaseOrders?: BackupRecord[];
     purchaseOrderItems?: BackupRecord[];
+    quotations?: BackupRecord[];
+    quotationItems?: BackupRecord[];
+    goodsReceipts?: BackupRecord[];
+    goodsReceiptItems?: BackupRecord[];
+    deliveryOrders?: BackupRecord[];
+    deliveryOrderItems?: BackupRecord[];
+    itemReturns?: BackupRecord[];
   };
 }
 
@@ -97,6 +125,13 @@ export interface CompanyDataCounts {
   products: number;
   purchaseOrders: number;
   purchaseOrderItems: number;
+  quotations: number;
+  quotationItems: number;
+  goodsReceipts: number;
+  goodsReceiptItems: number;
+  deliveryOrders: number;
+  deliveryOrderItems: number;
+  itemReturns: number;
 }
 
 export interface CompanyBackup {
@@ -122,6 +157,13 @@ export interface CompanyBackup {
     products: OperationsProduct[];
     purchaseOrders: OperationsPurchaseOrder[];
     purchaseOrderItems: OperationsPurchaseOrderItem[];
+    quotations: SalesQuotation[];
+    quotationItems: SalesQuotationItem[];
+    goodsReceipts: OperationsGoodsReceipt[];
+    goodsReceiptItems: OperationsGoodsReceiptItem[];
+    deliveryOrders: OperationsDeliveryOrder[];
+    deliveryOrderItems: OperationsDeliveryOrderItem[];
+    itemReturns: OperationsItemReturn[];
   };
   counts: CompanyDataCounts;
 }
@@ -153,6 +195,13 @@ export class CompanyDataService {
       productRows,
       purchaseOrderRows,
       purchaseOrderItemRows,
+      quotationRows,
+      quotationItemRows,
+      goodsReceiptRows,
+      goodsReceiptItemRows,
+      deliveryOrderRows,
+      deliveryOrderItemRows,
+      itemReturnRows,
     ] = await Promise.all([
       db
         .select()
@@ -206,6 +255,34 @@ export class CompanyDataService {
         .select()
         .from(operationsPurchaseOrderItems)
         .where(eq(operationsPurchaseOrderItems.tenantId, organizationId)),
+      db
+        .select()
+        .from(salesQuotations)
+        .where(eq(salesQuotations.tenantId, organizationId)),
+      db
+        .select()
+        .from(salesQuotationItems)
+        .where(eq(salesQuotationItems.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsGoodsReceipts)
+        .where(eq(operationsGoodsReceipts.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsGoodsReceiptItems)
+        .where(eq(operationsGoodsReceiptItems.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsDeliveryOrders)
+        .where(eq(operationsDeliveryOrders.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsDeliveryOrderItems)
+        .where(eq(operationsDeliveryOrderItems.tenantId, organizationId)),
+      db
+        .select()
+        .from(operationsItemReturns)
+        .where(eq(operationsItemReturns.tenantId, organizationId)),
     ]);
 
     return {
@@ -231,6 +308,13 @@ export class CompanyDataService {
         products: productRows,
         purchaseOrders: purchaseOrderRows,
         purchaseOrderItems: purchaseOrderItemRows,
+        quotations: quotationRows,
+        quotationItems: quotationItemRows,
+        goodsReceipts: goodsReceiptRows,
+        goodsReceiptItems: goodsReceiptItemRows,
+        deliveryOrders: deliveryOrderRows,
+        deliveryOrderItems: deliveryOrderItemRows,
+        itemReturns: itemReturnRows,
       },
       counts: this.counts({
         pipelineStages,
@@ -246,6 +330,13 @@ export class CompanyDataService {
         products: productRows,
         purchaseOrders: purchaseOrderRows,
         purchaseOrderItems: purchaseOrderItemRows,
+        quotations: quotationRows,
+        quotationItems: quotationItemRows,
+        goodsReceipts: goodsReceiptRows,
+        goodsReceiptItems: goodsReceiptItemRows,
+        deliveryOrders: deliveryOrderRows,
+        deliveryOrderItems: deliveryOrderItemRows,
+        itemReturns: itemReturnRows,
       }),
     };
   }
@@ -288,6 +379,12 @@ export class CompanyDataService {
       if (rows.customerContacts.length > 0) {
         await db.insert(salesCustomerContacts).values(rows.customerContacts);
       }
+      if (rows.quotations.length > 0) {
+        await db.insert(salesQuotations).values(rows.quotations);
+      }
+      if (rows.quotationItems.length > 0) {
+        await db.insert(salesQuotationItems).values(rows.quotationItems);
+      }
       if (rows.leads.length > 0) {
         await db.insert(salesLeads).values(rows.leads);
       }
@@ -314,8 +411,27 @@ export class CompanyDataService {
           .insert(operationsPurchaseOrderItems)
           .values(rows.purchaseOrderItems);
       }
+      if (rows.goodsReceipts.length > 0) {
+        await db.insert(operationsGoodsReceipts).values(rows.goodsReceipts);
+      }
+      if (rows.goodsReceiptItems.length > 0) {
+        await db
+          .insert(operationsGoodsReceiptItems)
+          .values(rows.goodsReceiptItems);
+      }
       if (rows.inventoryAssets.length > 0) {
         await db.insert(inventoryAssets).values(rows.inventoryAssets);
+      }
+      if (rows.deliveryOrders.length > 0) {
+        await db.insert(operationsDeliveryOrders).values(rows.deliveryOrders);
+      }
+      if (rows.deliveryOrderItems.length > 0) {
+        await db
+          .insert(operationsDeliveryOrderItems)
+          .values(rows.deliveryOrderItems);
+      }
+      if (rows.itemReturns.length > 0) {
+        await db.insert(operationsItemReturns).values(rows.itemReturns);
       }
       if (rows.inventoryMovements.length > 0) {
         await db.insert(inventoryMovements).values(rows.inventoryMovements);
@@ -435,6 +551,13 @@ export class CompanyDataService {
       'products',
       'purchaseOrders',
       'purchaseOrderItems',
+      'quotations',
+      'quotationItems',
+      'goodsReceipts',
+      'goodsReceiptItems',
+      'deliveryOrders',
+      'deliveryOrderItems',
+      'itemReturns',
     ] as const) {
       const value = data[collection];
       if (
@@ -467,6 +590,13 @@ export class CompanyDataService {
     products: NewOperationsProduct[];
     purchaseOrders: NewOperationsPurchaseOrder[];
     purchaseOrderItems: NewOperationsPurchaseOrderItem[];
+    quotations: NewSalesQuotation[];
+    quotationItems: NewSalesQuotationItem[];
+    goodsReceipts: NewOperationsGoodsReceipt[];
+    goodsReceiptItems: NewOperationsGoodsReceiptItem[];
+    deliveryOrders: NewOperationsDeliveryOrder[];
+    deliveryOrderItems: NewOperationsDeliveryOrderItem[];
+    itemReturns: NewOperationsItemReturn[];
   } {
     return {
       pipelineStages: backup.data.pipelineStages.map((row) =>
@@ -508,6 +638,27 @@ export class CompanyDataService {
       purchaseOrderItems: (backup.data.purchaseOrderItems ?? []).map((row) =>
         this.normalizeRow<NewOperationsPurchaseOrderItem>(row, organizationId),
       ),
+      quotations: (backup.data.quotations ?? []).map((row) =>
+        this.normalizeRow<NewSalesQuotation>(row, organizationId),
+      ),
+      quotationItems: (backup.data.quotationItems ?? []).map((row) =>
+        this.normalizeRow<NewSalesQuotationItem>(row, organizationId),
+      ),
+      goodsReceipts: (backup.data.goodsReceipts ?? []).map((row) =>
+        this.normalizeRow<NewOperationsGoodsReceipt>(row, organizationId),
+      ),
+      goodsReceiptItems: (backup.data.goodsReceiptItems ?? []).map((row) =>
+        this.normalizeRow<NewOperationsGoodsReceiptItem>(row, organizationId),
+      ),
+      deliveryOrders: (backup.data.deliveryOrders ?? []).map((row) =>
+        this.normalizeRow<NewOperationsDeliveryOrder>(row, organizationId),
+      ),
+      deliveryOrderItems: (backup.data.deliveryOrderItems ?? []).map((row) =>
+        this.normalizeRow<NewOperationsDeliveryOrderItem>(row, organizationId),
+      ),
+      itemReturns: (backup.data.itemReturns ?? []).map((row) =>
+        this.normalizeRow<NewOperationsItemReturn>(row, organizationId),
+      ),
     };
   }
 
@@ -528,6 +679,11 @@ export class CompanyDataService {
       const value = normalized[field];
 
       if (typeof value === 'string') {
+        // Delivery orders store a calendar date; inventory assets store a timestamp.
+        if (field === 'deliveryDate' && !value.includes('T')) {
+          continue;
+        }
+
         const date = new Date(value);
 
         if (Number.isNaN(date.getTime())) {
@@ -556,6 +712,13 @@ export class CompanyDataService {
       products: NewOperationsProduct[];
       purchaseOrders: NewOperationsPurchaseOrder[];
       purchaseOrderItems: NewOperationsPurchaseOrderItem[];
+      quotations: NewSalesQuotation[];
+      quotationItems: NewSalesQuotationItem[];
+      goodsReceipts: NewOperationsGoodsReceipt[];
+      goodsReceiptItems: NewOperationsGoodsReceiptItem[];
+      deliveryOrders: NewOperationsDeliveryOrder[];
+      deliveryOrderItems: NewOperationsDeliveryOrderItem[];
+      itemReturns: NewOperationsItemReturn[];
     },
     organizationId: string,
   ): Promise<void> {
@@ -570,6 +733,12 @@ export class CompanyDataService {
     const vendorIds = new Set(rows.vendors.map((row) => row.id));
     const productIds = new Set(rows.products.map((row) => row.id));
     const purchaseOrderIds = new Set(rows.purchaseOrders.map((row) => row.id));
+    const purchaseOrderItemIds = new Set(
+      rows.purchaseOrderItems.map((row) => row.id),
+    );
+    const quotationIds = new Set(rows.quotations.map((row) => row.id));
+    const goodsReceiptIds = new Set(rows.goodsReceipts.map((row) => row.id));
+    const deliveryOrderIds = new Set(rows.deliveryOrders.map((row) => row.id));
 
     if (
       rows.customerContacts.some((row) => !customerIds.has(row.customerId)) ||
@@ -601,7 +770,26 @@ export class CompanyDataService {
           (row.productId !== null &&
             row.productId !== undefined &&
             !productIds.has(row.productId)),
-      )
+      ) ||
+      rows.quotations.some((row) => !customerIds.has(row.customerId)) ||
+      rows.quotationItems.some((row) => !quotationIds.has(row.quotationId)) ||
+      rows.goodsReceipts.some(
+        (row) => !purchaseOrderIds.has(row.purchaseOrderId),
+      ) ||
+      rows.goodsReceiptItems.some(
+        (row) =>
+          !goodsReceiptIds.has(row.goodsReceiptId) ||
+          !purchaseOrderItemIds.has(row.purchaseOrderItemId) ||
+          (row.productId !== null &&
+            row.productId !== undefined &&
+            !productIds.has(row.productId)),
+      ) ||
+      rows.deliveryOrderItems.some(
+        (row) =>
+          !deliveryOrderIds.has(row.deliveryOrderId) ||
+          !inventoryAssetIds.has(row.assetId),
+      ) ||
+      rows.itemReturns.some((row) => !inventoryAssetIds.has(row.assetId))
     ) {
       throw new BadRequestException(
         'The backup contains broken operational relationships',
@@ -624,14 +812,23 @@ export class CompanyDataService {
       ...rows.products,
       ...rows.purchaseOrders,
       ...rows.purchaseOrderItems,
-    ]) {
+      ...rows.quotations,
+      ...rows.quotationItems,
+      ...rows.goodsReceipts,
+      ...rows.goodsReceiptItems,
+      ...rows.deliveryOrders,
+      ...rows.deliveryOrderItems,
+      ...rows.itemReturns,
+    ] as Array<Record<string, unknown>>) {
       for (const field of [
         'createdBy',
         'updatedBy',
         'ownerUserId',
         'performedBy',
+        'receivedBy',
+        'deliveredBy',
       ] as const) {
-        const value = row[field as keyof typeof row];
+        const value = row[field];
         if (typeof value === 'string') referencedUserIds.add(value);
       }
     }
@@ -663,12 +860,21 @@ export class CompanyDataService {
       ...rows.products,
       ...rows.purchaseOrders,
       ...rows.purchaseOrderItems,
+      ...rows.quotations,
+      ...rows.quotationItems,
+      ...rows.goodsReceipts,
+      ...rows.goodsReceiptItems,
+      ...rows.deliveryOrders,
+      ...rows.deliveryOrderItems,
+      ...rows.itemReturns,
     ] as Array<Record<string, unknown>>) {
       for (const field of [
         'createdBy',
         'updatedBy',
         'ownerUserId',
         'performedBy',
+        'receivedBy',
+        'deliveredBy',
       ]) {
         const value = row[field];
         if (typeof value === 'string' && !existingUserIds.has(value)) {
@@ -681,10 +887,38 @@ export class CompanyDataService {
   private async deleteOperationalData(
     organizationId: string,
   ): Promise<CompanyDataCounts> {
+    const quotationItemRows = await db
+      .delete(salesQuotationItems)
+      .where(eq(salesQuotationItems.tenantId, organizationId))
+      .returning({ id: salesQuotationItems.id });
+    const quotationRows = await db
+      .delete(salesQuotations)
+      .where(eq(salesQuotations.tenantId, organizationId))
+      .returning({ id: salesQuotations.id });
     const movementRows = await db
       .delete(inventoryMovements)
       .where(eq(inventoryMovements.tenantId, organizationId))
       .returning({ id: inventoryMovements.id });
+    const itemReturnRows = await db
+      .delete(operationsItemReturns)
+      .where(eq(operationsItemReturns.tenantId, organizationId))
+      .returning({ id: operationsItemReturns.id });
+    const deliveryOrderItemRows = await db
+      .delete(operationsDeliveryOrderItems)
+      .where(eq(operationsDeliveryOrderItems.tenantId, organizationId))
+      .returning({ id: operationsDeliveryOrderItems.id });
+    const deliveryOrderRows = await db
+      .delete(operationsDeliveryOrders)
+      .where(eq(operationsDeliveryOrders.tenantId, organizationId))
+      .returning({ id: operationsDeliveryOrders.id });
+    const goodsReceiptItemRows = await db
+      .delete(operationsGoodsReceiptItems)
+      .where(eq(operationsGoodsReceiptItems.tenantId, organizationId))
+      .returning({ id: operationsGoodsReceiptItems.id });
+    const goodsReceiptRows = await db
+      .delete(operationsGoodsReceipts)
+      .where(eq(operationsGoodsReceipts.tenantId, organizationId))
+      .returning({ id: operationsGoodsReceipts.id });
     const assetRows = await db
       .delete(inventoryAssets)
       .where(eq(inventoryAssets.tenantId, organizationId))
@@ -748,6 +982,13 @@ export class CompanyDataService {
       products: productRows.length,
       purchaseOrders: purchaseOrderRows.length,
       purchaseOrderItems: purchaseOrderItemRows.length,
+      quotations: quotationRows.length,
+      quotationItems: quotationItemRows.length,
+      goodsReceipts: goodsReceiptRows.length,
+      goodsReceiptItems: goodsReceiptItemRows.length,
+      deliveryOrders: deliveryOrderRows.length,
+      deliveryOrderItems: deliveryOrderItemRows.length,
+      itemReturns: itemReturnRows.length,
     };
   }
 
@@ -773,6 +1014,22 @@ export class CompanyDataService {
     purchaseOrderItems:
       | readonly OperationsPurchaseOrderItem[]
       | readonly NewOperationsPurchaseOrderItem[];
+    quotations: readonly SalesQuotation[] | readonly NewSalesQuotation[];
+    quotationItems:
+      readonly SalesQuotationItem[] | readonly NewSalesQuotationItem[];
+    goodsReceipts:
+      readonly OperationsGoodsReceipt[] | readonly NewOperationsGoodsReceipt[];
+    goodsReceiptItems:
+      | readonly OperationsGoodsReceiptItem[]
+      | readonly NewOperationsGoodsReceiptItem[];
+    deliveryOrders:
+      | readonly OperationsDeliveryOrder[]
+      | readonly NewOperationsDeliveryOrder[];
+    deliveryOrderItems:
+      | readonly OperationsDeliveryOrderItem[]
+      | readonly NewOperationsDeliveryOrderItem[];
+    itemReturns:
+      readonly OperationsItemReturn[] | readonly NewOperationsItemReturn[];
   }): CompanyDataCounts {
     return {
       pipelineStages: data.pipelineStages.length,
@@ -788,6 +1045,13 @@ export class CompanyDataService {
       products: data.products.length,
       purchaseOrders: data.purchaseOrders.length,
       purchaseOrderItems: data.purchaseOrderItems.length,
+      quotations: data.quotations.length,
+      quotationItems: data.quotationItems.length,
+      goodsReceipts: data.goodsReceipts.length,
+      goodsReceiptItems: data.goodsReceiptItems.length,
+      deliveryOrders: data.deliveryOrders.length,
+      deliveryOrderItems: data.deliveryOrderItems.length,
+      itemReturns: data.itemReturns.length,
     };
   }
 
