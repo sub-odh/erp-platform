@@ -304,7 +304,7 @@ export function EditUserModal({
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
-              label="First name"
+              label="First Name"
               value={firstName}
               onChange={(event) => setFirstName(event.target.value)}
               maxLength={100}
@@ -312,7 +312,7 @@ export function EditUserModal({
             />
 
             <Input
-              label="Last name"
+              label="Last Name"
               value={lastName}
               onChange={(event) => setLastName(event.target.value)}
               maxLength={100}

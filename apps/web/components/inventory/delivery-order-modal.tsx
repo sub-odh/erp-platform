@@ -242,7 +242,7 @@ export function DeliveryOrderModal({
                       }
                       disabled={saving}
                     >
-                      <option value="">Select inventory item</option>
+                      <option value="">Select Inventory Item</option>
                       {assets.map((asset) => (
                         <option
                           key={asset.id}

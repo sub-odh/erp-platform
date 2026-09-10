@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Button, Spinner } from "@/components/ui";
 import { ApiError } from "@/lib/api";
+import { formatCurrency } from "@/lib/currency";
 import { getDeliverableAssets, getDeliveryOrders } from "@/lib/delivery-orders";
 import { generateInvoice } from "@/lib/invoices";
 import type {
@@ -194,11 +195,4 @@ function formatDate(value: string) {
     month: "short",
     day: "numeric",
   });
-}
-
-function formatCurrency(value: string | number) {
-  return `Rs. ${Number(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 }

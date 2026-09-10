@@ -188,7 +188,7 @@ export default function ItemReturnsPage() {
             value={assetId}
             onChange={(event) => setAssetId(event.target.value)}
           >
-            <option value="">Select item</option>
+            <option value="">Select Item</option>
             {assets.map((asset) => (
               <option key={asset.id} value={asset.id}>
                 {asset.itemName} ({asset.soldQuantity} delivered)

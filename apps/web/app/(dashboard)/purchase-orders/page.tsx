@@ -104,7 +104,7 @@ export default function PurchaseOrdersPage() {
             value={vendorId}
             onChange={(event) => setVendorId(event.target.value)}
           >
-            <option value="">All vendors</option>
+            <option value="">All Vendors</option>
             {vendors.map((vendor) => (
               <option key={vendor.id} value={vendor.id}>
                 {vendor.name}

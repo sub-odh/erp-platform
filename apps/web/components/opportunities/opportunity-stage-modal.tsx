@@ -145,7 +145,7 @@ export function OpportunityStageModal({
         className="space-y-5"
       >
         <Select
-          label="Pipeline stage"
+          label="Pipeline Stage"
           value={stageId}
           onChange={(event) => {
             setStageId(event.target.value);
@@ -182,7 +182,7 @@ export function OpportunityStageModal({
 
         {isLostStage ? (
           <Textarea
-            label="Loss reason"
+            label="Loss Reason"
             value={lossReason}
             onChange={(event) => setLossReason(event.target.value)}
             rows={4}

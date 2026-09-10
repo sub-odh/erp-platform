@@ -187,7 +187,7 @@ export function CustomerContactModal({
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
-            label="First name"
+            label="First Name"
             value={form.firstName}
             onChange={(event) => updateField("firstName", event.target.value)}
             maxLength={100}
@@ -195,7 +195,7 @@ export function CustomerContactModal({
           />
 
           <Input
-            label="Last name"
+            label="Last Name"
             value={form.lastName}
             onChange={(event) => updateField("lastName", event.target.value)}
             maxLength={100}
@@ -204,7 +204,7 @@ export function CustomerContactModal({
         </div>
 
         <Input
-          label="Job title"
+          label="Job Title"
           value={form.jobTitle ?? ""}
           onChange={(event) => updateField("jobTitle", event.target.value)}
           maxLength={150}

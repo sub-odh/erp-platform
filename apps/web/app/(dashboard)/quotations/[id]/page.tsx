@@ -8,12 +8,12 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { getCurrentCompany, resolveMediaUrl } from "@/lib/company";
+import { formatCurrency } from "@/lib/currency";
 import { getQuotation } from "@/lib/quotations";
 import type { Company } from "@/types/company";
 import type { QuotationDetails } from "@/types/quotations";
 
-const money = (value: number) =>
-  `Rs. ${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (value: number) => formatCurrency(value);
 
 export default function QuotationDocumentPage() {
   const params = useParams<{ id: string }>();

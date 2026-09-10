@@ -303,7 +303,7 @@ export function EditCustomerModal({
         >
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
-              label="Customer code"
+              label="Customer Code"
               value={form.customerCode}
               onChange={(event) =>
                 updateField("customerCode", event.target.value)
@@ -313,7 +313,7 @@ export function EditCustomerModal({
             />
 
             <Input
-              label="Customer name"
+              label="Customer Name"
               value={form.name}
               onChange={(event) => updateField("name", event.target.value)}
               maxLength={200}
@@ -321,14 +321,14 @@ export function EditCustomerModal({
             />
 
             <Input
-              label="Legal name"
+              label="Legal Name"
               value={form.legalName}
               onChange={(event) => updateField("legalName", event.target.value)}
               maxLength={200}
             />
 
             <Input
-              label="Tax number"
+              label="Tax Number"
               value={form.taxNumber}
               onChange={(event) => updateField("taxNumber", event.target.value)}
               maxLength={100}
@@ -382,7 +382,7 @@ export function EditCustomerModal({
         >
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
-              label="Credit limit"
+              label="Credit Limit"
               type="number"
               min="0"
               step="0.01"
@@ -393,7 +393,7 @@ export function EditCustomerModal({
             />
 
             <Input
-              label="Payment terms (days)"
+              label="Payment Terms (Days)"
               type="number"
               min="0"
               max="99999"
@@ -477,7 +477,7 @@ function AddressFields({
     <div className="grid gap-5 sm:grid-cols-2">
       <div className="sm:col-span-2">
         <Input
-          label="Address line 1"
+          label="Address Line 1"
           value={form[line1]}
           onChange={(event) => onChange(line1, event.target.value)}
           maxLength={255}
@@ -486,7 +486,7 @@ function AddressFields({
 
       <div className="sm:col-span-2">
         <Input
-          label="Address line 2"
+          label="Address Line 2"
           value={form[line2]}
           onChange={(event) => onChange(line2, event.target.value)}
           maxLength={255}
@@ -508,7 +508,7 @@ function AddressFields({
       />
 
       <Input
-        label="Postal code"
+        label="Postal Code"
         value={form[postal]}
         onChange={(event) => onChange(postal, event.target.value)}
         maxLength={30}

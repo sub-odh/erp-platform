@@ -127,7 +127,7 @@ export function PipelineLossModal({
         </div>
 
         <Textarea
-          label="Loss reason"
+          label="Loss Reason"
           value={lossReason}
           onChange={(event) => setLossReason(event.target.value)}
           rows={4}

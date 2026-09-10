@@ -254,14 +254,14 @@ export function LeadModal({
       <form id="lead-form" onSubmit={handleSubmit} className="space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
-            label="First name"
+            label="First Name"
             value={form.firstName}
             onChange={(event) => updateField("firstName", event.target.value)}
             required
           />
 
           <Input
-            label="Last name"
+            label="Last Name"
             value={form.lastName}
             onChange={(event) => updateField("lastName", event.target.value)}
             required
@@ -276,7 +276,7 @@ export function LeadModal({
           />
 
           <Input
-            label="Job title"
+            label="Job Title"
             value={form.jobTitle}
             onChange={(event) => updateField("jobTitle", event.target.value)}
           />

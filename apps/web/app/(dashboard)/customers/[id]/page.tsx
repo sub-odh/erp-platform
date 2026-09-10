@@ -206,7 +206,7 @@ export default function CustomerDetailPage() {
 
                 <InfoItem label="Phone" icon={Phone} value={customer.phone} />
 
-                <InfoItem label="Tax number" value={customer.taxNumber} />
+                <InfoItem label="Tax Number" value={customer.taxNumber} />
 
                 <InfoItem
                   label="Website"
@@ -257,12 +257,12 @@ export default function CustomerDetailPage() {
             <InfoCard title="Financial terms" icon={CreditCard}>
               <div className="space-y-5">
                 <Metric
-                  label="Credit limit"
+                  label="Credit Limit"
                   value={formatMoney(customer.creditLimit)}
                 />
 
                 <Metric
-                  label="Payment terms"
+                  label="Payment Terms"
                   value={
                     customer.paymentTermsDays === 0
                       ? "Due immediately"
@@ -280,7 +280,7 @@ export default function CustomerDetailPage() {
                 />
 
                 <Metric
-                  label="Last updated"
+                  label="Last Updated"
                   value={formatDateTime(customer.updatedAt)}
                 />
               </div>

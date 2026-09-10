@@ -160,7 +160,7 @@ export function ProductModal({
             onChange={(event) => update("categoryId", event.target.value)}
             required
           >
-            <option value="">Select category</option>
+            <option value="">Select Category</option>
             {options.categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.code} · {category.name}
@@ -173,7 +173,7 @@ export function ProductModal({
             onChange={(event) => update("unitId", event.target.value)}
             required
           >
-            <option value="">Select unit</option>
+            <option value="">Select Unit</option>
             {options.units.map((unit) => (
               <option key={unit.id} value={unit.id}>
                 {unit.name} ({unit.symbol})
@@ -185,7 +185,7 @@ export function ProductModal({
             value={form.defaultVendorId}
             onChange={(event) => update("defaultVendorId", event.target.value)}
           >
-            <option value="">No default vendor</option>
+            <option value="">No Default Vendor</option>
             {options.vendors.map((vendor) => (
               <option key={vendor.id} value={vendor.id}>
                 {vendor.code} · {vendor.name}

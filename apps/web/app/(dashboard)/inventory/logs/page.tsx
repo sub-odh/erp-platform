@@ -91,7 +91,7 @@ export default function InventoryLogsPage() {
               setPage(1);
             }}
           >
-            <option value="">All movement types</option>
+            <option value="">All Movement Types</option>
             <option value="ADDITION">Addition</option>
             <option value="ADJUSTMENT">Adjustment</option>
             <option value="REMOVAL">Removal</option>

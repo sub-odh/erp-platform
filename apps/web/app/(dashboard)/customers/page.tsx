@@ -206,7 +206,7 @@ export default function CustomersPage() {
                 handleStatusChange(event.target.value as StatusFilter)
               }
             >
-              <option value="all">All statuses</option>
+              <option value="all">All Statuses</option>
 
               <option value="active">Active</option>
 

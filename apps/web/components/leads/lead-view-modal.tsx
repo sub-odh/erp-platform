@@ -140,13 +140,13 @@ export function LeadViewModal({ open, lead, onClose }: LeadViewModalProps) {
 
             <Detail
               icon={<BriefcaseBusiness size={16} />}
-              label="Job title"
+              label="Job Title"
               value={lead.jobTitle}
             />
 
             <Detail
               icon={<UserRound size={16} />}
-              label="Assigned to"
+              label="Assigned To"
               value={lead.ownerUserId ? "Assigned" : "Unassigned"}
             />
 
@@ -188,7 +188,7 @@ export function LeadViewModal({ open, lead, onClose }: LeadViewModalProps) {
 
             <Detail
               icon={<CalendarDays size={16} />}
-              label="Last updated"
+              label="Last Updated"
               value={formatDateTime(lead.updatedAt)}
             />
 

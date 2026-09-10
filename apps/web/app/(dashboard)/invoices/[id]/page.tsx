@@ -147,7 +147,7 @@ export default function InvoiceViewPage() {
               </th>
               <th className="border border-slate-200 px-2 py-2">Qty</th>
               <th className="border border-slate-200 px-2 py-2 text-right">
-                Total (NPR)
+                Total (Rs.)
               </th>
             </tr>
           </thead>

@@ -6,11 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button, Select } from "@/components/ui";
 import { ApiError } from "@/lib/api";
+import { formatCurrency } from "@/lib/currency";
 import { deleteQuotation, getQuotations } from "@/lib/quotations";
 import type { QuotationListItem, QuotationStatus } from "@/types/quotations";
 
-const money = (value: number) =>
-  `Rs. ${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (value: number) => formatCurrency(value);
 
 export default function QuotationsPage() {
   const [searchInput, setSearchInput] = useState("");

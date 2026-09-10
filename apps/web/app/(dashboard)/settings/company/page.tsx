@@ -362,16 +362,16 @@ export default function CompanySettingsPage() {
 
             <div className="mt-6 grid gap-5 md:grid-cols-2">
               <Input
-                label="Company name"
+                label="Company Name"
                 value={company.name}
                 onChange={(event) => updateField("name", event.target.value)}
                 required
               />
 
-              <Input label="Company code" value={company.code} disabled />
+              <Input label="Company Code" value={company.code} disabled />
 
               <Input
-                label="Legal name"
+                label="Legal Name"
                 value={company.legalName ?? ""}
                 onChange={(event) =>
                   updateField("legalName", event.target.value)
@@ -379,14 +379,14 @@ export default function CompanySettingsPage() {
               />
 
               <Input
-                label="Email address"
+                label="Email Address"
                 type="email"
                 value={company.email ?? ""}
                 onChange={(event) => updateField("email", event.target.value)}
               />
 
               <Input
-                label="Contact number"
+                label="Contact Number"
                 value={company.phone ?? ""}
                 onChange={(event) => updateField("phone", event.target.value)}
               />
@@ -407,7 +407,7 @@ export default function CompanySettingsPage() {
               />
 
               <Input
-                label="Registration number"
+                label="Registration Number"
                 value={company.registrationNumber ?? ""}
                 onChange={(event) =>
                   updateField("registrationNumber", event.target.value)
@@ -415,7 +415,7 @@ export default function CompanySettingsPage() {
               />
 
               <Input
-                label="Registration date"
+                label="Registration Date"
                 type="date"
                 value={company.registrationDate ?? ""}
                 onChange={(event) =>
@@ -427,14 +427,14 @@ export default function CompanySettingsPage() {
 
               <div className="md:col-span-2">
                 <TextareaField
-                  label="Office address"
+                  label="Office Address"
                   value={company.addressLine1 ?? ""}
                   onChange={(value) => updateField("addressLine1", value)}
                 />
               </div>
 
               <Input
-                label="Address line 2"
+                label="Address Line 2"
                 value={company.addressLine2 ?? ""}
                 onChange={(event) =>
                   updateField("addressLine2", event.target.value)
@@ -454,7 +454,7 @@ export default function CompanySettingsPage() {
               />
 
               <Input
-                label="Postal code"
+                label="Postal Code"
                 value={company.postalCode ?? ""}
                 onChange={(event) =>
                   updateField("postalCode", event.target.value)
@@ -470,7 +470,7 @@ export default function CompanySettingsPage() {
               <div className="hidden md:block" />
 
               <Input
-                label="Office time starts"
+                label="Office Time Starts"
                 type="time"
                 value={company.officeStartTime ?? ""}
                 onChange={(event) =>
@@ -479,7 +479,7 @@ export default function CompanySettingsPage() {
               />
 
               <Input
-                label="Office time ends"
+                label="Office Time Ends"
                 type="time"
                 value={company.officeEndTime ?? ""}
                 onChange={(event) =>
@@ -488,7 +488,7 @@ export default function CompanySettingsPage() {
               />
 
               <Input
-                label="Currency code"
+                label="Currency Code"
                 value={company.currencyCode}
                 maxLength={3}
                 onChange={(event) =>
@@ -700,7 +700,7 @@ function BackupRestorePanel({
 
         <label className="mt-6 block">
           <span className="mb-2 block text-sm font-medium text-slate-700">
-            Company backup file
+            Company Backup File
           </span>
           <input
             key={restoreFile?.name ?? "no-backup-selected"}
@@ -800,7 +800,7 @@ function ResetCompanyDataPanel({
       <div className="border-t border-slate-200 px-6 py-5">
         <div className="max-w-xl">
           <Input
-            label="Owner current password"
+            label="Owner Current Password"
             type="password"
             value={ownerPassword}
             onChange={(event) => onOwnerPasswordChange(event.target.value)}

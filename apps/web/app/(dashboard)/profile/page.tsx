@@ -391,7 +391,7 @@ export default function ProfilePage() {
               />
               <div className="grid gap-5 md:grid-cols-3">
                 <Input
-                  label="First name"
+                  label="First Name"
                   value={form.firstName}
                   onChange={(event) =>
                     updateField("firstName", event.target.value)
@@ -400,7 +400,7 @@ export default function ProfilePage() {
                   required
                 />
                 <Input
-                  label="Last name"
+                  label="Last Name"
                   value={form.lastName}
                   onChange={(event) =>
                     updateField("lastName", event.target.value)
@@ -409,7 +409,7 @@ export default function ProfilePage() {
                   required
                 />
                 <Input
-                  label="Phone contact"
+                  label="Phone Contact"
                   type="tel"
                   value={form.phone}
                   onChange={(event) => updateField("phone", event.target.value)}
@@ -418,14 +418,14 @@ export default function ProfilePage() {
               </div>
               <div className="grid gap-5 md:grid-cols-2">
                 <Input
-                  label="Official email"
+                  label="Official Email"
                   type="email"
                   value={profile.email}
                   disabled
                   hint="Contact an administrator to change your login email."
                 />
                 <Input
-                  label="Date of birth"
+                  label="Date of Birth"
                   type="date"
                   value={form.dateOfBirth}
                   onChange={(event) =>
@@ -442,7 +442,7 @@ export default function ProfilePage() {
               />
               <div className="grid gap-5 md:grid-cols-3">
                 <Input
-                  label="Father's name"
+                  label="Father's Name"
                   value={form.fatherName}
                   onChange={(event) =>
                     updateField("fatherName", event.target.value)
@@ -450,7 +450,7 @@ export default function ProfilePage() {
                   maxLength={200}
                 />
                 <Input
-                  label="Mother's name"
+                  label="Mother's Name"
                   value={form.motherName}
                   onChange={(event) =>
                     updateField("motherName", event.target.value)
@@ -458,7 +458,7 @@ export default function ProfilePage() {
                   maxLength={200}
                 />
                 <Input
-                  label="Citizenship no."
+                  label="Citizenship No."
                   value={form.citizenshipNumber}
                   onChange={(event) =>
                     updateField("citizenshipNumber", event.target.value)
@@ -476,7 +476,7 @@ export default function ProfilePage() {
                   maxLength={100}
                 />
                 <Input
-                  label="Permanent address"
+                  label="Permanent Address"
                   value={form.permanentAddress}
                   onChange={(event) =>
                     updateField("permanentAddress", event.target.value)
@@ -528,7 +528,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <p className="mb-2 text-sm font-medium text-slate-700">
-                    Signature reference preview
+                    Signature Reference Preview
                   </p>
                   <ImageUploader
                     preset="signature"
@@ -584,7 +584,7 @@ export default function ProfilePage() {
               />
               <div className="grid items-start gap-5 lg:grid-cols-3">
                 <Input
-                  label="Current password"
+                  label="Current Password"
                   type="password"
                   autoComplete="current-password"
                   value={currentPassword}
@@ -594,7 +594,7 @@ export default function ProfilePage() {
                 />
                 <div className="space-y-3">
                   <Input
-                    label="New password"
+                    label="New Password"
                     type="password"
                     autoComplete="new-password"
                     value={newPassword}
@@ -606,7 +606,7 @@ export default function ProfilePage() {
                   <PasswordRequirements password={newPassword} />
                 </div>
                 <Input
-                  label="Confirm new password"
+                  label="Confirm New Password"
                   type="password"
                   autoComplete="new-password"
                   value={confirmPassword}
