@@ -283,7 +283,7 @@ export default function CreatePurchaseOrderPage() {
             onChange={(event) => setVendorId(event.target.value)}
             required
           >
-            <option value="">Select vendor</option>
+            <option value="">Select Vendor</option>
             {vendors.map((vendor) => (
               <option key={vendor.id} value={vendor.id}>
                 {vendor.code} · {vendor.name}
@@ -332,7 +332,7 @@ export default function CreatePurchaseOrderPage() {
                           chooseProduct(index, event.target.value)
                         }
                       >
-                        <option value="">Select product</option>
+                        <option value="">Select Product</option>
                         {products.map((product) => (
                           <option key={product.id} value={product.id}>
                             {product.sku} · {product.name}

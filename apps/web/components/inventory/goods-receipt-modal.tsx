@@ -183,7 +183,7 @@ export function GoodsReceiptModal({
             required
             disabled={saving}
           >
-            <option value="">Select purchase order</option>
+            <option value="">Select Purchase Order</option>
             {openOrders.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
                 {candidate.poNumber} — {candidate.vendorName}

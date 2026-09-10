@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button, Select, Spinner } from "@/components/ui";
 import { ApiError } from "@/lib/api";
+import { formatCurrency } from "@/lib/currency";
 import {
   getInvoiceSummary,
   getInvoices,
@@ -18,11 +19,7 @@ import type {
   PaymentMethod,
 } from "@/types/invoices";
 
-const money = (value: string | number) =>
-  `Rs. ${Number(value).toLocaleString("en-NP", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+const money = (value: string | number) => formatCurrency(value);
 
 export default function PaymentsPage() {
   const [searchInput, setSearchInput] = useState("");

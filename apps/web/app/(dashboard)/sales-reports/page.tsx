@@ -11,6 +11,7 @@ import {
 import { SalesTrendChart } from "@/components/sales/sales-trend-chart";
 import { Select, Spinner } from "@/components/ui";
 import { ApiError } from "@/lib/api";
+import { formatCurrency } from "@/lib/currency";
 import { getSalesOrderReport } from "@/lib/sales-orders";
 import type {
   SalesOrderReport,
@@ -59,10 +60,7 @@ function lastTwelveMonths(now = new Date()): SalesOrderReportMonth[] {
 }
 
 function money(value: number): string {
-  return `Rs. ${value.toLocaleString("en-NP", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatCurrency(value);
 }
 
 export default function SalesOrderReportPage() {

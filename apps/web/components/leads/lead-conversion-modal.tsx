@@ -379,7 +379,7 @@ export function LeadConversionModal({
         ) : null}
 
         <Input
-          label="Opportunity name"
+          label="Opportunity Name"
           value={form.name}
           onChange={(event) =>
             updateField(
@@ -404,7 +404,7 @@ export function LeadConversionModal({
               )
             }
           >
-            <option value="">No customer linked</option>
+            <option value="">No Customer Linked</option>
 
             {customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
@@ -414,7 +414,7 @@ export function LeadConversionModal({
           </Select>
 
           <Select
-            label="Initial deal stage"
+            label="Initial Deal Stage"
             value={form.stageId}
             disabled={loadingReferences}
             onChange={(event) =>
@@ -426,7 +426,7 @@ export function LeadConversionModal({
             }
             required
           >
-            <option value="">Select stage</option>
+            <option value="">Select Stage</option>
 
             {stages.map((stage) => (
               <option key={stage.id} value={stage.id}>
@@ -448,7 +448,7 @@ export function LeadConversionModal({
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
-            label="Deal value"
+            label="Deal Value"
             type="number"
             min="0"
             step="0.01"
@@ -464,7 +464,7 @@ export function LeadConversionModal({
           />
 
           <Input
-            label="Expected close date"
+            label="Expected Close Date"
             type="date"
             value={form.expectedCloseDate}
             onChange={(event) =>
@@ -478,7 +478,7 @@ export function LeadConversionModal({
         </div>
 
         <Select
-          label="Assigned to"
+          label="Assigned To"
           value={form.ownerUserId}
           disabled={loadingReferences}
           onChange={(event) =>

@@ -1,10 +1,11 @@
+import { formatCurrency } from "@/lib/currency";
 import type { InventoryAssetStatus } from "@/types/inventory";
 
 export function formatRupees(value: number): string {
-  return `Rs. ${new Intl.NumberFormat("en-NP", {
+  return formatCurrency(value, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  }).format(value)}`;
+  });
 }
 
 export function inventoryStatusLabel(status: InventoryAssetStatus): string {

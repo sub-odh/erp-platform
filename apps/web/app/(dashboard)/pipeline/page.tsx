@@ -327,17 +327,17 @@ export default function PipelinePage() {
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
-            label="Deals shown"
+            label="Deals Shown"
             value={String(opportunities.length)}
           />
 
           <SummaryCard
-            label="Shown value"
+            label="Shown Value"
             value={formatAmount(summary.shownValue)}
           />
 
           <SummaryCard
-            label="Weighted value"
+            label="Weighted Value"
             value={formatAmount(summary.weightedValue)}
           />
 

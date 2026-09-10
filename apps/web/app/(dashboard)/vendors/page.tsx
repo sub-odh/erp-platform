@@ -140,7 +140,7 @@ export default function VendorsPage() {
             }}
             className="min-w-36 rounded-full py-2"
           >
-            <option value="">All statuses</option>
+            <option value="">All Statuses</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </Select>

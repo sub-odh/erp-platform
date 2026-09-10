@@ -330,7 +330,7 @@ export function OpportunityModal({
     >
       <form id="opportunity-form" onSubmit={handleSubmit} className="space-y-5">
         <Input
-          label="Opportunity name"
+          label="Opportunity Name"
           value={form.name}
           onChange={(event) => updateField("name", event.target.value)}
           placeholder="ERP Implementation Deal"
@@ -355,7 +355,7 @@ export function OpportunityModal({
           </Select>
 
           <Select
-            label="Source lead"
+            label="Source Lead"
             value={form.leadId}
             onChange={(event) => updateField("leadId", event.target.value)}
           >
@@ -373,13 +373,13 @@ export function OpportunityModal({
 
         {!opportunity ? (
           <Select
-            label="Pipeline stage"
+            label="Pipeline Stage"
             value={form.stageId}
             onChange={(event) => handleStageChange(event.target.value)}
             required
           >
             {openStages.length === 0 ? (
-              <option value="">No open stages available</option>
+              <option value="">No Open Stages Available</option>
             ) : null}
 
             {openStages.map((stage) => (
@@ -391,7 +391,7 @@ export function OpportunityModal({
           </Select>
         ) : (
           <Input
-            label="Current stage"
+            label="Current Stage"
             value={currentStage?.name ?? "Unknown stage"}
             disabled
           />
@@ -399,7 +399,7 @@ export function OpportunityModal({
 
         <div className="grid gap-5 sm:grid-cols-3">
           <Input
-            label="Deal value"
+            label="Deal Value"
             type="number"
             min="0"
             step="0.01"
@@ -418,7 +418,7 @@ export function OpportunityModal({
           />
 
           <Input
-            label="Expected close"
+            label="Expected Close"
             type="date"
             value={form.expectedCloseDate}
             onChange={(event) =>
@@ -428,7 +428,7 @@ export function OpportunityModal({
         </div>
 
         <Select
-          label="Assigned to"
+          label="Assigned To"
           value={form.ownerUserId}
           onChange={(event) => updateField("ownerUserId", event.target.value)}
         >

@@ -7,14 +7,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Button, Select, Spinner } from "@/components/ui";
 import { ApiError } from "@/lib/api";
+import { formatCurrency } from "@/lib/currency";
 import { getInvoices } from "@/lib/invoices";
 import type { InvoiceListItem, InvoiceStatus } from "@/types/invoices";
 
-const money = (value: string | number) =>
-  `Rs. ${Number(value).toLocaleString("en-NP", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+const money = (value: string | number) => formatCurrency(value);
 
 const STATUS_LABEL: Record<InvoiceStatus, string> = {
   UNPAID: "Pending",

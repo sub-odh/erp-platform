@@ -380,7 +380,7 @@ export default function LeadsPage() {
 
               <option value="archived">Archived</option>
 
-              <option value="all">All records</option>
+              <option value="all">All Records</option>
             </Select>
           </div>
 

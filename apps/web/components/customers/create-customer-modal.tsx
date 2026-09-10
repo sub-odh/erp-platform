@@ -184,7 +184,7 @@ export function CreateCustomerModal({
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
-            label="Customer code"
+            label="Customer Code"
             value={form.customerCode}
             onChange={(event) =>
               updateField("customerCode", event.target.value)
@@ -195,7 +195,7 @@ export function CreateCustomerModal({
           />
 
           <Input
-            label="Customer name"
+            label="Customer Name"
             value={form.name}
             onChange={(event) => updateField("name", event.target.value)}
             placeholder="Acme Trading"
@@ -205,7 +205,7 @@ export function CreateCustomerModal({
         </div>
 
         <Input
-          label="Legal name"
+          label="Legal Name"
           value={form.legalName}
           onChange={(event) => updateField("legalName", event.target.value)}
           placeholder="Acme Trading Pvt. Ltd."
@@ -233,7 +233,7 @@ export function CreateCustomerModal({
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
-            label="Tax number"
+            label="Tax Number"
             value={form.taxNumber}
             onChange={(event) => updateField("taxNumber", event.target.value)}
             placeholder="VAT / PAN"

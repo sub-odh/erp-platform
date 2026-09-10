@@ -237,7 +237,7 @@ export default function SmtpSettingsPage() {
             >
               <option value="STARTTLS">STARTTLS</option>
               <option value="SSL">SSL / TLS</option>
-              <option value="NONE">None (not recommended)</option>
+              <option value="NONE">None (Not Recommended)</option>
             </Select>
 
             <label className="flex items-end">
@@ -259,7 +259,7 @@ export default function SmtpSettingsPage() {
 
           <div className="grid gap-5 md:grid-cols-2">
             <Input
-              label="From email address"
+              label="From Email Address"
               type="email"
               value={form.fromEmail}
               onChange={(event) => updateField("fromEmail", event.target.value)}
@@ -267,7 +267,7 @@ export default function SmtpSettingsPage() {
             />
 
             <Input
-              label="Sender name"
+              label="Sender Name"
               value={form.senderName}
               onChange={(event) =>
                 updateField("senderName", event.target.value)

@@ -247,7 +247,7 @@ export default function InventoryMasterPage() {
               setPage(1);
             }}
           >
-            <option value="">All statuses</option>
+            <option value="">All Statuses</option>
             <option value="IN_STOCK">In Stock</option>
             <option value="SOLD">Sold</option>
             <option value="OUT_OF_STOCK">Out of Stock</option>

@@ -67,6 +67,12 @@ interface NavigationSection {
   items: NavigationItem[];
 }
 
+/*
+ * Every navigation row — top level, expandable group and nested child —
+ * shares this typography so each label renders at the same size as Dashboard.
+ */
+const navRowClass = "py-2.5 text-sm leading-5";
+
 const navigationSections: NavigationSection[] = [
   {
     title: "Main",
@@ -664,7 +670,7 @@ function SidebarItem({
           title={collapsed ? item.label : undefined}
           aria-expanded={expanded}
           className={[
-            "relative flex w-full items-center rounded-md py-2.5 text-sm transition",
+            `relative flex w-full items-center rounded-md transition ${navRowClass}`,
             collapsed ? "gap-3 px-3 lg:justify-center lg:px-2" : "gap-3 px-3",
             active
               ? "bg-blue-600/15 text-white"
@@ -676,8 +682,11 @@ function SidebarItem({
           ) : null}
 
           <Icon
-            size={collapsed ? 18 : 17}
-            className={active ? "text-blue-400" : "text-slate-400"}
+            size={collapsed ? 18 : 16}
+            className={[
+              "shrink-0",
+              active ? "text-blue-400" : "text-slate-400",
+            ].join(" ")}
           />
 
           <span
@@ -730,12 +739,12 @@ function SidebarItem({
       <div
         title={item.disabled ? `${item.label} — Coming soon` : item.label}
         className={[
-          "group flex cursor-not-allowed items-center rounded-md py-2.5 text-sm text-slate-500",
+          `group flex cursor-not-allowed items-center rounded-md text-slate-500 ${navRowClass}`,
           collapsed ? "gap-3 px-3 lg:justify-center lg:px-2" : "gap-3 px-3",
           nested ? "ml-6" : "",
         ].join(" ")}
       >
-        <Icon size={collapsed ? 17 : 16} className="shrink-0 text-slate-600" />
+        <Icon size={collapsed ? 18 : 16} className="shrink-0 text-slate-600" />
 
         <span
           className={[
@@ -747,7 +756,7 @@ function SidebarItem({
         </span>
 
         {!collapsed ? (
-          <span className="text-[9px] uppercase tracking-wide text-slate-600 opacity-0 transition group-hover:opacity-100">
+          <span className="text-[10px] uppercase tracking-wide text-slate-600 opacity-0 transition group-hover:opacity-100">
             Soon
           </span>
         ) : null}
@@ -761,7 +770,7 @@ function SidebarItem({
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
       className={[
-        "relative flex items-center rounded-md py-2.5 text-sm transition",
+        `relative flex items-center rounded-md transition ${navRowClass}`,
         collapsed ? "gap-3 px-3 lg:justify-center lg:px-2" : "gap-3 px-3",
         nested ? "ml-6" : "",
         active
@@ -823,9 +832,9 @@ function SidebarFooter({
         <div className={collapsed ? "hidden" : ""}>
           <p className="text-[10px] font-medium text-slate-400">ERP Platform</p>
 
-          <p className="mt-0.5 text-[9px] text-slate-600">v1.0.0</p>
+          <p className="mt-0.5 text-[10px] text-slate-600">v1.0.0</p>
           {license && license.status !== "valid" ? (
-            <p className="mt-1 text-[9px] uppercase text-amber-400">
+            <p className="mt-1 text-[10px] uppercase text-amber-400">
               License: {license.status.replace("_", " ")}
             </p>
           ) : null}

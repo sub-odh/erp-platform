@@ -250,7 +250,7 @@ export function CreateUserModal({
           />
 
           <Input
-            label="First name"
+            label="First Name"
             value={form.firstName}
             onChange={(event) =>
               updateField(
@@ -265,7 +265,7 @@ export function CreateUserModal({
           />
 
           <Input
-            label="Last name"
+            label="Last Name"
             value={form.lastName}
             onChange={(event) =>
               updateField(
@@ -298,7 +298,7 @@ export function CreateUserModal({
 
         <div className="space-y-3">
           <Input
-            label="Temporary password"
+            label="Temporary Password"
             type="password"
             autoComplete="new-password"
             value={form.password}
