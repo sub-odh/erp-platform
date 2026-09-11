@@ -32,6 +32,7 @@ import { GoodsReceiptsModule } from './modules/operations/goods-receipts/goods-r
 import { DeliveryOrdersModule } from './modules/operations/delivery-orders/delivery-orders.module';
 import { ItemReturnsModule } from './modules/operations/item-returns/item-returns.module';
 import { InvoicesModule } from './modules/finance/invoices/invoices.module';
+import { ProcurementModule } from './modules/procurement/procurement.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 import { UsersModule } from './modules/users/users.module';
@@ -103,6 +104,8 @@ import { UsersModule } from './modules/users/users.module';
     ItemReturnsModule,
 
     InvoicesModule,
+
+    ProcurementModule,
 
     DashboardModule,
 

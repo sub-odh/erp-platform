@@ -391,6 +391,9 @@ importers:
       lucide-react:
         specifier: ^1.28.0
         version: 1.28.0(react@19.1.0)
+      nepali-date-converter:
+        specifier: ^3.4.0
+        version: 3.4.0
       next:
         specifier: 15.5.21
         version: 15.5.21(@babel/core@7.29.7(supports-color@8.1.1))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -3366,6 +3369,7 @@ packages:
   eslint@9.39.5:
     resolution: {integrity: sha512-DgZS62aPLXKlnxILS/AYCoRvHaZeXceIzlXPkkGGzJWSow1aEk0lbTlxUSlyjC8jcaKxAdOnTDz+o1JFSBsyjw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -4389,6 +4393,10 @@ packages:
 
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
+
+  nepali-date-converter@3.4.0:
+    resolution: {integrity: sha512-hBojNXCQN69I533CnxNubl72uNx2Zcow9t2bOML3CxXv227s7NKA2kStUGO5xysg0SwsubTTxAO6tcg9IhS61w==}
+    engines: {node: '>=6.0.0'}
 
   nestjs-pino@4.6.1:
     resolution: {integrity: sha512-nuARXa0xpdJ1lY2+fgycIQr6H3g0VgqAWNK3xMYjOFcj2DoPETNXj0lV3Y86nRuI7BUfQp5PGiVoZvT4dTWbpQ==}
@@ -9515,6 +9523,8 @@ snapshots:
   negotiator@1.0.0: {}
 
   neo-async@2.6.2: {}
+
+  nepali-date-converter@3.4.0: {}
 
   nestjs-pino@4.6.1(@nestjs/common@11.1.28(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(pino-http@11.0.0)(pino@10.3.1)(rxjs@7.8.2):
     dependencies:

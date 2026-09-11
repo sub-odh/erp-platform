@@ -77,7 +77,8 @@ export class LocalStorageService {
       extension === '.png' ||
       extension === '.jpg' ||
       extension === '.jpeg' ||
-      extension === '.webp'
+      extension === '.webp' ||
+      extension === '.pdf'
     ) {
       return extension === '.jpeg' ? '.jpg' : extension;
     }
