@@ -15,6 +15,10 @@ class DashboardQueryDto {
   @IsOptional()
   @Matches(/^\d{4}-\d{2}$/)
   salesMonth?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}$/)
+  distMonth?: string;
 }
 
 type AuthenticatedRequest = Request & { user: JwtPayload };
