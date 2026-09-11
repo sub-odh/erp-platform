@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { AUTH_SESSION_EXPIRED_EVENT, getAccessToken } from "@/lib/auth";
+import { CalendarSystemProvider } from "@/lib/calendar-system";
 import { getCurrentCompany, resolveMediaUrl } from "@/lib/company";
 import type { Company } from "@/types/company";
 
@@ -103,31 +104,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Sidebar
-        open={sidebarOpen}
-        collapsed={sidebarCollapsed}
-        company={company}
-        onClose={() => setSidebarOpen(false)}
-        onToggleCollapsed={toggleSidebarCollapsed}
-      />
+    <CalendarSystemProvider>
+      <div className="min-h-screen bg-slate-100">
+        <Sidebar
+          open={sidebarOpen}
+          collapsed={sidebarCollapsed}
+          company={company}
+          onClose={() => setSidebarOpen(false)}
+          onToggleCollapsed={toggleSidebarCollapsed}
+        />
 
-      <div
-        className={[
-          "flex min-h-screen flex-col transition-[padding] duration-200",
-          sidebarCollapsed ? "lg:pl-18" : "lg:pl-70",
-        ].join(" ")}
-      >
-        <Topbar onMenuClick={() => setSidebarOpen(true)} />
+        <div
+          className={[
+            "flex min-h-screen flex-col transition-[padding] duration-200",
+            sidebarCollapsed ? "lg:pl-18" : "lg:pl-70",
+          ].join(" ")}
+        >
+          <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+          <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
 
-        <footer className="border-t border-slate-200 bg-white px-6 py-5 text-center text-sm text-slate-600">
-          © {new Date().getFullYear()} EMSPro | Powered by Leapfuse Technology
-          Pvt. Ltd.
-        </footer>
+          <footer
+            data-app-footer
+            className="border-t border-slate-200 bg-white px-6 py-5 text-center text-sm text-slate-600"
+          >
+            © {new Date().getFullYear()} EMSPro | Powered by Leapfuse
+            Technology Pvt. Ltd.
+          </footer>
+        </div>
       </div>
-    </div>
+    </CalendarSystemProvider>
   );
 }
 

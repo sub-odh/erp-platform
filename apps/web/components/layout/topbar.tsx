@@ -13,9 +13,31 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { apiRequest } from "@/lib/api";
-import { clearAuthSession, getStoredUser } from "@/lib/auth";
+import {
+  AUTH_USER_CHANGED_EVENT,
+  clearAuthSession,
+  getStoredUser,
+} from "@/lib/auth";
+import {
+  buildMonthGrid,
+  dayOfMonth,
+  isSameDay,
+  isSaturday,
+  isWithinMonth,
+  secondaryDayOfMonth,
+  shiftMonth,
+} from "@/lib/calendar-grid";
+import { useCalendarSystem } from "@/lib/calendar-system";
 import { resolveMediaUrl } from "@/lib/company";
+import {
+  formatBsDate,
+  formatCalendarDate,
+  toDevanagariDigits,
+  toIsoDate,
+  type CalendarSystem,
+} from "@/lib/nepali-date";
 import { ROLE_LABELS } from "@/lib/user-roles";
+import type { AuthUser } from "@/types/auth";
 import { NotificationsDropdown } from "./notifications-dropdown";
 
 interface TopbarProps {
@@ -25,13 +47,31 @@ interface TopbarProps {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const router = useRouter();
 
-  const user = getStoredUser();
+  /*
+   * The signed-in user lives in localStorage, which does not exist while the
+   * shell is server rendered, so it is adopted after mount to keep the server
+   * and client markup identical.
+   */
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    setUser(getStoredUser());
+
+    function syncUser(): void {
+      setUser(getStoredUser());
+    }
+
+    window.addEventListener(AUTH_USER_CHANGED_EVENT, syncUser);
+    return () => window.removeEventListener(AUTH_USER_CHANGED_EVENT, syncUser);
+  }, []);
 
   const displayName = getDisplayName(user);
 
   const initials = getInitials(user);
 
   const avatarUrl = resolveMediaUrl(user?.avatarUrl);
+
+  const { system, setSystem } = useCalendarSystem();
 
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -90,7 +130,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
     setSelectedDate(today);
 
-    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+    setVisibleMonth(today);
 
     setCalendarOpen(false);
   }
@@ -98,21 +138,17 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   function selectDate(date: Date): void {
     setSelectedDate(date);
 
-    setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    setVisibleMonth(date);
 
     setCalendarOpen(false);
   }
 
   function previousMonth(): void {
-    setVisibleMonth(
-      (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1),
-    );
+    setVisibleMonth((current) => shiftMonth(current, system, -1));
   }
 
   function nextMonth(): void {
-    setVisibleMonth(
-      (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1),
-    );
+    setVisibleMonth((current) => shiftMonth(current, system, 1));
   }
 
   return (
@@ -128,7 +164,11 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         </button>
 
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">
+          {/* The greeting reads the viewer's clock, which the server cannot match. */}
+          <p
+            suppressHydrationWarning
+            className="truncate text-sm font-semibold text-slate-900 sm:text-base"
+          >
             {greeting}
             {displayName ? `, ${displayName}` : ""}
           </p>
@@ -156,7 +196,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           >
             <CalendarDays size={17} />
 
-            <span>{formatTopbarDate(selectedDate)}</span>
+            <span>{formatCalendarDate(toIsoDate(selectedDate), system)}</span>
 
             {calendarOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </button>
@@ -172,12 +212,14 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
           {calendarOpen ? (
             <CalendarPopover
+              system={system}
               visibleMonth={visibleMonth}
               selectedDate={selectedDate}
               onPreviousMonth={previousMonth}
               onNextMonth={nextMonth}
               onSelectDate={selectDate}
               onToday={selectToday}
+              onSystemChange={setSystem}
             />
           ) : null}
         </div>
@@ -232,26 +274,62 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 }
 
 function CalendarPopover({
+  system,
   visibleMonth,
   selectedDate,
   onPreviousMonth,
   onNextMonth,
   onSelectDate,
   onToday,
+  onSystemChange,
 }: {
+  system: CalendarSystem;
   visibleMonth: Date;
   selectedDate: Date;
   onPreviousMonth: () => void;
   onNextMonth: () => void;
   onSelectDate: (date: Date) => void;
   onToday: () => void;
+  onSystemChange: (next: CalendarSystem) => void;
 }) {
-  const days = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
+  const grid = useMemo(
+    () => buildMonthGrid(visibleMonth, system),
+    [visibleMonth, system],
+  );
 
   const today = new Date();
 
   return (
     <div className="absolute right-0 top-12 z-200 w-82.5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+        <p className="text-xs font-semibold text-slate-500">
+          {formatBsDate(today, { numerals: "np", withWeekday: true })}
+        </p>
+
+        <div
+          role="group"
+          aria-label="Calendar system"
+          className="flex rounded-lg bg-slate-100 p-0.5"
+        >
+          {(["AD", "BS"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onSystemChange(option)}
+              aria-pressed={system === option}
+              className={[
+                "rounded-md px-2.5 py-1 text-xs font-semibold transition",
+                system === option
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700",
+              ].join(" ")}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex items-center justify-between px-4 py-4">
         <button
           type="button"
@@ -262,12 +340,10 @@ function CalendarPopover({
           <ChevronLeft size={18} />
         </button>
 
-        <p className="font-semibold text-slate-900">
-          {new Intl.DateTimeFormat(undefined, {
-            month: "long",
-            year: "numeric",
-          }).format(visibleMonth)}
-        </p>
+        <div className="text-center">
+          <p className="font-semibold text-slate-900">{grid.title}</p>
+          <p className="text-[11px] text-slate-400">{grid.subtitle}</p>
+        </div>
 
         <button
           type="button"
@@ -281,42 +357,75 @@ function CalendarPopover({
 
       <div className="px-4 pb-4">
         <div className="grid grid-cols-7 text-center">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+          {grid.weekdays.map((weekday) => (
             <div
-              key={day}
-              className="py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400"
+              key={weekday.index}
+              className={[
+                "py-2 text-[10px] font-bold uppercase tracking-wide",
+                weekday.index === 6 ? "text-red-500" : "text-slate-400",
+              ].join(" ")}
             >
-              {day}
+              {weekday.short}
             </div>
           ))}
         </div>
 
         <div className="grid grid-cols-7 gap-y-1">
-          {days.map((date) => {
-            const inCurrentMonth = date.getMonth() === visibleMonth.getMonth();
+          {grid.days.map((date) => {
+            const inCurrentMonth = isWithinMonth(date, grid);
 
             const selected = isSameDay(date, selectedDate);
 
             const isToday = isSameDay(date, today);
 
+            const primary = dayOfMonth(date, system);
+
+            const secondary = secondaryDayOfMonth(date, system);
+
             return (
               <button
-                key={date.toISOString()}
+                key={toIsoDate(date)}
                 type="button"
                 onClick={() => onSelectDate(date)}
                 className={[
-                  "mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm transition",
+                  "mx-auto flex h-10 w-10 flex-col items-center justify-center rounded-lg leading-none transition",
                   selected
                     ? "bg-blue-600 font-semibold text-white shadow-sm"
                     : inCurrentMonth
-                      ? "text-slate-800 hover:bg-slate-100"
-                      : "text-slate-300 hover:bg-slate-50",
-                  isToday && !selected
-                    ? "font-semibold text-blue-600 ring-1 ring-blue-200"
-                    : "",
+                      ? "hover:bg-slate-100"
+                      : "hover:bg-slate-50",
+                  isToday && !selected ? "ring-1 ring-blue-300" : "",
                 ].join(" ")}
               >
-                {date.getDate()}
+                <span
+                  className={[
+                    "text-sm",
+                    selected
+                      ? ""
+                      : !inCurrentMonth
+                        ? "text-slate-300"
+                        : isToday
+                          ? "font-semibold text-blue-600"
+                          : isSaturday(date)
+                            ? "text-red-600"
+                            : "text-slate-800",
+                  ].join(" ")}
+                >
+                  {system === "BS" ? toDevanagariDigits(primary) : primary}
+                </span>
+
+                <span
+                  className={[
+                    "mt-0.5 text-[9px]",
+                    selected
+                      ? "text-blue-100"
+                      : inCurrentMonth
+                        ? "text-slate-400"
+                        : "text-slate-200",
+                  ].join(" ")}
+                >
+                  {system === "BS" ? secondary : toDevanagariDigits(secondary)}
+                </span>
               </button>
             );
           })}
@@ -335,49 +444,6 @@ function CalendarPopover({
       </div>
     </div>
   );
-}
-
-function buildCalendarDays(month: Date): Date[] {
-  const year = month.getFullYear();
-
-  const monthIndex = month.getMonth();
-
-  const first = new Date(year, monthIndex, 1);
-
-  /*
-   * JS:
-   * Sunday = 0
-   *
-   * Our calendar:
-   * Monday = first column
-   */
-  const mondayOffset = (first.getDay() + 6) % 7;
-
-  const start = new Date(year, monthIndex, 1 - mondayOffset);
-
-  return Array.from(
-    {
-      length: 42,
-    },
-    (_, index) =>
-      new Date(start.getFullYear(), start.getMonth(), start.getDate() + index),
-  );
-}
-
-function isSameDay(first: Date, second: Date): boolean {
-  return (
-    first.getFullYear() === second.getFullYear() &&
-    first.getMonth() === second.getMonth() &&
-    first.getDate() === second.getDate()
-  );
-}
-
-function formatTopbarDate(value: Date): string {
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(value);
 }
 
 function getDisplayName(user: ReturnType<typeof getStoredUser>): string {

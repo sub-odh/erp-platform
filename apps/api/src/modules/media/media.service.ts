@@ -2,6 +2,8 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 
 import {
   MEDIA_ALLOWED_MIME_TYPES,
+  MEDIA_DOCUMENT_ALLOWED_MIME_TYPES,
+  MEDIA_MAX_DOCUMENT_SIZE,
   MEDIA_MAX_FILE_SIZE,
   type MediaFolder,
 } from './constants';
@@ -32,6 +34,40 @@ export class MediaService {
 
     if (file.size > MEDIA_MAX_FILE_SIZE) {
       throw new BadRequestException('Image must not exceed 2 MB');
+    }
+
+    const saved = await this.localStorageService.saveFile({
+      folder,
+      originalName: file.originalname,
+      buffer: file.buffer,
+    });
+
+    return {
+      url: `/uploads/${saved.relativePath}`,
+      fileName: saved.fileName,
+      mimeType: file.mimetype,
+      size: file.size,
+    };
+  }
+
+  async uploadDocument(
+    file: Express.Multer.File | undefined,
+    folder: MediaFolder,
+  ): Promise<MediaResponseDto> {
+    if (!file) {
+      throw new BadRequestException('Document file is required');
+    }
+
+    if (
+      !MEDIA_DOCUMENT_ALLOWED_MIME_TYPES.includes(
+        file.mimetype as (typeof MEDIA_DOCUMENT_ALLOWED_MIME_TYPES)[number],
+      )
+    ) {
+      throw new BadRequestException('Only PDF, PNG, and JPEG files are allowed');
+    }
+
+    if (file.size > MEDIA_MAX_DOCUMENT_SIZE) {
+      throw new BadRequestException('Document must not exceed 5 MB');
     }
 
     const saved = await this.localStorageService.saveFile({

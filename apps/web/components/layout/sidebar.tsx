@@ -4,6 +4,7 @@ import {
   BarChart3,
   Boxes,
   Building2,
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -11,7 +12,9 @@ import {
   ClipboardList,
   FileText,
   Gauge,
+  Gavel,
   Handshake,
+  Landmark,
   Mail,
   LayoutDashboard,
   Package,
@@ -57,6 +60,12 @@ interface NavigationItem {
 
   disabled?: boolean;
 
+  /*
+   * Set when a single row needs its own licence check, which happens where a
+   * process stage spans modules (dispatch is inventory, billing is sales).
+   */
+  requiredModule?: string;
+
   children?: NavigationItem[];
 }
 
@@ -73,6 +82,15 @@ interface NavigationSection {
  */
 const navRowClass = "py-2.5 text-sm leading-5";
 
+/*
+ * Grouped to match the legacy sidebar: Main, then one combined Sales &
+ * Logistics list, then Self Service and Administration. Inside that list the
+ * rows run in working order — buy, store, sell, dispatch, bill, collect —
+ * so each step sits next to the one that feeds it.
+ *
+ * Because the list spans licences, the inventory and sales rows carry their
+ * own requiredModule instead of relying on a section-wide one.
+ */
 const navigationSections: NavigationSection[] = [
   {
     title: "Main",
@@ -87,120 +105,29 @@ const navigationSections: NavigationSection[] = [
   },
 
   {
-    title: "Sales & CRM",
-    requiredModule: "sales",
+    title: "Sales & Logistics",
 
     items: [
-      {
-        label: "CRM",
-        icon: Target,
-
-        children: [
-          {
-            href: "/customers",
-            label: "Customers",
-            icon: Users,
-          },
-
-          {
-            href: "/leads",
-            label: "Leads",
-            icon: UserRound,
-          },
-
-          {
-            href: "/opportunities",
-            label: "Opportunities",
-            icon: Handshake,
-          },
-
-          {
-            href: "/pipeline",
-            label: "Pipeline",
-            icon: BarChart3,
-          },
-        ],
-      },
-
-      {
-        label: "Quotations",
-        icon: FileText,
-        children: [
-          { href: "/quotations/new", label: "Create Quotation", icon: FileText },
-          { href: "/quotations", label: "View Quotations", icon: ClipboardList },
-        ],
-      },
-
-      {
-        href: "/sales-reports",
-        label: "Sales Reports",
-        icon: BarChart3,
-      },
-
-      {
-        href: "/invoices",
-        label: "Invoices",
-        icon: ReceiptText,
-      },
-
-      {
-        href: "/payments",
-        label: "Payments & Recovery",
-        icon: CircleDollarSign,
-      },
-    ],
-  },
-
-  {
-    title: "Inventory & Logistics",
-    requiredModule: "inventory",
-
-    items: [
-      {
-        href: "/inventory",
-        label: "Inventory Intelligence",
-        icon: BarChart3,
-      },
-
-      {
-        href: "/inventory/master",
-        label: "Inventory Master",
-        icon: Boxes,
-      },
-
-      {
-        href: "/assets",
-        label: "Assets",
-        icon: Boxes,
-      },
-
-      {
-        href: "/inventory/logs",
-        label: "Inventory Logs",
-        icon: ClipboardList,
-      },
-
-      {
-        href: "/item-returns",
-        label: "Item Return",
-        icon: RotateCcw,
-      },
-
+      /* What you buy and who you buy it from. */
       {
         href: "/products",
         label: "Products",
         icon: Package,
+        requiredModule: "inventory",
       },
 
       {
         href: "/vendors",
         label: "Vendors",
         icon: Building2,
+        requiredModule: "inventory",
       },
 
+      /* Raise the order, then receive it against that order. */
       {
         label: "Purchase Orders",
         icon: ShoppingCart,
+        requiredModule: "inventory",
         children: [
           {
             href: "/purchase-orders/new",
@@ -219,11 +146,92 @@ const navigationSections: NavigationSection[] = [
         href: "/goods-receipts",
         label: "Goods Receipts",
         icon: ClipboardList,
+        requiredModule: "inventory",
+      },
+
+      /* Received goods now sit as stock, with its movements and returns. */
+      {
+        href: "/inventory/master",
+        label: "Inventory Master",
+        icon: Boxes,
+        requiredModule: "inventory",
+      },
+
+      {
+        href: "/assets",
+        label: "Assets",
+        icon: Boxes,
+        requiredModule: "inventory",
+      },
+
+      {
+        href: "/inventory/logs",
+        label: "Inventory Logs",
+        icon: ClipboardList,
+        requiredModule: "inventory",
+      },
+
+      {
+        href: "/item-returns",
+        label: "Item Return",
+        icon: RotateCcw,
+        requiredModule: "inventory",
+      },
+
+      {
+        href: "/inventory",
+        label: "Inventory Intelligence",
+        icon: BarChart3,
+        requiredModule: "inventory",
+      },
+
+      /* Win the work, quote it, dispatch it, bill it, then collect. */
+      {
+        label: "CRM",
+        icon: Target,
+        requiredModule: "sales",
+
+        children: [
+          {
+            href: "/leads",
+            label: "Leads",
+            icon: UserRound,
+          },
+
+          {
+            href: "/opportunities",
+            label: "Opportunities",
+            icon: Handshake,
+          },
+
+          {
+            href: "/pipeline",
+            label: "Pipeline",
+            icon: BarChart3,
+          },
+
+          {
+            href: "/customers",
+            label: "Customers",
+            icon: Users,
+          },
+        ],
+      },
+
+      {
+        label: "Quotations",
+        icon: FileText,
+        requiredModule: "sales",
+        children: [
+          { href: "/quotations/new", label: "Create Quotation", icon: FileText },
+          { href: "/quotations", label: "View Quotations", icon: ClipboardList },
+        ],
       },
 
       {
         label: "Delivery Orders",
         icon: Truck,
+        requiredModule: "inventory",
         children: [
           {
             href: "/delivery-orders/new",
@@ -238,6 +246,55 @@ const navigationSections: NavigationSection[] = [
         ],
       },
 
+      {
+        href: "/invoices",
+        label: "Invoices",
+        icon: ReceiptText,
+        requiredModule: "sales",
+      },
+
+      {
+        href: "/payments",
+        label: "Payments & Recovery",
+        icon: CircleDollarSign,
+        requiredModule: "sales",
+      },
+
+      {
+        href: "/sales-reports",
+        label: "Sales Reports",
+        icon: BarChart3,
+        requiredModule: "sales",
+      },
+    ],
+  },
+
+  /*
+   * Procurement mirrors the legacy section: schedule the tender, watch the
+   * deadlines, then track the bank paper backing the bid.
+   */
+  {
+    title: "Procurement",
+    requiredModule: "inventory",
+
+    items: [
+      {
+        href: "/procurement/tenders",
+        label: "Tender Management",
+        icon: Gavel,
+      },
+
+      {
+        href: "/procurement/tender-calendar",
+        label: "Tender Calendar",
+        icon: CalendarDays,
+      },
+
+      {
+        href: "/procurement/guarantees",
+        label: "BG | PG Guarantee",
+        icon: Landmark,
+      },
     ],
   },
 
@@ -284,6 +341,23 @@ const navigationSections: NavigationSection[] = [
     ],
   },
 ];
+
+function visibleSections(licensedModules: string[]): NavigationSection[] {
+  return navigationSections
+    .filter(
+      (section) =>
+        !section.requiredModule ||
+        licensedModules.includes(section.requiredModule),
+    )
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) =>
+          !item.requiredModule || licensedModules.includes(item.requiredModule),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
+}
 
 export function Sidebar({
   open,
@@ -448,13 +522,8 @@ export function Sidebar({
           className="sidebar-scrollbar flex-1 overflow-y-auto overflow-x-visible px-2 py-4"
           onMouseLeave={closeDesktopFlyouts}
         >
-          {navigationSections
-            .filter(
-              (section) =>
-                !section.requiredModule ||
-                license?.licensedModules.includes(section.requiredModule),
-            )
-            .map((section, sectionIndex) => (
+          {visibleSections(license?.licensedModules ?? []).map(
+            (section, sectionIndex) => (
               <NavigationSectionBlock
                 key={section.title}
                 section={section}
