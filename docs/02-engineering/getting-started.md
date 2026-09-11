@@ -139,6 +139,10 @@ Stop:
 docker compose -f docker/compose.yaml down
 ```
 
+This stack is the database and pgAdmin only; the apps run on the host under
+pnpm. To run the API and web app in containers as well, see
+[Docker](../07-deployment/docker.md).
+
 ---
 
 # Database
