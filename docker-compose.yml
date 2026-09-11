@@ -1,0 +1,84 @@
+name: erp-platform
+
+# Runs the whole platform in containers: database, migrations, API and web.
+# Reads the same root .env the local dev setup uses, so copy .env.example first.
+# Host-only values such as POSTGRES_HOST are overridden per service below.
+#
+# For host-based development, where the apps run under pnpm and only the
+# database is containerised, use docker/compose.yaml instead.
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # Reachable from the other services only. Publish a host port to inspect it:
+    # ports:
+    #   - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Runs once per `up`, applies pending migrations, then exits.
+  migrate:
+    build:
+      context: .
+      target: migrate
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      target: api
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      PORT: 3000
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+      # Production requires a signed licence; see the licence volume below.
+      NODE_ENV: ${NODE_ENV:-development}
+    volumes:
+      - api-uploads:/app/uploads
+      # Mount the signed licence for a production deployment:
+      # - ./license.json:/app/license.json:ro
+      # - ./license-public.pem:/app/license-public.pem:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        # Baked into the client bundle, so it must be the URL the browser uses.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api/v1}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  api-uploads:
