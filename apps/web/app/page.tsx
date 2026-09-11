@@ -3,13 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { getAccessToken } from "@/lib/auth";
+import { restoreSession } from "@/lib/api";
 
 export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace(getAccessToken() ? "/dashboard" : "/login");
+    void restoreSession().then((signedIn) => {
+      router.replace(signedIn ? "/dashboard" : "/login");
+    });
   }, [router]);
 
   return (

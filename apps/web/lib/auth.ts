@@ -1,8 +1,6 @@
 import type { AuthUser, LicenseSummary, LoginResponse } from "@/types/auth";
 
 const ACCESS_TOKEN_KEY = "erp.accessToken";
-// Removed in the HttpOnly-cookie migration. Keep the key only to clean up
-// refresh tokens persisted by older frontend builds.
 const REFRESH_TOKEN_KEY = "erp.refreshToken";
 const USER_KEY = "erp.user";
 const LICENSE_KEY = "erp.license";
@@ -11,15 +9,16 @@ export const AUTH_SESSION_EXPIRED_EVENT = "erp:auth-session-expired";
 
 export const AUTH_USER_CHANGED_EVENT = "erp:auth-user-changed";
 
+let accessToken: string | null = null;
+
 export function saveAuthSession(response: LoginResponse): void {
   if (typeof window === "undefined") {
     return;
   }
 
-  localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
-
+  accessToken = response.accessToken;
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
-
   localStorage.setItem(USER_KEY, JSON.stringify(response.user));
   localStorage.setItem(LICENSE_KEY, JSON.stringify(response.license));
 
@@ -27,11 +26,7 @@ export function saveAuthSession(response: LoginResponse): void {
 }
 
 export function getAccessToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+  return accessToken;
 }
 
 export function getStoredUser(): AuthUser | null {
@@ -90,14 +85,14 @@ export function updateStoredUser(updates: Partial<AuthUser>): AuthUser | null {
 }
 
 export function clearAuthSession(): void {
+  accessToken = null;
+
   if (typeof window === "undefined") {
     return;
   }
 
   localStorage.removeItem(ACCESS_TOKEN_KEY);
-
   localStorage.removeItem(REFRESH_TOKEN_KEY);
-
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(LICENSE_KEY);
 

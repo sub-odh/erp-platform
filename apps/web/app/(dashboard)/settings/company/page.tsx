@@ -23,7 +23,6 @@ import {
   removeInvoiceLogo,
   removeCompanyLogo,
   resetCompanyData,
-  resolveMediaUrl,
   restoreCompanyBackup,
   updateCurrentCompany,
   uploadInvoiceLogo,
@@ -85,6 +84,7 @@ export default function CompanySettingsPage() {
   const [resetBusy, setResetBusy] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [restoreConfirmation, setRestoreConfirmation] = useState("");
+  const [restoreOwnerPassword, setRestoreOwnerPassword] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -229,10 +229,12 @@ export default function CompanySettingsPage() {
       const result = await restoreCompanyBackup(
         restoreFile,
         restoreConfirmation,
+        restoreOwnerPassword,
       );
       setMessage(result.message);
       setRestoreFile(null);
       setRestoreConfirmation("");
+      setRestoreOwnerPassword("");
     } catch (requestError) {
       setError(errorMessage(requestError, "Unable to restore company data."));
     } finally {
@@ -282,7 +284,7 @@ export default function CompanySettingsPage() {
               title="System Logo (Main)"
               preset="companyLogo"
               description="Shown in the navigation and main application shell."
-              value={resolveMediaUrl(company.logoUrl)}
+              value={company.logoUrl}
               fileName={company.logoFileName}
               busy={logoBusy}
               disabled={busy && !logoBusy}
@@ -306,7 +308,7 @@ export default function CompanySettingsPage() {
               title="Invoice Logo (Light Background)"
               preset="invoiceLogo"
               description="Used on invoices, delivery orders, and other print documents."
-              value={resolveMediaUrl(company.invoiceLogoUrl)}
+              value={company.invoiceLogoUrl}
               fileName={company.invoiceLogoFileName}
               busy={invoiceLogoBusy}
               disabled={busy && !invoiceLogoBusy}
@@ -330,7 +332,7 @@ export default function CompanySettingsPage() {
               title="Favicon & App Icon"
               preset="favicon"
               description="Square icon used in browser tabs and app shortcuts. A clean symbol or initials works best."
-              value={resolveMediaUrl(company.faviconUrl)}
+              value={company.faviconUrl}
               fileName={company.faviconFileName}
               busy={faviconBusy}
               disabled={busy && !faviconBusy}
@@ -523,9 +525,11 @@ export default function CompanySettingsPage() {
           restoreBusy={restoreBusy}
           restoreFile={restoreFile}
           confirmation={restoreConfirmation}
+          ownerPassword={restoreOwnerPassword}
           onDownload={() => void handleDownloadBackup()}
           onFileChange={setRestoreFile}
           onConfirmationChange={setRestoreConfirmation}
+          onOwnerPasswordChange={setRestoreOwnerPassword}
           onRestore={() => void handleRestore()}
         />
       ) : null}
@@ -628,9 +632,11 @@ function BackupRestorePanel({
   restoreBusy,
   restoreFile,
   confirmation,
+  ownerPassword,
   onDownload,
   onFileChange,
   onConfirmationChange,
+  onOwnerPasswordChange,
   onRestore,
 }: {
   company: Company;
@@ -638,9 +644,11 @@ function BackupRestorePanel({
   restoreBusy: boolean;
   restoreFile: File | null;
   confirmation: string;
+  ownerPassword: string;
   onDownload: () => void;
   onFileChange: (file: File | null) => void;
   onConfirmationChange: (value: string) => void;
+  onOwnerPasswordChange: (value: string) => void;
   onRestore: () => void;
 }) {
   const restorePhrase = `RESTORE ${company.code}`;
@@ -715,6 +723,16 @@ function BackupRestorePanel({
 
         <div className="mt-5">
           <Input
+            label="Owner Current Password"
+            type="password"
+            value={ownerPassword}
+            onChange={(event) => onOwnerPasswordChange(event.target.value)}
+            autoComplete="current-password"
+          />
+        </div>
+
+        <div className="mt-5">
+          <Input
             label={`Type ${restorePhrase} to confirm`}
             value={confirmation}
             onChange={(event) => onConfirmationChange(event.target.value)}
@@ -726,7 +744,11 @@ function BackupRestorePanel({
           variant="danger"
           className="mt-6 w-full sm:w-auto"
           loading={restoreBusy}
-          disabled={!restoreFile || confirmation !== restorePhrase}
+          disabled={
+            !restoreFile ||
+            confirmation !== restorePhrase ||
+            ownerPassword.length === 0
+          }
           onClick={onRestore}
         >
           <Upload size={17} /> Restore backup

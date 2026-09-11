@@ -59,13 +59,18 @@ describe('CompanyController', () => {
 
     await controller.restoreBackup(
       user,
-      { confirmation: 'RESTORE MYCOMPANY' },
+      {
+        confirmation: 'RESTORE MYCOMPANY',
+        ownerPassword: 'current-owner-password',
+      },
       file,
     );
 
     expect(companyDataService.restoreBackup).toHaveBeenCalledWith(
       user.organizationId,
+      user.sub,
       'RESTORE MYCOMPANY',
+      'current-owner-password',
       file,
     );
   });
