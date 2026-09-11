@@ -14,7 +14,6 @@ import { ImageUploader } from "@/components/media/image-uploader";
 import { PasswordRequirements } from "@/components/security/password-requirements";
 import { Button, Input } from "@/components/ui";
 import { clearAuthSession, updateStoredUser } from "@/lib/auth";
-import { resolveMediaUrl } from "@/lib/media";
 import {
   isStrongPassword,
   PASSWORD_MAX_LENGTH,
@@ -353,7 +352,7 @@ export default function ProfilePage() {
             <div className="flex justify-center lg:justify-start">
               <ImageUploader
                 preset="profileAvatar"
-                value={resolveMediaUrl(profile.avatarUrl)}
+                value={profile.avatarUrl}
                 emptyLabel="Add photo"
                 disabled={saving}
                 uploading={uploadingAvatar}
@@ -532,7 +531,7 @@ export default function ProfilePage() {
                   </p>
                   <ImageUploader
                     preset="signature"
-                    value={resolveMediaUrl(profile.signatureUrl)}
+                    value={profile.signatureUrl}
                     accept="image/png"
                     emptyLabel="Add signature"
                     previewAspectRatio

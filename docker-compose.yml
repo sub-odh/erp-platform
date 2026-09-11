@@ -50,8 +50,9 @@ services:
       POSTGRES_PORT: 5432
       PORT: 3000
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
-      # Production requires a signed licence; see the licence volume below.
-      NODE_ENV: ${NODE_ENV:-development}
+      # Hardcoded so a host .env with NODE_ENV=development cannot open the
+      # unrestricted development licence inside the API container.
+      NODE_ENV: production
     volumes:
       - api-uploads:/app/uploads
       # Mount the signed licence for a production deployment:

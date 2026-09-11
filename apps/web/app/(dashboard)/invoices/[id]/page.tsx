@@ -6,8 +6,9 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button, Spinner } from "@/components/ui";
+import { AuthenticatedImage } from "@/components/media";
 import { ApiError } from "@/lib/api";
-import { getCurrentCompany, resolveMediaUrl } from "@/lib/company";
+import { getCurrentCompany } from "@/lib/company";
 import { getInvoice } from "@/lib/invoices";
 import type { Company } from "@/types/company";
 import type { InvoiceDetails } from "@/types/invoices";
@@ -69,7 +70,7 @@ export default function InvoiceViewPage() {
     );
   }
 
-  const logo = resolveMediaUrl(company?.invoiceLogoUrl ?? company?.logoUrl);
+  const logo = company?.invoiceLogoUrl ?? company?.logoUrl;
 
   return (
     <div className="space-y-4">
@@ -95,7 +96,7 @@ export default function InvoiceViewPage() {
         <div className="flex items-start justify-between border-b border-slate-200 pb-4">
           <div>
             {logo ? (
-              <img
+              <AuthenticatedImage
                 src={logo}
                 alt={company?.name ?? "Company"}
                 className="mb-2 h-12 object-contain"

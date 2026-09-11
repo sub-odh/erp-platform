@@ -38,7 +38,9 @@ export default function DashboardPage() {
     } catch (cause) {
       setError(
         cause instanceof ApiError
-          ? cause.message
+          ? cause.status === 403
+            ? "You do not have permission to view the dashboard."
+            : cause.message
           : "Unable to load the dashboard.",
       );
     } finally {
@@ -54,6 +56,14 @@ export default function DashboardPage() {
     return (
       <div className="flex min-h-80 items-center justify-center">
         <Spinner />
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+        {error}
       </div>
     );
   }

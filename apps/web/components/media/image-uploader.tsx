@@ -10,6 +10,7 @@ import {
   validateImageFile,
 } from "./image-utils";
 import { ImageCropDialog } from "./image-crop-dialog";
+import { useAuthenticatedMediaUrl } from "@/lib/media";
 
 interface ImageUploaderProps {
   preset: ImageUploadPreset;
@@ -60,7 +61,11 @@ export function ImageUploader({
 
   const busy = disabled || uploading || removing;
 
-  const displayedValue = localPreviewUrl ?? value ?? null;
+  const remotePreviewUrl = useAuthenticatedMediaUrl(
+    localPreviewUrl ? null : (value ?? null),
+  );
+
+  const displayedValue = localPreviewUrl ?? remotePreviewUrl ?? null;
 
   const round = settings.cropShape === "round";
 

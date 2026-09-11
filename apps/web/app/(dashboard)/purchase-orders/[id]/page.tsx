@@ -6,7 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 import { Button, Spinner } from "@/components/ui";
-import { getCurrentCompany, resolveMediaUrl } from "@/lib/company";
+import { AuthenticatedImage } from "@/components/media";
+import { getCurrentCompany } from "@/lib/company";
 import { formatRupees } from "@/lib/inventory-format";
 import {
   getPurchaseOrder,
@@ -99,7 +100,7 @@ export default function PurchaseOrderDetailPage() {
     );
   }
 
-  const logoUrl = resolveMediaUrl(company?.invoiceLogoUrl ?? company?.logoUrl);
+  const logoUrl = company?.invoiceLogoUrl ?? company?.logoUrl;
   const address = [company?.addressLine1, company?.city, company?.country]
     .filter(Boolean)
     .join(", ");
@@ -197,7 +198,7 @@ export default function PurchaseOrderDetailPage() {
           <div className="flex items-start justify-between gap-8">
             <div className="max-w-[56%]">
               {logoUrl ? (
-                <img
+                <AuthenticatedImage
                   src={logoUrl}
                   alt={`${company?.name ?? "Company"} logo`}
                   className="max-h-24 max-w-[70mm] h-auto w-auto object-contain object-left"

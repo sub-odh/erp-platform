@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDateString,
   IsIn,
@@ -6,9 +6,12 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
+
+import { PROCUREMENT_DOCUMENT_URL_PATTERN } from '../../media/upload-path';
 
 const GUARANTEE_TYPES = ['BG', 'PG'] as const;
 const GUARANTEE_STATUSES = ['ACTIVE', 'RELEASED'] as const;
@@ -64,8 +67,12 @@ export class CreateGuaranteeDto {
   assignedPerson?: string | null;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(500)
+  @Transform(({ value }: { value: unknown }) =>
+    value === '' || value === undefined ? null : value,
+  )
+  @Matches(PROCUREMENT_DOCUMENT_URL_PATTERN, {
+    message: 'Proof must be an uploaded procurement document',
+  })
   documentUrl?: string | null;
 }
 
@@ -112,8 +119,12 @@ export class UpdateGuaranteeDto {
   assignedPerson?: string | null;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(500)
+  @Transform(({ value }: { value: unknown }) =>
+    value === '' || value === undefined ? null : value,
+  )
+  @Matches(PROCUREMENT_DOCUMENT_URL_PATTERN, {
+    message: 'Proof must be an uploaded procurement document',
+  })
   documentUrl?: string | null;
 }
 

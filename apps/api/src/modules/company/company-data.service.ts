@@ -346,11 +346,18 @@ export class CompanyDataService {
 
   async restoreBackup(
     organizationId: string,
+    actorUserId: string,
     confirmation: string,
+    ownerPassword: string,
     file: Express.Multer.File | undefined,
   ): Promise<CompanyDataOperationResult> {
     const company = await this.findCompany(organizationId);
     this.assertConfirmation(confirmation, `RESTORE ${company.code}`);
+    await this.ownerVerification.assertPassword(
+      organizationId,
+      actorUserId,
+      ownerPassword,
+    );
 
     if (!file?.buffer?.length) {
       throw new BadRequestException('Select a company backup JSON file');
@@ -370,6 +377,10 @@ export class CompanyDataService {
     const rows = this.normalizeBackup(backup, organizationId);
     await this.assertInternalReferences(rows, organizationId);
 
+    /*
+     * Delete and insert share the request's tenant transaction from
+     * TenantContextInterceptor, so a failed insert rolls the wipe back.
+     */
     try {
       await this.deleteOperationalData(organizationId);
 

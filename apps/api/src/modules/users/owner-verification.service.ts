@@ -23,7 +23,7 @@ export class OwnerVerificationService {
 
     if (!owner || owner.role !== 'OWNER' || !owner.isActive) {
       throw new ForbiddenException(
-        'Only the active company owner can reset company data',
+        'Only the active company owner can reset or restore company data',
       );
     }
 

@@ -29,6 +29,46 @@ export class ApiError extends Error {
 
 let refreshPromise: Promise<string> | null = null;
 
+export async function apiRequestBlob(path: string): Promise<Blob> {
+  const response = await performRequest(path, {});
+
+  if (
+    response.status === 401 &&
+    path !== "/auth/login" &&
+    path !== "/auth/refresh"
+  ) {
+    try {
+      const accessToken = await refreshAccessToken();
+      const retryResponse = await performRequest(path, {}, accessToken);
+
+      if (!retryResponse.ok) {
+        throw new ApiError(
+          retryResponse.status,
+          `Request failed with status ${retryResponse.status}`,
+        );
+      }
+
+      return retryResponse.blob();
+    } catch {
+      expireAuthSession();
+
+      throw new ApiError(
+        401,
+        "Your session has expired. Please sign in again.",
+      );
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      `Request failed with status ${response.status}`,
+    );
+  }
+
+  return response.blob();
+}
+
 export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {},
@@ -98,6 +138,19 @@ async function performRequest(
     });
   } catch {
     throw new ApiError(0, `Cannot connect to API at ${API_URL}`);
+  }
+}
+
+export async function restoreSession(): Promise<boolean> {
+  if (getAccessToken()) {
+    return true;
+  }
+
+  try {
+    await refreshAccessToken();
+    return true;
+  } catch {
+    return false;
   }
 }
 

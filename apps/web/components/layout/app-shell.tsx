@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { AUTH_SESSION_EXPIRED_EVENT, getAccessToken } from "@/lib/auth";
+import { restoreSession } from "@/lib/api";
+import { AUTH_SESSION_EXPIRED_EVENT } from "@/lib/auth";
 import { CalendarSystemProvider } from "@/lib/calendar-system";
-import { getCurrentCompany, resolveMediaUrl } from "@/lib/company";
+import { getCurrentCompany } from "@/lib/company";
+import { useAuthenticatedMediaUrl } from "@/lib/media";
 import type { Company } from "@/types/company";
 
 import { Sidebar } from "./sidebar";
@@ -25,6 +27,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const [ready, setReady] = useState(false);
 
+  const faviconUrl = useAuthenticatedMediaUrl(company?.faviconUrl);
+
   useEffect(() => {
     const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
 
@@ -39,7 +43,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     async function initialize(): Promise<void> {
-      if (!getAccessToken()) {
+      const signedIn = await restoreSession();
+
+      if (!signedIn) {
         routeToLogin();
 
         return;
@@ -82,8 +88,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   useEffect(() => {
-    updateBrowserBranding(company);
-  }, [company, pathname]);
+    updateBrowserBranding(company, faviconUrl);
+  }, [company, faviconUrl, pathname]);
 
   function toggleSidebarCollapsed(): void {
     setSidebarCollapsed((current) => {
@@ -137,7 +143,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function updateBrowserBranding(company: Company | null): void {
+function updateBrowserBranding(
+  company: Company | null,
+  faviconImageUrl: string | null,
+): void {
   if (typeof document === "undefined") {
     return;
   }
@@ -153,8 +162,6 @@ function updateBrowserBranding(company: Company | null): void {
    * XYZ - Business workspace
    */
   document.title = companyName;
-
-  const faviconImageUrl = resolveMediaUrl(company?.faviconUrl);
 
   /*
    * Next.js can insert its own favicon link.

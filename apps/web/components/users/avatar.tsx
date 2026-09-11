@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { resolveMediaUrl } from "@/lib/media";
+import { AuthenticatedImage } from "@/components/media";
 
 interface AvatarProps {
   firstName: string;
@@ -28,11 +28,9 @@ export function Avatar({
 }: AvatarProps) {
   const [imageFailed, setImageFailed] = useState(false);
 
-  const imageUrl = resolveMediaUrl(src);
-
   useEffect(() => {
     setImageFailed(false);
-  }, [imageUrl]);
+  }, [src]);
 
   const initials = getInitials(firstName, lastName);
 
@@ -42,11 +40,11 @@ export function Avatar({
     className,
   ].join(" ");
 
-  if (imageUrl && !imageFailed) {
+  if (src && !imageFailed) {
     return (
       <div className={classes}>
-        <img
-          src={imageUrl}
+        <AuthenticatedImage
+          src={src}
           alt={`${firstName} ${lastName}`}
           className="h-full w-full object-cover"
           onError={() => setImageFailed(true)}

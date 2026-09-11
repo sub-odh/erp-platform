@@ -21,7 +21,8 @@ import {
 import { useRouter } from "next/navigation";
 
 import { Button, Select, Spinner } from "@/components/ui";
-import { getCurrentCompany, resolveMediaUrl } from "@/lib/company";
+import { AuthenticatedImage } from "@/components/media";
+import { getCurrentCompany } from "@/lib/company";
 import { formatRupees } from "@/lib/inventory-format";
 import { getProducts, getVendors } from "@/lib/master-data";
 import {
@@ -88,9 +89,7 @@ export default function CreatePurchaseOrderPage() {
       .then((result) => setPoNumber(result.poNumber))
       .catch(() => setPoNumber("Pending"));
   }, [poDate]);
-  const companyLogoUrl = resolveMediaUrl(
-    company?.invoiceLogoUrl ?? company?.logoUrl,
-  );
+  const companyLogoUrl = company?.invoiceLogoUrl ?? company?.logoUrl ?? null;
   const selectedVendor = vendors.find((vendor) => vendor.id === vendorId);
   const total = useMemo(
     () =>
@@ -218,7 +217,7 @@ export default function CreatePurchaseOrderPage() {
         <div className="flex flex-col justify-between gap-8 border-b border-slate-300 pb-7 md:flex-row">
           <div className="flex items-start gap-4">
             {companyLogoUrl ? (
-              <img
+              <AuthenticatedImage
                 src={companyLogoUrl}
                 alt={`${company?.name ?? "Company"} logo`}
                 className="max-h-24 max-w-[22rem] h-auto w-auto object-contain object-left"
@@ -544,7 +543,7 @@ function PurchaseOrderPrintDocument({
           <div className="flex items-start justify-between gap-8">
             <div className="max-w-[56%]">
               {logoUrl ? (
-                <img
+                <AuthenticatedImage
                   src={logoUrl}
                   alt={`${company?.name ?? "Company"} logo`}
                   className="max-h-24 max-w-[70mm] h-auto w-auto object-contain object-left"

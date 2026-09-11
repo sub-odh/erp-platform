@@ -1,7 +1,13 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
+import { env } from '@erp/config';
+
 export function setupSwagger(app: INestApplication): void {
+  if (env.NODE_ENV === 'production') {
+    return;
+  }
+
   const config = new DocumentBuilder()
     .setTitle('ERP Platform API')
     .setDescription('Enterprise Resource Planning Platform API')

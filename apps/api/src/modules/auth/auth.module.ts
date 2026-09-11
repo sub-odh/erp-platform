@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 import { env } from '@erp/config';
 
@@ -13,6 +14,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'auth', ttl: 60_000, limit: 5 }],
+    }),
     PassportModule.register({
       defaultStrategy: 'jwt',
     }),

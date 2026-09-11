@@ -3,7 +3,6 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
-import { join } from 'node:path';
 
 import { env } from '@erp/config';
 
@@ -20,13 +19,7 @@ async function bootstrap(): Promise<void> {
 
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  app.use(
-    helmet({
-      crossOriginResourcePolicy: {
-        policy: 'cross-origin',
-      },
-    }),
-  );
+  app.use(helmet());
 
   app.enableCors({
     origin: env.CORS_ORIGIN,
@@ -35,13 +28,7 @@ async function bootstrap(): Promise<void> {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
-    prefix: '/uploads/',
-  });
-
-  app.setGlobalPrefix('api', {
-    exclude: ['/uploads/(.*)'],
-  });
+  app.setGlobalPrefix('api');
 
   app.enableVersioning({
     type: VersioningType.URI,
@@ -67,7 +54,9 @@ async function bootstrap(): Promise<void> {
 
   console.log(`API running at http://localhost:${env.PORT}/api/v1`);
 
-  console.log(`Swagger docs at http://localhost:${env.PORT}/docs`);
+  if (env.NODE_ENV !== 'production') {
+    console.log(`Swagger docs at http://localhost:${env.PORT}/docs`);
+  }
 }
 
 void bootstrap();

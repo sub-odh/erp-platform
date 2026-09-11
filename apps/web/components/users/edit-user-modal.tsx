@@ -5,7 +5,6 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { ImageUploader } from "@/components/media/image-uploader";
 import { Button, Input, Modal, Select } from "@/components/ui";
 import { getStoredUser, updateStoredUser } from "@/lib/auth";
-import { resolveMediaUrl } from "@/lib/media";
 import {
   getEmployeeRoles,
   removeUserAvatar,
@@ -275,7 +274,7 @@ export function EditUserModal({
           <div className="flex justify-center py-2">
             <ImageUploader
               preset="avatar"
-              value={resolveMediaUrl(workingUser.avatarUrl)}
+              value={workingUser.avatarUrl}
               disabled={submitting}
               uploading={uploadingAvatar}
               removing={removingAvatar}

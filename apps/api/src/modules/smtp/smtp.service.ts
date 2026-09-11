@@ -19,6 +19,7 @@ import type {
   SmtpEncryption,
   UpdateSmtpConfigurationDto,
 } from './dto/update-smtp-configuration.dto';
+import { assertSafeSmtpHost } from './smtp-host';
 
 export interface SmtpConfigurationView {
   host: string;
@@ -53,6 +54,8 @@ export class SmtpService {
         'SMTP password is required for the initial configuration',
       );
     }
+
+    await this.assertHost(dto.host);
 
     const encryptedPassword = dto.password
       ? this.encrypt(dto.password)
@@ -98,6 +101,7 @@ export class SmtpService {
   ): Promise<{ success: boolean; message: string }> {
     const config = await this.requireActive(organizationId);
     try {
+      await this.assertHost(config.host);
       await this.createTransport(config).verify();
       await this.recordTest(config.id, true, null);
       return {
@@ -129,6 +133,7 @@ export class SmtpService {
     },
   ): Promise<void> {
     const config = await this.requireActive(organizationId);
+    await this.assertHost(config.host);
     await this.createTransport(config).sendMail({
       from: { name: config.senderName, address: config.fromEmail },
       to: input.to,
@@ -156,6 +161,16 @@ export class SmtpService {
       throw new NotFoundException('Active SMTP configuration was not found');
     }
     return config;
+  }
+
+  private async assertHost(host: string): Promise<void> {
+    try {
+      await assertSafeSmtpHost(host);
+    } catch {
+      throw new BadRequestException(
+        'SMTP host cannot be localhost, link-local, or a metadata address',
+      );
+    }
   }
 
   private createTransport(

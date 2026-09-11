@@ -257,10 +257,11 @@ export class CompanyController {
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['file', 'confirmation'],
+      required: ['file', 'confirmation', 'ownerPassword'],
       properties: {
         file: { type: 'string', format: 'binary' },
         confirmation: { type: 'string', example: 'RESTORE MYCOMPANY' },
+        ownerPassword: { type: 'string' },
       },
     },
   })
@@ -272,7 +273,9 @@ export class CompanyController {
   ) {
     return this.companyDataService.restoreBackup(
       currentUser.organizationId,
+      currentUser.sub,
       dto.confirmation,
+      dto.ownerPassword,
       file,
     );
   }

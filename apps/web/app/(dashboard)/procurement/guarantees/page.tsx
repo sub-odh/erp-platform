@@ -9,7 +9,7 @@ import { Button, Select, Spinner } from "@/components/ui";
 import { useCalendarSystem } from "@/lib/calendar-system";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/currency";
-import { resolveMediaUrl } from "@/lib/media";
+import { openAuthenticatedMedia } from "@/lib/media";
 import {
   formatCalendarDate,
   type CalendarSystem,
@@ -228,8 +228,6 @@ function GuaranteeRow({
   system: CalendarSystem;
   onRelease: () => void;
 }) {
-  const proofUrl = resolveMediaUrl(guarantee.documentUrl);
-
   return (
     <tr className="text-slate-700">
       <td className="px-4 py-3 text-slate-400">{index + 1}</td>
@@ -277,15 +275,14 @@ function GuaranteeRow({
       <td className="px-4 py-3">{guarantee.assignedPerson ?? "—"}</td>
 
       <td className="px-4 py-3">
-        {proofUrl ? (
-          <a
-            href={proofUrl}
-            target="_blank"
-            rel="noreferrer"
+        {guarantee.documentUrl ? (
+          <button
+            type="button"
+            onClick={() => void openAuthenticatedMedia(guarantee.documentUrl)}
             className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
           >
             <FileText size={14} /> View
-          </a>
+          </button>
         ) : (
           <span className="text-slate-400">—</span>
         )}

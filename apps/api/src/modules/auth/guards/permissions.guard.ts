@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 
 import {
+  PERMISSIONS_ANY_KEY,
   PERMISSIONS_KEY,
 } from '../decorators/permissions.decorator';
 import type { PermissionCode } from '../permissions/permission.constants';
@@ -25,7 +26,12 @@ export class PermissionsGuard implements CanActivate {
       PermissionCode[]
     >(PERMISSIONS_KEY, [context.getClass(), context.getHandler()]);
 
-    if (!requiredPermissions?.length) {
+    const anyPermissions = this.reflector.getAllAndMerge<PermissionCode[]>(
+      PERMISSIONS_ANY_KEY,
+      [context.getClass(), context.getHandler()],
+    );
+
+    if (!requiredPermissions?.length && !anyPermissions?.length) {
       return true;
     }
 
@@ -35,10 +41,26 @@ export class PermissionsGuard implements CanActivate {
       return false;
     }
 
-    return this.permissionsService.hasAll(
-      request.user.organizationId,
-      request.user.role,
-      requiredPermissions,
-    );
+    if (requiredPermissions?.length) {
+      const hasAll = await this.permissionsService.hasAll(
+        request.user.organizationId,
+        request.user.role,
+        requiredPermissions,
+      );
+
+      if (!hasAll) {
+        return false;
+      }
+    }
+
+    if (anyPermissions?.length) {
+      return this.permissionsService.hasAny(
+        request.user.organizationId,
+        request.user.role,
+        anyPermissions,
+      );
+    }
+
+    return true;
   }
 }

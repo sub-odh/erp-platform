@@ -28,7 +28,7 @@ import {
   shiftMonth,
 } from "@/lib/calendar-grid";
 import { useCalendarSystem } from "@/lib/calendar-system";
-import { resolveMediaUrl } from "@/lib/company";
+import { AuthenticatedImage } from "@/components/media";
 import {
   formatBsDate,
   formatCalendarDate,
@@ -68,8 +68,6 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const displayName = getDisplayName(user);
 
   const initials = getInitials(user);
-
-  const avatarUrl = resolveMediaUrl(user?.avatarUrl);
 
   const { system, setSystem } = useCalendarSystem();
 
@@ -243,9 +241,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           </div>
 
           <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-semibold text-blue-700 ring-2 ring-white">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
+            {user?.avatarUrl ? (
+              <AuthenticatedImage
+                src={user.avatarUrl}
                 alt={displayName || "Profile"}
                 className="h-full w-full object-cover"
               />

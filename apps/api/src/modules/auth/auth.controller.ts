@@ -18,6 +18,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
 import { AuditEntity } from '../../common/audit/audit.decorator';
@@ -58,6 +59,8 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Log in to a company',
@@ -80,6 +83,8 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ auth: { limit: 10, ttl: 60_000 } })
   @ApiCookieAuth('erp_refresh_token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -110,6 +115,8 @@ export class AuthController {
   }
 
   @Post('logout')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ auth: { limit: 10, ttl: 60_000 } })
   @ApiCookieAuth('erp_refresh_token')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

@@ -6,8 +6,9 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui";
+import { AuthenticatedImage } from "@/components/media";
 import { ApiError } from "@/lib/api";
-import { getCurrentCompany, resolveMediaUrl } from "@/lib/company";
+import { getCurrentCompany } from "@/lib/company";
 import { formatCurrency } from "@/lib/currency";
 import { getQuotation } from "@/lib/quotations";
 import type { Company } from "@/types/company";
@@ -52,7 +53,7 @@ export default function QuotationDocumentPage() {
       </div>
     );
 
-  const logo = resolveMediaUrl(company.invoiceLogoUrl ?? company.logoUrl);
+  const logo = company.invoiceLogoUrl ?? company.logoUrl;
   const address = [
     company.addressLine1,
     company.addressLine2,
@@ -80,7 +81,7 @@ export default function QuotationDocumentPage() {
         <header className="flex items-start justify-between gap-6 border-b border-slate-300 pb-7">
           <div>
             {logo ? (
-              <img
+              <AuthenticatedImage
                 src={logo}
                 alt={`${company.name} logo`}
                 className="mb-3 max-h-24 max-w-64 object-contain object-left"

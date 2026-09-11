@@ -1,4 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  StreamableFile,
+} from '@nestjs/common';
+import { createReadStream } from 'node:fs';
+import { access } from 'node:fs/promises';
+import { constants } from 'node:fs';
 
 import {
   MEDIA_ALLOWED_MIME_TYPES,
@@ -9,6 +17,7 @@ import {
 } from './constants';
 import { MediaResponseDto } from './dto/media-response.dto';
 import { LocalStorageService } from './storage/local-storage.service';
+import { parseStoredUploadPath } from './upload-path';
 
 @Injectable()
 export class MediaService {
@@ -84,6 +93,32 @@ export class MediaService {
     };
   }
 
+  async streamStoredFile(
+    folder: string,
+    fileName: string,
+  ): Promise<StreamableFile> {
+    const parsed = parseStoredUploadPath(`/uploads/${folder}/${fileName}`);
+
+    if (!parsed) {
+      throw new NotFoundException('File was not found');
+    }
+
+    const absolutePath = this.localStorageService.resolveExistingPath(
+      parsed.relativePath,
+    );
+
+    try {
+      await access(absolutePath, constants.R_OK);
+    } catch {
+      throw new NotFoundException('File was not found');
+    }
+
+    return new StreamableFile(createReadStream(absolutePath), {
+      type: parsed.mimeType,
+      disposition: `inline; filename="${parsed.fileName}"`,
+    });
+  }
+
   deleteImage(relativePath: string | null | undefined): Promise<void> {
     return this.localStorageService.deleteFile(
       this.normalizeStoredPath(relativePath),
@@ -91,10 +126,6 @@ export class MediaService {
   }
 
   private normalizeStoredPath(value: string | null | undefined): string | null {
-    if (!value) {
-      return null;
-    }
-
-    return value.replace(/^https?:\/\/[^/]+/i, '').replace(/^\/uploads\//, '');
+    return parseStoredUploadPath(value)?.relativePath ?? null;
   }
 }
