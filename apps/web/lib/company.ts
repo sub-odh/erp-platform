@@ -6,11 +6,6 @@ import type {
   UpdateCompanyInput,
 } from "@/types/company";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
-
-const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
-
 export function getCurrentCompany() {
   return apiRequest<Company>("/company/current");
 }
@@ -73,10 +68,15 @@ export function getCompanyBackup() {
   return apiRequest<CompanyBackup>("/company/current/backup");
 }
 
-export function restoreCompanyBackup(file: File, confirmation: string) {
+export function restoreCompanyBackup(
+  file: File,
+  confirmation: string,
+  ownerPassword: string,
+) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("confirmation", confirmation);
+  formData.append("ownerPassword", ownerPassword);
 
   return apiRequest<CompanyDataOperationResult>("/company/current/restore", {
     method: "POST",
@@ -89,22 +89,4 @@ export function resetCompanyData(confirmation: string, ownerPassword: string) {
     method: "POST",
     body: JSON.stringify({ confirmation, ownerPassword }),
   });
-}
-
-export function resolveMediaUrl(
-  value: string | null | undefined,
-): string | null {
-  if (!value) {
-    return null;
-  }
-
-  if (
-    value.startsWith("http://") ||
-    value.startsWith("https://") ||
-    value.startsWith("data:")
-  ) {
-    return value;
-  }
-
-  return `${API_ORIGIN}${value.startsWith("/") ? value : `/${value}`}`;
 }

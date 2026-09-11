@@ -4,17 +4,19 @@ import { Building2, LockKeyhole, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
-import { apiRequest } from "@/lib/api";
-import { getAccessToken, saveAuthSession } from "@/lib/auth";
+import { apiRequest, restoreSession } from "@/lib/api";
+import { saveAuthSession } from "@/lib/auth";
 import type { LoginResponse } from "@/types/auth";
 
 export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (getAccessToken()) {
-      router.replace("/dashboard");
-    }
+    void restoreSession().then((signedIn) => {
+      if (signedIn) {
+        router.replace("/dashboard");
+      }
+    });
   }, [router]);
 
   const [organizationCode, setOrganizationCode] = useState("MYCOMPANY");

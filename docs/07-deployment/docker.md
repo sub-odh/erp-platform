@@ -40,7 +40,7 @@ Two named volumes hold state:
 
 - `postgres-data` — database files;
 - `api-uploads` — uploaded avatars, logos and guarantee documents, mounted at
-  `/app/uploads` because the API serves that directory statically.
+  `/app/uploads`. Files are served only through the authenticated media route.
 
 Stop the stack, keeping data:
 
@@ -94,9 +94,10 @@ The value must be the URL the **browser** uses, not an internal service name.
 
 ## Production Checklist
 
-Set `NODE_ENV=production` in `.env` and work through the following.
+The API compose service hardcodes `NODE_ENV: production`, so it will not
+inherit `NODE_ENV=development` from the host `.env`. It refuses to start
+without a signed licence.
 
-**Licence.** In production the API refuses to start without a signed licence.
 Mount both files read-only by uncommenting the licence volumes in
 `docker-compose.yml`:
 
@@ -105,8 +106,18 @@ Mount both files read-only by uncommenting the licence volumes in
 - ./license-public.pem:/app/license-public.pem:ro
 ```
 
-Without them the API falls back to an unrestricted development licence, which
-only works when `NODE_ENV` is not `production`.
+Host-based `pnpm` development still uses `NODE_ENV=development` in `.env`,
+which is the only mode that loads the unrestricted local licence.
+
+To run the compose stack without licence files (local evaluation only), override
+the API service:
+
+```yaml
+services:
+  api:
+    environment:
+      NODE_ENV: development
+```
 
 **Secrets.** `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` must each be at least
 32 characters, and `SMTP_CREDENTIAL_ENCRYPTION_KEY` must be changed from the

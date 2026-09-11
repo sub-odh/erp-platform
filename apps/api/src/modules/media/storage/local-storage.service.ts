@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { resolve, extname, join, sep } from 'node:path';
 
 import type { MediaFolder } from '../constants';
 
@@ -52,7 +52,7 @@ export class LocalStorageService {
 
     const safeRelativePath = relativePath.replace(/^\/+/, '');
 
-    const targetPath = join(this.uploadsRoot, safeRelativePath);
+    const targetPath = this.resolveExistingPath(safeRelativePath);
 
     try {
       await unlink(targetPath);
@@ -68,6 +68,17 @@ export class LocalStorageService {
 
       throw new InternalServerErrorException('Unable to delete stored file');
     }
+  }
+
+  resolveExistingPath(relativePath: string): string {
+    const root = resolve(this.uploadsRoot);
+    const targetPath = resolve(this.uploadsRoot, relativePath);
+
+    if (targetPath !== root && !targetPath.startsWith(`${root}${sep}`)) {
+      throw new InternalServerErrorException('Unable to resolve stored file');
+    }
+
+    return targetPath;
   }
 
   private getSafeExtension(originalName: string): string {

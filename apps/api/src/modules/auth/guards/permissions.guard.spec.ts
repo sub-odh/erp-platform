@@ -1,6 +1,10 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
+import {
+  PERMISSIONS_ANY_KEY,
+  PERMISSIONS_KEY,
+} from '../decorators/permissions.decorator';
 import { PERMISSIONS } from '../permissions/permission.constants';
 import { PermissionsService } from '../permissions/permissions.service';
 import { PermissionsGuard } from './permissions.guard';
@@ -26,24 +30,25 @@ describe('PermissionsGuard', () => {
   } as unknown as Reflector;
   const permissionsService = {
     hasAll: jest.fn(),
+    hasAny: jest.fn(),
   } as unknown as PermissionsService;
   const guard = new PermissionsGuard(reflector, permissionsService);
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(reflector.getAllAndMerge).mockImplementation(() => []);
   });
 
   it('allows routes without permission metadata', async () => {
-    jest.mocked(reflector.getAllAndMerge).mockReturnValue(undefined);
-
     await expect(guard.canActivate(createContext())).resolves.toBe(true);
     expect(permissionsService.hasAll).not.toHaveBeenCalled();
+    expect(permissionsService.hasAny).not.toHaveBeenCalled();
   });
 
   it('denies unauthenticated requests to permission-protected routes', async () => {
-    jest
-      .mocked(reflector.getAllAndMerge)
-      .mockReturnValue([PERMISSIONS.USERS_MANAGE]);
+    jest.mocked(reflector.getAllAndMerge).mockImplementation((key) =>
+      key === PERMISSIONS_KEY ? [PERMISSIONS.USERS_MANAGE] : [],
+    );
 
     await expect(guard.canActivate(createContext())).resolves.toBe(false);
     expect(permissionsService.hasAll).not.toHaveBeenCalled();
@@ -54,7 +59,9 @@ describe('PermissionsGuard', () => {
       PERMISSIONS.CRM_ACCESS,
       PERMISSIONS.CRM_PERMANENT_DELETE,
     ];
-    jest.mocked(reflector.getAllAndMerge).mockReturnValue(required);
+    jest.mocked(reflector.getAllAndMerge).mockImplementation((key) =>
+      key === PERMISSIONS_KEY ? required : [],
+    );
     jest.mocked(permissionsService.hasAll).mockResolvedValue(true);
 
     await expect(
@@ -67,6 +74,27 @@ describe('PermissionsGuard', () => {
       'tenant-a',
       'ADMIN',
       required,
+    );
+    expect(permissionsService.hasAny).not.toHaveBeenCalled();
+  });
+
+  it('allows a route when any listed permission is granted', async () => {
+    const anyRequired = [PERMISSIONS.CRM_ACCESS, PERMISSIONS.INVENTORY_ACCESS];
+    jest.mocked(reflector.getAllAndMerge).mockImplementation((key) =>
+      key === PERMISSIONS_ANY_KEY ? anyRequired : [],
+    );
+    jest.mocked(permissionsService.hasAny).mockResolvedValue(true);
+
+    await expect(
+      guard.canActivate(
+        createContext({ organizationId: 'tenant-a', role: 'STAFF' }),
+      ),
+    ).resolves.toBe(true);
+
+    expect(permissionsService.hasAny).toHaveBeenCalledWith(
+      'tenant-a',
+      'STAFF',
+      anyRequired,
     );
   });
 });

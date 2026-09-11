@@ -47,4 +47,35 @@ export class PermissionsService {
       );
     });
   }
+
+  async hasAny(
+    organizationId: string,
+    role: User['role'],
+    requiredPermissions: PermissionCode[],
+  ): Promise<boolean> {
+    if (requiredPermissions.length === 0) {
+      return true;
+    }
+
+    const uniquePermissions = [...new Set(requiredPermissions)];
+
+    return withTenantContext(organizationId, async () => {
+      const granted = await db
+        .select({ code: permissions.code })
+        .from(rolePermissions)
+        .innerJoin(
+          permissions,
+          eq(rolePermissions.permissionId, permissions.id),
+        )
+        .where(
+          and(
+            eq(rolePermissions.organizationId, organizationId),
+            eq(rolePermissions.role, role),
+            inArray(permissions.code, uniquePermissions),
+          ),
+        );
+
+      return granted.length > 0;
+    });
+  }
 }

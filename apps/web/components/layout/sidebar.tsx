@@ -32,7 +32,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType } from "react";
 
-import { resolveMediaUrl } from "@/lib/company";
+import { AuthenticatedImage } from "@/components/media";
 import { getStoredLicense } from "@/lib/auth";
 import type { LicenseSummary } from "@/types/auth";
 import type { Company } from "@/types/company";
@@ -371,7 +371,7 @@ export function Sidebar({
 
   useEffect(() => setLicense(getStoredLicense()), []);
 
-  const logoUrl = resolveMediaUrl(company?.logoUrl ?? company?.invoiceLogoUrl);
+  const logoUrl = company?.logoUrl ?? company?.invoiceLogoUrl ?? null;
 
   const crmActive =
     pathname.startsWith("/customers") ||
@@ -595,7 +595,7 @@ function SidebarHeader({
           ].join(" ")}
         >
           {logoUrl ? (
-            <img
+            <AuthenticatedImage
               src={logoUrl}
               alt={`${company?.name ?? "Company"} logo`}
               className="h-full w-full object-contain p-1"
