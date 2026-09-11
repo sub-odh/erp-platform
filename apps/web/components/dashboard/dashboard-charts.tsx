@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
+import { CURRENCY_SYMBOL, formatCurrency } from "@/lib/currency";
 import type { DashboardChartPoint } from "@/types/dashboard";
 
 export function DashboardBarChart({
@@ -168,7 +169,7 @@ export function DashboardDoughnut({
   const offset = circumference * (1 - achievedPct);
   return (
     <div className="flex h-full items-center justify-center" style={{ height }}>
-      <svg width="160" height="160" viewBox="0 0 160 160" role="img">
+      <svg width={height} height={height} viewBox="0 0 160 160" role="img">
         <circle
           cx="80"
           cy="80"
@@ -196,7 +197,7 @@ export function DashboardDoughnut({
 
 const PIE_COLORS = ["#2ecc71", "#3498db", "#f1c40f", "#e67e22"];
 
-export function DashboardPieChart({
+export function DashboardDistributionChart({
   points,
   height,
 }: {
@@ -204,50 +205,119 @@ export function DashboardPieChart({
   height: number;
 }) {
   const total = points.reduce((sum, point) => sum + point.value, 0);
-  let angle = -Math.PI / 2;
+  const radius = 46;
+  const strokeWidth = 20;
+  const circumference = 2 * Math.PI * radius;
+
+  let consumed = 0;
   const slices = points.map((point, index) => {
-    const slice = total > 0 ? (point.value / total) * Math.PI * 2 : 0;
-    const start = angle;
-    const end = angle + slice;
-    angle = end;
-    const large = slice > Math.PI ? 1 : 0;
-    const x1 = 80 + 62 * Math.cos(start);
-    const y1 = 80 + 62 * Math.sin(start);
-    const x2 = 80 + 62 * Math.cos(end);
-    const y2 = 80 + 62 * Math.sin(end);
-    return {
+    const fraction = total > 0 ? point.value / total : 0;
+    const length = circumference * fraction;
+    const slice = {
       ...point,
       color: PIE_COLORS[index % PIE_COLORS.length],
-      d: `M 80 80 L ${x1} ${y1} A 62 62 0 ${large} 1 ${x2} ${y2} Z`,
+      length,
+      offset: -consumed,
+      percent: Math.round(fraction * 1000) / 10,
     };
+    consumed += length;
+    return slice;
   });
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3" style={{ height }}>
+    <div className="flex items-center gap-4" style={{ minHeight: height }}>
+      <svg
+        width={height}
+        height={height}
+        viewBox="0 0 120 120"
+        role="img"
+        aria-label="Billed sales split by invoice status"
+        className="shrink-0"
+      >
+        <circle
+          cx="60"
+          cy="60"
+          r={radius}
+          fill="none"
+          stroke="#f1f3f5"
+          strokeWidth={strokeWidth}
+        />
+        {slices.map((slice) => (
+          <circle
+            key={slice.label}
+            cx="60"
+            cy="60"
+            r={radius}
+            fill="none"
+            stroke={slice.color}
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${slice.length} ${circumference - slice.length}`}
+            strokeDashoffset={slice.offset}
+            transform="rotate(-90 60 60)"
+          />
+        ))}
+        <text
+          x="60"
+          y="58"
+          textAnchor="middle"
+          fontSize="13"
+          fontWeight="700"
+          className="fill-slate-900"
+        >
+          {compactAmount(total)}
+        </text>
+        <text
+          x="60"
+          y="72"
+          textAnchor="middle"
+          fontSize="8"
+          className="fill-slate-400"
+        >
+          Billed
+        </text>
+      </svg>
+
       {total === 0 ? (
-        <p className="text-sm text-slate-400">No billed sales this month.</p>
+        <p className="text-xs text-slate-400">
+          No billed sales in the selected month.
+        </p>
       ) : (
-        <>
-          <svg width="160" height="160" viewBox="0 0 160 160" role="img">
-            {slices.map((slice) => (
-              <path key={slice.label} d={slice.d} fill={slice.color} />
-            ))}
-          </svg>
-          <div className="flex flex-wrap justify-center gap-3">
-            {slices.map((slice) => (
-              <span key={slice.label} className="flex items-center gap-1.5 text-[10px] text-slate-600">
-                <span
-                  className="h-2.5 w-2.5 rounded-sm"
-                  style={{ background: slice.color }}
-                />
+        <ul className="flex-1 space-y-1.5">
+          {slices.map((slice) => (
+            <li
+              key={slice.label}
+              className="flex items-center gap-2 text-[11px]"
+            >
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                style={{ background: slice.color }}
+              />
+              <span className="flex-1 truncate text-slate-600">
                 {slice.label}
               </span>
-            ))}
-          </div>
-        </>
+              <span className="font-semibold text-slate-900">
+                {formatCurrency(slice.value, { minimumFractionDigits: 0 })}
+              </span>
+              <span className="w-9 text-right text-slate-400">
+                {slice.percent}%
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
+}
+
+/* Keeps the donut centre readable when an amount runs into millions. */
+function compactAmount(value: number): string {
+  if (value >= 1_000_000) {
+    return `${CURRENCY_SYMBOL} ${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (value >= 10_000) {
+    return `${CURRENCY_SYMBOL} ${Math.round(value / 1000)}k`;
+  }
+  return formatCurrency(value, { minimumFractionDigits: 0 });
 }
 
 function MeasuredChart({

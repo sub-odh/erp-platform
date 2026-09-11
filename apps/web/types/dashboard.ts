@@ -33,7 +33,10 @@ export type DashboardOverview = {
     month: string;
     achieved: number;
   };
-  salesDistribution: DashboardChartPoint[];
+  salesDistribution: {
+    month: string;
+    points: DashboardChartPoint[];
+  };
   topDebtors: Array<{ name: string; totalDebt: number }>;
   yearly: {
     year: number;

@@ -19,7 +19,7 @@ export class DashboardService {
 
   async overview(
     tenantId: string,
-    filters: { invMonth?: string; salesMonth?: string },
+    filters: { invMonth?: string; salesMonth?: string; distMonth?: string },
   ) {
     const now = startOfUtcDay();
     const currentMonth = isoMonth(now);
@@ -28,6 +28,9 @@ export class DashboardService {
       : currentMonth;
     const salesMonth = isYearMonth(filters.salesMonth)
       ? filters.salesMonth
+      : currentMonth;
+    const distMonth = isYearMonth(filters.distMonth)
+      ? filters.distMonth
       : currentMonth;
 
     const from90 = new Date(now);
@@ -54,7 +57,7 @@ export class DashboardService {
       this.repository.invoicedInMonth(tenantId, salesMonth),
       this.repository.invoicedInYear(tenantId, now.getUTCFullYear()),
       this.repository.wonDealsInMonth(tenantId, salesMonth),
-      this.repository.invoiceDistribution(tenantId, currentMonth),
+      this.repository.invoiceDistribution(tenantId, distMonth),
       this.repository.topDebtors(tenantId),
     ]);
 
@@ -104,10 +107,13 @@ export class DashboardService {
         month: invMonth,
         achieved: inventoryAchievement,
       },
-      salesDistribution: distribution.map((row) => ({
-        label: statusLabel(row.status),
-        value: Number(row.total),
-      })),
+      salesDistribution: {
+        month: distMonth,
+        points: distribution.map((row) => ({
+          label: statusLabel(row.status),
+          value: Number(row.total),
+        })),
+      },
       topDebtors: debtors.map((row) => ({
         name: row.name,
         totalDebt: Number(row.totalDebt),
