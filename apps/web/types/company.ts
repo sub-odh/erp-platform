@@ -80,6 +80,7 @@ export interface CompanyDataCounts {
   deliveryOrders: number;
   deliveryOrderItems: number;
   itemReturns: number;
+  holidays: number;
 }
 
 export interface CompanyBackup {
@@ -108,6 +109,7 @@ export interface CompanyBackup {
     deliveryOrders: unknown[];
     deliveryOrderItems: unknown[];
     itemReturns: unknown[];
+    holidays: unknown[];
   };
   counts: CompanyDataCounts;
 }

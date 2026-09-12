@@ -36,6 +36,7 @@ type AuthenticatedRequest = Request & { user: JwtPayload };
   PERMISSIONS.USERS_MANAGE,
   PERMISSIONS.ORGANIZATION_MANAGE,
   PERMISSIONS.AUDIT_READ,
+  PERMISSIONS.HR_EMPLOYEES_MANAGE,
 )
 export class DashboardController {
   constructor(private readonly service: DashboardService) {}

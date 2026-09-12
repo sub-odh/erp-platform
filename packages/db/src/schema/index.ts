@@ -9,3 +9,5 @@ export * from "./sales";
 export * from "./operations";
 export * from "./procurement";
 export * from "./finance";
+export * from "./hr";
+
