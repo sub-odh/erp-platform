@@ -21,6 +21,7 @@ import {
   operationsUnits,
   operationsVendors,
   organizations,
+  hrHolidays,
   financeInvoiceItems,
   financeInvoices,
   financePayments,
@@ -47,6 +48,7 @@ import {
   type NewOperationsProduct,
   type NewOperationsUnit,
   type NewOperationsVendor,
+  type NewHrHoliday,
   type NewSalesCustomer,
   type NewSalesCustomerContact,
   type NewSalesLead,
@@ -65,6 +67,7 @@ import {
   type OperationsProduct,
   type OperationsUnit,
   type OperationsVendor,
+  type HrHoliday,
   type SalesCustomer,
   type SalesCustomerContact,
   type SalesLead,
@@ -111,6 +114,7 @@ interface ParsedCompanyBackup {
     deliveryOrders?: BackupRecord[];
     deliveryOrderItems?: BackupRecord[];
     itemReturns?: BackupRecord[];
+    holidays?: BackupRecord[];
   };
 }
 
@@ -135,6 +139,7 @@ export interface CompanyDataCounts {
   deliveryOrders: number;
   deliveryOrderItems: number;
   itemReturns: number;
+  holidays: number;
 }
 
 export interface CompanyBackup {
@@ -167,6 +172,7 @@ export interface CompanyBackup {
     deliveryOrders: OperationsDeliveryOrder[];
     deliveryOrderItems: OperationsDeliveryOrderItem[];
     itemReturns: OperationsItemReturn[];
+    holidays: HrHoliday[];
   };
   counts: CompanyDataCounts;
 }
@@ -205,6 +211,7 @@ export class CompanyDataService {
       deliveryOrderRows,
       deliveryOrderItemRows,
       itemReturnRows,
+      holidayRows,
     ] = await Promise.all([
       db
         .select()
@@ -286,6 +293,10 @@ export class CompanyDataService {
         .select()
         .from(operationsItemReturns)
         .where(eq(operationsItemReturns.tenantId, organizationId)),
+      db
+        .select()
+        .from(hrHolidays)
+        .where(eq(hrHolidays.tenantId, organizationId)),
     ]);
 
     return {
@@ -318,6 +329,7 @@ export class CompanyDataService {
         deliveryOrders: deliveryOrderRows,
         deliveryOrderItems: deliveryOrderItemRows,
         itemReturns: itemReturnRows,
+        holidays: holidayRows,
       },
       counts: this.counts({
         pipelineStages,
@@ -340,6 +352,7 @@ export class CompanyDataService {
         deliveryOrders: deliveryOrderRows,
         deliveryOrderItems: deliveryOrderItemRows,
         itemReturns: itemReturnRows,
+        holidays: holidayRows,
       }),
     };
   }
@@ -446,6 +459,9 @@ export class CompanyDataService {
       }
       if (rows.itemReturns.length > 0) {
         await db.insert(operationsItemReturns).values(rows.itemReturns);
+      }
+      if (rows.holidays.length > 0) {
+        await db.insert(hrHolidays).values(rows.holidays);
       }
       if (rows.inventoryMovements.length > 0) {
         await db.insert(inventoryMovements).values(rows.inventoryMovements);
@@ -572,6 +588,7 @@ export class CompanyDataService {
       'deliveryOrders',
       'deliveryOrderItems',
       'itemReturns',
+      'holidays',
     ] as const) {
       const value = data[collection];
       if (
@@ -611,6 +628,7 @@ export class CompanyDataService {
     deliveryOrders: NewOperationsDeliveryOrder[];
     deliveryOrderItems: NewOperationsDeliveryOrderItem[];
     itemReturns: NewOperationsItemReturn[];
+    holidays: NewHrHoliday[];
   } {
     return {
       pipelineStages: backup.data.pipelineStages.map((row) =>
@@ -673,6 +691,9 @@ export class CompanyDataService {
       itemReturns: (backup.data.itemReturns ?? []).map((row) =>
         this.normalizeRow<NewOperationsItemReturn>(row, organizationId),
       ),
+      holidays: (backup.data.holidays ?? []).map((row) =>
+        this.normalizeRow<NewHrHoliday>(row, organizationId),
+      ),
     };
   }
 
@@ -689,12 +710,16 @@ export class CompanyDataService {
       'convertedAt',
       'closedAt',
       'deliveryDate',
+      'holidayDate',
     ]) {
       const value = normalized[field];
 
       if (typeof value === 'string') {
-        // Delivery orders store a calendar date; inventory assets store a timestamp.
-        if (field === 'deliveryDate' && !value.includes('T')) {
+        // Calendar dates stay as yyyy-mm-dd; timestamps convert to Date.
+        if (
+          (field === 'deliveryDate' || field === 'holidayDate') &&
+          !value.includes('T')
+        ) {
           continue;
         }
 
@@ -733,6 +758,7 @@ export class CompanyDataService {
       deliveryOrders: NewOperationsDeliveryOrder[];
       deliveryOrderItems: NewOperationsDeliveryOrderItem[];
       itemReturns: NewOperationsItemReturn[];
+      holidays: NewHrHoliday[];
     },
     organizationId: string,
   ): Promise<void> {
@@ -810,6 +836,13 @@ export class CompanyDataService {
       );
     }
 
+    const holidayDates = new Set(rows.holidays.map((row) => row.holidayDate));
+    if (holidayDates.size !== rows.holidays.length) {
+      throw new BadRequestException(
+        'The backup contains duplicate holidays for the same date',
+      );
+    }
+
     const referencedUserIds = new Set<string>();
 
     for (const row of [
@@ -833,6 +866,7 @@ export class CompanyDataService {
       ...rows.deliveryOrders,
       ...rows.deliveryOrderItems,
       ...rows.itemReturns,
+      ...rows.holidays,
     ] as Array<Record<string, unknown>>) {
       for (const field of [
         'createdBy',
@@ -881,6 +915,7 @@ export class CompanyDataService {
       ...rows.deliveryOrders,
       ...rows.deliveryOrderItems,
       ...rows.itemReturns,
+      ...rows.holidays,
     ] as Array<Record<string, unknown>>) {
       for (const field of [
         'createdBy',
@@ -898,9 +933,18 @@ export class CompanyDataService {
     }
   }
 
+  /*
+   * Users, employee roles, and HR employee records stay in place. They are
+   * company identity, not operational documents, and employee user links
+   * would make a restore unsafe in this backup format.
+   */
   private async deleteOperationalData(
     organizationId: string,
   ): Promise<CompanyDataCounts> {
+    const holidayRows = await db
+      .delete(hrHolidays)
+      .where(eq(hrHolidays.tenantId, organizationId))
+      .returning({ id: hrHolidays.id });
     const quotationItemRows = await db
       .delete(salesQuotationItems)
       .where(eq(salesQuotationItems.tenantId, organizationId))
@@ -1012,6 +1056,7 @@ export class CompanyDataService {
       deliveryOrders: deliveryOrderRows.length,
       deliveryOrderItems: deliveryOrderItemRows.length,
       itemReturns: itemReturnRows.length,
+      holidays: holidayRows.length,
     };
   }
 
@@ -1053,6 +1098,7 @@ export class CompanyDataService {
       | readonly NewOperationsDeliveryOrderItem[];
     itemReturns:
       readonly OperationsItemReturn[] | readonly NewOperationsItemReturn[];
+    holidays: readonly HrHoliday[] | readonly NewHrHoliday[];
   }): CompanyDataCounts {
     return {
       pipelineStages: data.pipelineStages.length,
@@ -1075,6 +1121,7 @@ export class CompanyDataService {
       deliveryOrders: data.deliveryOrders.length,
       deliveryOrderItems: data.deliveryOrderItems.length,
       itemReturns: data.itemReturns.length,
+      holidays: data.holidays.length,
     };
   }
 

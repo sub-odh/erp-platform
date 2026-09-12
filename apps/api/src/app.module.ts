@@ -36,6 +36,8 @@ import { ProcurementModule } from './modules/procurement/procurement.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 import { UsersModule } from './modules/users/users.module';
+import { EmployeesModule } from './modules/hr/employees/employees.module';
+import { HolidaysModule } from './modules/hr/holidays/holidays.module';
 
 @Module({
   imports: [
@@ -78,6 +80,10 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
 
     UsersModule,
+
+    EmployeesModule,
+
+    HolidaysModule,
 
     CustomersModule,
 

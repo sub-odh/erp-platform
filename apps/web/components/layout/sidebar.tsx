@@ -14,6 +14,7 @@ import {
   Gauge,
   Gavel,
   Handshake,
+  IdCard,
   Landmark,
   Mail,
   LayoutDashboard,
@@ -84,9 +85,10 @@ const navRowClass = "py-2.5 text-sm leading-5";
 
 /*
  * Grouped to match the legacy sidebar: Main, then one combined Sales &
- * Logistics list, then Self Service and Administration. Inside that list the
- * rows run in working order — buy, store, sell, dispatch, bill, collect —
- * so each step sits next to the one that feeds it.
+ * Logistics list, then HR & Operations, Self Service, and Administration.
+ * Inside Sales & Logistics the rows run in working order — buy, store,
+ * sell, dispatch, bill, collect — so each step sits next to the one that
+ * feeds it.
  *
  * Because the list spans licences, the inventory and sales rows carry their
  * own requiredModule instead of relying on a section-wide one.
@@ -299,6 +301,28 @@ const navigationSections: NavigationSection[] = [
   },
 
   {
+    title: "HR & Operations",
+
+    items: [
+      {
+        href: "/hr/employees",
+        label: "Employee Management",
+        icon: IdCard,
+      },
+      {
+        href: "/hr/employee-list",
+        label: "All Employee List",
+        icon: ClipboardList,
+      },
+      {
+        href: "/hr/holidays",
+        label: "Holiday Management",
+        icon: CalendarDays,
+      },
+    ],
+  },
+
+  {
     title: "Self Service",
 
     items: [
@@ -306,6 +330,11 @@ const navigationSections: NavigationSection[] = [
         href: "/profile",
         label: "My Profile",
         icon: UserRound,
+      },
+      {
+        href: "/hr/company-holidays",
+        label: "Company Holidays",
+        icon: CalendarDays,
       },
     ],
   },

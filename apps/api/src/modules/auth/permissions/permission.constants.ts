@@ -8,6 +8,8 @@ export const PERMISSIONS = {
   CRM_PERMANENT_DELETE: 'sales.crm.permanent-delete',
   INVENTORY_ACCESS: 'operations.inventory.access',
   INVENTORY_MANAGE: 'operations.inventory.manage',
+  HR_EMPLOYEES_MANAGE: 'hr.employees.manage',
+  HR_HOLIDAYS_MANAGE: 'hr.holidays.manage',
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -16,7 +18,11 @@ export const DEFAULT_ROLE_PERMISSIONS = {
   OWNER: Object.values(PERMISSIONS),
   SUPER_ADMIN: Object.values(PERMISSIONS),
   ADMIN: Object.values(PERMISSIONS),
-  HR: [PERMISSIONS.USERS_MANAGE],
+  HR: [
+    PERMISSIONS.USERS_MANAGE,
+    PERMISSIONS.HR_EMPLOYEES_MANAGE,
+    PERMISSIONS.HR_HOLIDAYS_MANAGE,
+  ],
   OPERATIONS: [PERMISSIONS.INVENTORY_ACCESS, PERMISSIONS.INVENTORY_MANAGE],
   EMPLOYEE: [],
   SALES: [PERMISSIONS.CRM_ACCESS],
