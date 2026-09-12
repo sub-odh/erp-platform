@@ -61,8 +61,25 @@ export class EmployeeResponseDto {
   user!: LinkedUserSummaryDto | null;
   managerId!: string | null;
   manager!: ManagerSummaryDto | null;
+  annualLeaveBal!: number;
+  sickLeaveBal!: number;
+  casualLeaveBal!: number;
+  annualLeaveEnabled!: boolean;
   createdAt!: Date;
   updatedAt!: Date;
+}
+
+export class EmployeeDirectoryItemDto {
+  id!: string;
+  employeeCode!: string;
+  firstName!: string;
+  lastName!: string;
+  designation!: string | null;
+  department!: string | null;
+  photoUrl!: string | null;
+  managerId!: string | null;
+  userId!: string | null;
+  status!: 'ACTIVE' | 'INACTIVE';
 }
 
 export class EmployeeListCountsDto {

@@ -79,6 +79,16 @@ export const hrEmployees = pgTable(
     qualification: text("qualification"),
     pastExperience: text("past_experience"),
     salary: numeric("salary", { precision: 15, scale: 2 }),
+    annualLeaveBal: numeric("annual_leave_bal", { precision: 5, scale: 2 })
+      .default("21.00")
+      .notNull(),
+    sickLeaveBal: numeric("sick_leave_bal", { precision: 5, scale: 2 })
+      .default("15.00")
+      .notNull(),
+    casualLeaveBal: numeric("casual_leave_bal", { precision: 5, scale: 2 })
+      .default("12.00")
+      .notNull(),
+    annualLeaveEnabled: boolean("annual_leave_enabled").default(true).notNull(),
     managerId: uuid("manager_id"),
     lastIncrementMonth: varchar("last_increment_month", { length: 7 }),
     hasSalesTarget: boolean("has_sales_target").default(false).notNull(),

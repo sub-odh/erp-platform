@@ -26,6 +26,7 @@ export const MEDIA_FOLDERS = [
   'customers',
   'procurement',
   'employees',
+  'hr',
 ] as const;
 
 export type MediaFolder = (typeof MEDIA_FOLDERS)[number];

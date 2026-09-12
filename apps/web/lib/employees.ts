@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api";
 import type {
   Employee,
+  EmployeeDirectoryItem,
   EmployeeInput,
   EmployeeListQuery,
   EmployeeLookups,
@@ -36,6 +37,14 @@ export function getEmployeeLookups(excludeEmployeeId?: string) {
     : "";
 
   return apiRequest<EmployeeLookups>(`/hr/employees/lookups${query}`);
+}
+
+export function getMyEmployee() {
+  return apiRequest<Employee>("/hr/employees/me");
+}
+
+export function getEmployeeDirectory() {
+  return apiRequest<EmployeeDirectoryItem[]>("/hr/employees/directory");
 }
 
 export function getEmployee(employeeId: string) {

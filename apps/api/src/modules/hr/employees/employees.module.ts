@@ -9,6 +9,6 @@ import { EmployeesService } from './employees.service';
   imports: [MediaModule],
   controllers: [EmployeesController],
   providers: [EmployeesRepository, EmployeesService],
-  exports: [EmployeesService],
+  exports: [EmployeesService, EmployeesRepository],
 })
 export class EmployeesModule {}
