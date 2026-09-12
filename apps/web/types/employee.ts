@@ -66,8 +66,25 @@ export interface Employee {
   user: LinkedUserSummary | null;
   managerId: string | null;
   manager: ManagerSummary | null;
+  annualLeaveBal: number;
+  sickLeaveBal: number;
+  casualLeaveBal: number;
+  annualLeaveEnabled: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface EmployeeDirectoryItem {
+  id: string;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  designation: string | null;
+  department: string | null;
+  photoUrl: string | null;
+  managerId: string | null;
+  userId: string | null;
+  status: EmployeeStatus;
 }
 
 export interface EmployeeListCounts {

@@ -36,16 +36,17 @@ import { EmployeesService } from './employees.service';
 })
 @AuditEntity('hr.employee')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
   @Get()
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   list(@CurrentUser() user: JwtPayload, @Query() query: ListEmployeesQueryDto) {
     return this.employeesService.list(user.organizationId, query);
   }
 
   @Get('lookups')
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   lookups(
     @CurrentUser() user: JwtPayload,
     @Query('excludeEmployeeId') excludeEmployeeId?: string,
@@ -56,7 +57,18 @@ export class EmployeesController {
     );
   }
 
+  @Get('me')
+  me(@CurrentUser() user: JwtPayload) {
+    return this.employeesService.findMe(user.organizationId, user.sub);
+  }
+
+  @Get('directory')
+  directory(@CurrentUser() user: JwtPayload) {
+    return this.employeesService.directory(user.organizationId);
+  }
+
   @Get(':employeeId')
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   findById(
     @CurrentUser() user: JwtPayload,
     @Param('employeeId', new ParseUUIDPipe()) employeeId: string,
@@ -65,11 +77,13 @@ export class EmployeesController {
   }
 
   @Post()
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateEmployeeDto) {
     return this.employeesService.create(user.organizationId, user.sub, dto);
   }
 
   @Patch(':employeeId')
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   update(
     @CurrentUser() user: JwtPayload,
     @Param('employeeId', new ParseUUIDPipe()) employeeId: string,
@@ -84,6 +98,7 @@ export class EmployeesController {
   }
 
   @Post(':employeeId/deactivate')
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   @HttpCode(HttpStatus.OK)
   deactivate(
     @CurrentUser() user: JwtPayload,
@@ -97,6 +112,7 @@ export class EmployeesController {
   }
 
   @Post(':employeeId/restore')
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   @HttpCode(HttpStatus.OK)
   restore(
     @CurrentUser() user: JwtPayload,
@@ -110,6 +126,7 @@ export class EmployeesController {
   }
 
   @Post(':employeeId/photo')
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -130,6 +147,7 @@ export class EmployeesController {
   }
 
   @Delete(':employeeId/photo')
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   removePhoto(
     @CurrentUser() user: JwtPayload,
     @Param('employeeId', new ParseUUIDPipe()) employeeId: string,
@@ -142,6 +160,7 @@ export class EmployeesController {
   }
 
   @Post(':employeeId/signature')
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -162,6 +181,7 @@ export class EmployeesController {
   }
 
   @Delete(':employeeId/signature')
+  @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   removeSignature(
     @CurrentUser() user: JwtPayload,
     @Param('employeeId', new ParseUUIDPipe()) employeeId: string,

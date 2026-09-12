@@ -38,6 +38,14 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { UsersModule } from './modules/users/users.module';
 import { EmployeesModule } from './modules/hr/employees/employees.module';
 import { HolidaysModule } from './modules/hr/holidays/holidays.module';
+import { AttendanceModule } from './modules/hr/attendance/attendance.module';
+import { LeavesModule } from './modules/hr/leaves/leaves.module';
+import { ExpensesModule } from './modules/hr/expenses/expenses.module';
+import { FuelModule } from './modules/hr/fuel/fuel.module';
+import { MemosModule } from './modules/hr/memos/memos.module';
+import { HallsModule } from './modules/hr/halls/halls.module';
+import { PartnersModule } from './modules/hr/partners/partners.module';
+import { VisitsModule } from './modules/hr/visits/visits.module';
 
 @Module({
   imports: [
@@ -84,6 +92,22 @@ import { HolidaysModule } from './modules/hr/holidays/holidays.module';
     EmployeesModule,
 
     HolidaysModule,
+
+    AttendanceModule,
+
+    LeavesModule,
+
+    ExpensesModule,
+
+    FuelModule,
+
+    MemosModule,
+
+    HallsModule,
+
+    PartnersModule,
+
+    VisitsModule,
 
     CustomersModule,
 

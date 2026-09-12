@@ -63,6 +63,30 @@ export class EmployeesService {
     return this.toResponse(record);
   }
 
+  async findMe(tenantId: string, userId: string): Promise<EmployeeResponseDto> {
+    const linked = await this.repository.findByUserId(tenantId, userId);
+
+    if (!linked) {
+      throw new NotFoundException('No employee profile is linked to this user');
+    }
+
+    return this.findById(tenantId, linked.id);
+  }
+
+  async requireLinkedEmployee(tenantId: string, userId: string) {
+    const linked = await this.repository.findByUserId(tenantId, userId);
+
+    if (!linked) {
+      throw new NotFoundException('No employee profile is linked to this user');
+    }
+
+    return linked;
+  }
+
+  directory(tenantId: string) {
+    return this.repository.directory(tenantId);
+  }
+
   async lookups(
     tenantId: string,
     excludeEmployeeId?: string,
@@ -551,6 +575,10 @@ export class EmployeesService {
       user: record.user,
       managerId: employee.managerId,
       manager: record.manager,
+      annualLeaveBal: this.toNumber(employee.annualLeaveBal) ?? 0,
+      sickLeaveBal: this.toNumber(employee.sickLeaveBal) ?? 0,
+      casualLeaveBal: this.toNumber(employee.casualLeaveBal) ?? 0,
+      annualLeaveEnabled: employee.annualLeaveEnabled,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
     };

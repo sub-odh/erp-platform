@@ -22,6 +22,19 @@ import {
   operationsVendors,
   organizations,
   hrHolidays,
+  hrAttendance,
+  hrLeaveRequests,
+  hrExpenses,
+  hrFuelRecords,
+  hrFuelSettings,
+  hrMemoAttachments,
+  hrMemos,
+  hrHallBookings,
+  hrMeetingHalls,
+  hrPartnerAssignments,
+  hrPartners,
+  hrSupportVisits,
+  hrFieldVisits,
   financeInvoiceItems,
   financeInvoices,
   financePayments,
@@ -945,6 +958,41 @@ export class CompanyDataService {
       .delete(hrHolidays)
       .where(eq(hrHolidays.tenantId, organizationId))
       .returning({ id: hrHolidays.id });
+    await db
+      .delete(hrAttendance)
+      .where(eq(hrAttendance.tenantId, organizationId));
+    await db
+      .delete(hrLeaveRequests)
+      .where(eq(hrLeaveRequests.tenantId, organizationId));
+    await db
+      .delete(hrExpenses)
+      .where(eq(hrExpenses.tenantId, organizationId));
+    await db
+      .delete(hrFuelRecords)
+      .where(eq(hrFuelRecords.tenantId, organizationId));
+    await db
+      .delete(hrFuelSettings)
+      .where(eq(hrFuelSettings.tenantId, organizationId));
+    await db
+      .delete(hrMemoAttachments)
+      .where(eq(hrMemoAttachments.tenantId, organizationId));
+    await db.delete(hrMemos).where(eq(hrMemos.tenantId, organizationId));
+    await db
+      .delete(hrHallBookings)
+      .where(eq(hrHallBookings.tenantId, organizationId));
+    await db
+      .delete(hrMeetingHalls)
+      .where(eq(hrMeetingHalls.tenantId, organizationId));
+    await db
+      .delete(hrPartnerAssignments)
+      .where(eq(hrPartnerAssignments.tenantId, organizationId));
+    await db.delete(hrPartners).where(eq(hrPartners.tenantId, organizationId));
+    await db
+      .delete(hrSupportVisits)
+      .where(eq(hrSupportVisits.tenantId, organizationId));
+    await db
+      .delete(hrFieldVisits)
+      .where(eq(hrFieldVisits.tenantId, organizationId));
     const quotationItemRows = await db
       .delete(salesQuotationItems)
       .where(eq(salesQuotationItems.tenantId, organizationId))

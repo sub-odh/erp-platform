@@ -4,13 +4,18 @@ import {
   BarChart3,
   Boxes,
   Building2,
+  CalendarCheck,
   CalendarDays,
+  Car,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   ClipboardList,
+  FilePlus,
   FileText,
+  Fingerprint,
+  Fuel,
   Gauge,
   Gavel,
   Handshake,
@@ -18,15 +23,19 @@ import {
   Landmark,
   Mail,
   LayoutDashboard,
+  MapPinned,
+  Network,
   Package,
   ReceiptText,
   RotateCcw,
   Settings,
   ShoppingCart,
+  StickyNote,
   Target,
   Truck,
   UserRound,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -315,9 +324,75 @@ const navigationSections: NavigationSection[] = [
         icon: ClipboardList,
       },
       {
+        href: "/hr/clients",
+        label: "Clients Management",
+        icon: Users,
+      },
+      {
         href: "/hr/holidays",
         label: "Holiday Management",
         icon: CalendarDays,
+      },
+      {
+        href: "/hr/support-visits",
+        label: "All Support Visits",
+        icon: MapPinned,
+      },
+      {
+        href: "/hr/company-calendar",
+        label: "Company Calendar",
+        icon: CalendarCheck,
+      },
+      {
+        href: "/hr/attendance",
+        label: "Attendance",
+        icon: Fingerprint,
+      },
+      {
+        href: "/hr/attendance-report",
+        label: "Attendance Report",
+        icon: ClipboardList,
+      },
+      {
+        label: "Memos",
+        icon: StickyNote,
+        children: [
+          {
+            href: "/hr/memos/new",
+            label: "Create Memo",
+            icon: FilePlus,
+          },
+          {
+            href: "/hr/memos",
+            label: "Memo Lists",
+            icon: ClipboardList,
+          },
+        ],
+      },
+      {
+        href: "/hr/leaves",
+        label: "Leave Management",
+        icon: CalendarDays,
+      },
+      {
+        href: "/hr/tada",
+        label: "TADA Management",
+        icon: Wallet,
+      },
+      {
+        href: "/hr/fuel",
+        label: "Fuel Management",
+        icon: Fuel,
+      },
+      {
+        href: "/hr/halls",
+        label: "Meeting Hall Management",
+        icon: Building2,
+      },
+      {
+        href: "/hr/partners",
+        label: "Partner Management",
+        icon: Handshake,
       },
     ],
   },
@@ -335,6 +410,57 @@ const navigationSections: NavigationSection[] = [
         href: "/hr/company-holidays",
         label: "Company Holidays",
         icon: CalendarDays,
+      },
+      {
+        href: "/hr/hall-bookings",
+        label: "Book Meeting Hall",
+        icon: Building2,
+      },
+      {
+        href: "/hr/hierarchy",
+        label: "Hierarchy",
+        icon: Network,
+      },
+      {
+        href: "/hr/support-visits/new",
+        label: "Support Visit Form",
+        icon: FileText,
+      },
+      {
+        href: "/hr/my-support-visits",
+        label: "My Support Visits",
+        icon: MapPinned,
+      },
+      {
+        href: "/hr/my-leaves",
+        label: "My Leaves",
+        icon: CalendarDays,
+      },
+      {
+        href: "/hr/field-visits",
+        label: "Field Visits",
+        icon: Car,
+      },
+      {
+        href: "/hr/my-attendance",
+        label: "My Attendance",
+        icon: Fingerprint,
+      },
+      {
+        label: "Expenses",
+        icon: Wallet,
+        children: [
+          {
+            href: "/hr/my-tada",
+            label: "My TA/DA Request",
+            icon: Wallet,
+          },
+          {
+            href: "/hr/my-fuel",
+            label: "My Fuel Records",
+            icon: Fuel,
+          },
+        ],
       },
     ],
   },
@@ -410,6 +536,9 @@ export function Sidebar({
   const purchaseOrdersActive = pathname.startsWith("/purchase-orders");
   const deliveryOrdersActive = pathname.startsWith("/delivery-orders");
   const quotationsActive = pathname.startsWith("/quotations");
+  const memosActive = pathname.startsWith("/hr/memos");
+  const expensesActive =
+    pathname.startsWith("/hr/my-tada") || pathname.startsWith("/hr/my-fuel");
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {
@@ -417,6 +546,8 @@ export function Sidebar({
       "Purchase Orders": purchaseOrdersActive,
       "Delivery Orders": deliveryOrdersActive,
       Quotations: quotationsActive,
+      Memos: memosActive,
+      Expenses: expensesActive,
     },
   );
 
@@ -437,7 +568,9 @@ export function Sidebar({
       setExpandedGroups((current) => ({ ...current, "Delivery Orders": true }));
     }
     if (quotationsActive) setExpandedGroups((current) => ({ ...current, Quotations: true }));
-  }, [crmActive, purchaseOrdersActive, deliveryOrdersActive, quotationsActive]);
+    if (memosActive) setExpandedGroups((current) => ({ ...current, Memos: true }));
+    if (expensesActive) setExpandedGroups((current) => ({ ...current, Expenses: true }));
+  }, [crmActive, purchaseOrdersActive, deliveryOrdersActive, quotationsActive, memosActive, expensesActive]);
 
   function toggleGroup(label: string): void {
     /*
@@ -476,6 +609,8 @@ export function Sidebar({
       "Purchase Orders": purchaseOrdersActive,
       "Delivery Orders": deliveryOrdersActive,
       Quotations: quotationsActive,
+      Memos: memosActive,
+      Expenses: expensesActive,
     }));
   }
 
@@ -943,7 +1078,7 @@ function SidebarFooter({
 }
 
 function isPathActive(pathname: string, href: string): boolean {
-  if (href === "/inventory" || href === "/purchase-orders" || href === "/delivery-orders" || href === "/quotations") {
+  if (href === "/inventory" || href === "/purchase-orders" || href === "/delivery-orders" || href === "/quotations" || href === "/hr/memos" || href === "/hr/support-visits") {
     return pathname === href;
   }
 

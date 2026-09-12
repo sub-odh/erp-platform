@@ -219,6 +219,30 @@ export class EmployeesRepository {
     return row ?? null;
   }
 
+  directory(tenantId: string) {
+    return db
+      .select({
+        id: hrEmployees.id,
+        employeeCode: hrEmployees.employeeCode,
+        firstName: hrEmployees.firstName,
+        lastName: hrEmployees.lastName,
+        designation: hrEmployees.designation,
+        department: hrEmployees.department,
+        photoUrl: hrEmployees.photoUrl,
+        managerId: hrEmployees.managerId,
+        userId: hrEmployees.userId,
+        status: hrEmployees.status,
+      })
+      .from(hrEmployees)
+      .where(
+        and(
+          eq(hrEmployees.tenantId, tenantId),
+          eq(hrEmployees.status, 'ACTIVE'),
+        ),
+      )
+      .orderBy(asc(hrEmployees.firstName), asc(hrEmployees.lastName));
+  }
+
   async findByDeviceId(
     tenantId: string,
     attendanceDeviceId: number,
@@ -407,6 +431,27 @@ export class EmployeesRepository {
     }
 
     return ids;
+  }
+
+  async updateLeaveBalances(
+    tenantId: string,
+    employeeId: string,
+    values: {
+      annualLeaveBal?: string;
+      sickLeaveBal?: string;
+      casualLeaveBal?: string;
+      annualLeaveEnabled?: boolean;
+    },
+  ): Promise<HrEmployee | null> {
+    const [row] = await db
+      .update(hrEmployees)
+      .set({ ...values, updatedAt: new Date() })
+      .where(
+        and(eq(hrEmployees.id, employeeId), eq(hrEmployees.tenantId, tenantId)),
+      )
+      .returning();
+
+    return row ?? null;
   }
 
   private listConditions(input: ListEmployeesInput): SQL[] {
