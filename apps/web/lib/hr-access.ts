@@ -27,6 +27,11 @@ export function canManagePartners(role?: UserRole | null) {
   return hasRole(role ?? currentUserRole(), ["HR"]);
 }
 
+export function canDeleteClients(role?: UserRole | null) {
+  const current = role ?? currentUserRole();
+  return current === "OWNER" || current === "SUPER_ADMIN";
+}
+
 export function canManageVisits(role?: UserRole | null) {
   return hasRole(role ?? currentUserRole(), ["HR", "OPERATIONS", "HEAD"]);
 }

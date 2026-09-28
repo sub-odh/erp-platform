@@ -231,7 +231,7 @@ export function DashboardDistributionChart({
         height={height}
         viewBox="0 0 120 120"
         role="img"
-        aria-label="Billed sales split by invoice status"
+        aria-label="Delivery orders by status"
         className="shrink-0"
       >
         <circle
@@ -273,13 +273,13 @@ export function DashboardDistributionChart({
           fontSize="8"
           className="fill-slate-400"
         >
-          Billed
+          Total
         </text>
       </svg>
 
       {total === 0 ? (
         <p className="text-xs text-slate-400">
-          No billed sales in the selected month.
+          No orders this month.
         </p>
       ) : (
         <ul className="flex-1 space-y-1.5">

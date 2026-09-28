@@ -24,7 +24,7 @@ function emptyStringToUndefined(value: unknown): unknown {
 
   const trimmed = value.trim();
 
-  return trimmed.length === 0 ? undefined : trimmed;
+  return trimmed.length === 0 ? null : trimmed;
 }
 
 function normalizeEmail(value: unknown): unknown {
@@ -34,7 +34,7 @@ function normalizeEmail(value: unknown): unknown {
 
   const normalized = value.trim().toLowerCase();
 
-  return normalized.length === 0 ? undefined : normalized;
+  return normalized.length === 0 ? null : normalized;
 }
 
 function normalizeCustomerCode(value: unknown): unknown {
@@ -46,11 +46,11 @@ function normalizeCustomerCode(value: unknown): unknown {
 }
 
 export class CreateCustomerDto {
-  @Transform(({ value }) => normalizeCustomerCode(value))
+  @Transform(({ value }) => emptyStringToUndefined(normalizeCustomerCode(value)))
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(50)
-  customerCode!: string;
+  customerCode?: string;
 
   @Transform(({ value }) => trimString(value))
   @IsString()
@@ -69,6 +69,18 @@ export class CreateCustomerDto {
   @IsString()
   @MaxLength(100)
   taxNumber?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  contactPerson?: string;
+
+  @Transform(({ value }) => emptyStringToUndefined(value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  address?: string;
 
   @Transform(({ value }) => normalizeEmail(value))
   @IsOptional()

@@ -1,51 +1,24 @@
-"use client";
+﻿"use client";
 
-import {
-  BarChart3,
-  Boxes,
-  Building2,
-  CalendarCheck,
-  CalendarDays,
-  Car,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  CircleDollarSign,
-  ClipboardList,
-  FilePlus,
-  FileText,
-  Fingerprint,
-  Fuel,
-  Gauge,
-  Gavel,
-  Handshake,
-  IdCard,
-  Landmark,
-  Mail,
-  LayoutDashboard,
-  MapPinned,
-  Network,
-  Package,
-  ReceiptText,
-  RotateCcw,
-  Settings,
-  ShoppingCart,
-  StickyNote,
-  Target,
-  Truck,
-  UserRound,
-  Users,
-  Wallet,
-  X,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useState } from "react";
 
 import { AuthenticatedImage } from "@/components/media";
-import { getStoredLicense } from "@/lib/auth";
-import type { LicenseSummary } from "@/types/auth";
+import {
+  AUTH_USER_CHANGED_EVENT,
+  getStoredLicense,
+  getStoredUser,
+} from "@/lib/auth";
+import type { LicenseSummary, UserRole } from "@/types/auth";
 import type { Company } from "@/types/company";
+
+import {
+  navigationSections,
+  type NavigationItem,
+  type NavigationSection,
+} from "./sidebar-nav";
 
 interface SidebarProps {
   open: boolean;
@@ -58,458 +31,67 @@ interface SidebarProps {
   onToggleCollapsed: () => void;
 }
 
-interface NavigationItem {
-  label: string;
-
-  icon: ComponentType<{
-    size?: number;
-    className?: string;
-  }>;
-
-  href?: string;
-
-  disabled?: boolean;
-
-  /*
-   * Set when a single row needs its own licence check, which happens where a
-   * process stage spans modules (dispatch is inventory, billing is sales).
-   */
-  requiredModule?: string;
-
-  children?: NavigationItem[];
-}
-
-interface NavigationSection {
-  title: string;
-  requiredModule?: string;
-
-  items: NavigationItem[];
-}
-
 /*
- * Every navigation row — top level, expandable group and nested child —
+ * Every navigation row, top level, expandable group and nested child,
  * shares this typography so each label renders at the same size as Dashboard.
  */
 const navRowClass = "py-2.5 text-sm leading-5";
 
-/*
- * Grouped to match the legacy sidebar: Main, then one combined Sales &
- * Logistics list, then HR & Operations, Self Service, and Administration.
- * Inside Sales & Logistics the rows run in working order — buy, store,
- * sell, dispatch, bill, collect — so each step sits next to the one that
- * feeds it.
- *
- * Because the list spans licences, the inventory and sales rows carry their
- * own requiredModule instead of relying on a section-wide one.
- */
-const navigationSections: NavigationSection[] = [
-  {
-    title: "Main",
+function isLicensed(
+  requiredModule: string | undefined,
+  licensedModules: string[],
+): boolean {
+  return !requiredModule || licensedModules.includes(requiredModule);
+}
 
-    items: [
-      {
-        href: "/dashboard",
-        label: "Dashboard",
-        icon: LayoutDashboard,
-      },
-    ],
-  },
+function isRoleAllowed(
+  roles: UserRole[] | undefined,
+  role: UserRole | null,
+): boolean {
+  if (!roles) {
+    return true;
+  }
 
-  {
-    title: "Sales & Logistics",
+  if (!role) {
+    return false;
+  }
 
-    items: [
-      /* What you buy and who you buy it from. */
-      {
-        href: "/products",
-        label: "Products",
-        icon: Package,
-        requiredModule: "inventory",
-      },
+  return roles.includes(role);
+}
 
-      {
-        href: "/vendors",
-        label: "Vendors",
-        icon: Building2,
-        requiredModule: "inventory",
-      },
-
-      /* Raise the order, then receive it against that order. */
-      {
-        label: "Purchase Orders",
-        icon: ShoppingCart,
-        requiredModule: "inventory",
-        children: [
-          {
-            href: "/purchase-orders/new",
-            label: "Create PO",
-            icon: FileText,
-          },
-          {
-            href: "/purchase-orders",
-            label: "View All POs",
-            icon: ClipboardList,
-          },
-        ],
-      },
-
-      {
-        href: "/goods-receipts",
-        label: "Goods Receipts",
-        icon: ClipboardList,
-        requiredModule: "inventory",
-      },
-
-      /* Received goods now sit as stock, with its movements and returns. */
-      {
-        href: "/inventory/master",
-        label: "Inventory Master",
-        icon: Boxes,
-        requiredModule: "inventory",
-      },
-
-      {
-        href: "/assets",
-        label: "Assets",
-        icon: Boxes,
-        requiredModule: "inventory",
-      },
-
-      {
-        href: "/inventory/logs",
-        label: "Inventory Logs",
-        icon: ClipboardList,
-        requiredModule: "inventory",
-      },
-
-      {
-        href: "/item-returns",
-        label: "Item Return",
-        icon: RotateCcw,
-        requiredModule: "inventory",
-      },
-
-      {
-        href: "/inventory",
-        label: "Inventory Intelligence",
-        icon: BarChart3,
-        requiredModule: "inventory",
-      },
-
-      /* Win the work, quote it, dispatch it, bill it, then collect. */
-      {
-        label: "CRM",
-        icon: Target,
-        requiredModule: "sales",
-
-        children: [
-          {
-            href: "/leads",
-            label: "Leads",
-            icon: UserRound,
-          },
-
-          {
-            href: "/opportunities",
-            label: "Opportunities",
-            icon: Handshake,
-          },
-
-          {
-            href: "/pipeline",
-            label: "Pipeline",
-            icon: BarChart3,
-          },
-
-          {
-            href: "/customers",
-            label: "Customers",
-            icon: Users,
-          },
-        ],
-      },
-
-      {
-        label: "Quotations",
-        icon: FileText,
-        requiredModule: "sales",
-        children: [
-          { href: "/quotations/new", label: "Create Quotation", icon: FileText },
-          { href: "/quotations", label: "View Quotations", icon: ClipboardList },
-        ],
-      },
-
-      {
-        label: "Delivery Orders",
-        icon: Truck,
-        requiredModule: "inventory",
-        children: [
-          {
-            href: "/delivery-orders/new",
-            label: "Create New DO",
-            icon: FileText,
-          },
-          {
-            href: "/delivery-orders",
-            label: "View All Orders",
-            icon: ClipboardList,
-          },
-        ],
-      },
-
-      {
-        href: "/invoices",
-        label: "Invoices",
-        icon: ReceiptText,
-        requiredModule: "sales",
-      },
-
-      {
-        href: "/payments",
-        label: "Payments & Recovery",
-        icon: CircleDollarSign,
-        requiredModule: "sales",
-      },
-
-      {
-        href: "/sales-reports",
-        label: "Sales Reports",
-        icon: BarChart3,
-        requiredModule: "sales",
-      },
-    ],
-  },
-
-  /*
-   * Procurement mirrors the legacy section: schedule the tender, watch the
-   * deadlines, then track the bank paper backing the bid.
-   */
-  {
-    title: "Procurement",
-    requiredModule: "inventory",
-
-    items: [
-      {
-        href: "/procurement/tenders",
-        label: "Tender Management",
-        icon: Gavel,
-      },
-
-      {
-        href: "/procurement/tender-calendar",
-        label: "Tender Calendar",
-        icon: CalendarDays,
-      },
-
-      {
-        href: "/procurement/guarantees",
-        label: "BG | PG Guarantee",
-        icon: Landmark,
-      },
-    ],
-  },
-
-  {
-    title: "HR & Operations",
-
-    items: [
-      {
-        href: "/hr/employees",
-        label: "Employee Management",
-        icon: IdCard,
-      },
-      {
-        href: "/hr/employee-list",
-        label: "All Employee List",
-        icon: ClipboardList,
-      },
-      {
-        href: "/hr/clients",
-        label: "Clients Management",
-        icon: Users,
-      },
-      {
-        href: "/hr/holidays",
-        label: "Holiday Management",
-        icon: CalendarDays,
-      },
-      {
-        href: "/hr/support-visits",
-        label: "All Support Visits",
-        icon: MapPinned,
-      },
-      {
-        href: "/hr/company-calendar",
-        label: "Company Calendar",
-        icon: CalendarCheck,
-      },
-      {
-        href: "/hr/attendance",
-        label: "Attendance",
-        icon: Fingerprint,
-      },
-      {
-        href: "/hr/attendance-report",
-        label: "Attendance Report",
-        icon: ClipboardList,
-      },
-      {
-        label: "Memos",
-        icon: StickyNote,
-        children: [
-          {
-            href: "/hr/memos/new",
-            label: "Create Memo",
-            icon: FilePlus,
-          },
-          {
-            href: "/hr/memos",
-            label: "Memo Lists",
-            icon: ClipboardList,
-          },
-        ],
-      },
-      {
-        href: "/hr/leaves",
-        label: "Leave Management",
-        icon: CalendarDays,
-      },
-      {
-        href: "/hr/tada",
-        label: "TADA Management",
-        icon: Wallet,
-      },
-      {
-        href: "/hr/fuel",
-        label: "Fuel Management",
-        icon: Fuel,
-      },
-      {
-        href: "/hr/halls",
-        label: "Meeting Hall Management",
-        icon: Building2,
-      },
-      {
-        href: "/hr/partners",
-        label: "Partner Management",
-        icon: Handshake,
-      },
-    ],
-  },
-
-  {
-    title: "Self Service",
-
-    items: [
-      {
-        href: "/profile",
-        label: "My Profile",
-        icon: UserRound,
-      },
-      {
-        href: "/hr/company-holidays",
-        label: "Company Holidays",
-        icon: CalendarDays,
-      },
-      {
-        href: "/hr/hall-bookings",
-        label: "Book Meeting Hall",
-        icon: Building2,
-      },
-      {
-        href: "/hr/hierarchy",
-        label: "Hierarchy",
-        icon: Network,
-      },
-      {
-        href: "/hr/support-visits/new",
-        label: "Support Visit Form",
-        icon: FileText,
-      },
-      {
-        href: "/hr/my-support-visits",
-        label: "My Support Visits",
-        icon: MapPinned,
-      },
-      {
-        href: "/hr/my-leaves",
-        label: "My Leaves",
-        icon: CalendarDays,
-      },
-      {
-        href: "/hr/field-visits",
-        label: "Field Visits",
-        icon: Car,
-      },
-      {
-        href: "/hr/my-attendance",
-        label: "My Attendance",
-        icon: Fingerprint,
-      },
-      {
-        label: "Expenses",
-        icon: Wallet,
-        children: [
-          {
-            href: "/hr/my-tada",
-            label: "My TA/DA Request",
-            icon: Wallet,
-          },
-          {
-            href: "/hr/my-fuel",
-            label: "My Fuel Records",
-            icon: Fuel,
-          },
-        ],
-      },
-    ],
-  },
-
-  {
-    title: "Administration",
-    requiredModule: "admin",
-
-    items: [
-      {
-        href: "/users",
-        label: "Manage Users",
-        icon: Users,
-      },
-
-      {
-        href: "/settings/company",
-        label: "Company Settings",
-        icon: Settings,
-      },
-
-      {
-        href: "/settings/smtp",
-        label: "SMTP Settings",
-        icon: Mail,
-      },
-
-      {
-        label: "Sales Settings",
-        icon: Gauge,
-        disabled: true,
-      },
-    ],
-  },
-];
-
-function visibleSections(licensedModules: string[]): NavigationSection[] {
+function visibleSections(
+  licensedModules: string[],
+  role: UserRole | null,
+): NavigationSection[] {
   return navigationSections
     .filter(
       (section) =>
-        !section.requiredModule ||
-        licensedModules.includes(section.requiredModule),
+        isLicensed(section.requiredModule, licensedModules) &&
+        isRoleAllowed(section.roles, role),
     )
     .map((section) => ({
       ...section,
-      items: section.items.filter(
-        (item) =>
-          !item.requiredModule || licensedModules.includes(item.requiredModule),
-      ),
+      items: section.items
+        .filter(
+          (item) =>
+            isLicensed(item.requiredModule, licensedModules) &&
+            isRoleAllowed(item.roles, role),
+        )
+        .map((item) => {
+          if (!item.children) {
+            return item;
+          }
+
+          return {
+            ...item,
+            children: item.children.filter(
+              (child) =>
+                isLicensed(child.requiredModule, licensedModules) &&
+                isRoleAllowed(child.roles, role),
+            ),
+          };
+        })
+        .filter((item) => !item.children || item.children.length > 0),
     }))
     .filter((section) => section.items.length > 0);
 }
@@ -523,54 +105,37 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const [license, setLicense] = useState<LicenseSummary | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
 
-  useEffect(() => setLicense(getStoredLicense()), []);
+  useEffect(() => {
+    setLicense(getStoredLicense());
+    setRole(getStoredUser()?.role ?? null);
+
+    function syncSession(): void {
+      setLicense(getStoredLicense());
+      setRole(getStoredUser()?.role ?? null);
+    }
+
+    window.addEventListener(AUTH_USER_CHANGED_EVENT, syncSession);
+    return () =>
+      window.removeEventListener(AUTH_USER_CHANGED_EVENT, syncSession);
+  }, []);
 
   const logoUrl = company?.logoUrl ?? company?.invoiceLogoUrl ?? null;
 
-  const crmActive =
-    pathname.startsWith("/customers") ||
-    pathname.startsWith("/leads") ||
-    pathname.startsWith("/opportunities") ||
-    pathname.startsWith("/pipeline");
-  const purchaseOrdersActive = pathname.startsWith("/purchase-orders");
-  const deliveryOrdersActive = pathname.startsWith("/delivery-orders");
-  const quotationsActive = pathname.startsWith("/quotations");
-  const memosActive = pathname.startsWith("/hr/memos");
-  const expensesActive =
-    pathname.startsWith("/hr/my-tada") || pathname.startsWith("/hr/my-fuel");
-
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
-    {
-      CRM: crmActive,
-      "Purchase Orders": purchaseOrdersActive,
-      "Delivery Orders": deliveryOrdersActive,
-      Quotations: quotationsActive,
-      Memos: memosActive,
-      Expenses: expensesActive,
-    },
+    {},
   );
 
   useEffect(() => {
-    if (crmActive) {
-      setExpandedGroups((current) => ({
-        ...current,
-        CRM: true,
-      }));
+    const open = activeGroupKeys(pathname);
+
+    if (Object.keys(open).length === 0) {
+      return;
     }
-    if (purchaseOrdersActive) {
-      setExpandedGroups((current) => ({
-        ...current,
-        "Purchase Orders": true,
-      }));
-    }
-    if (deliveryOrdersActive) {
-      setExpandedGroups((current) => ({ ...current, "Delivery Orders": true }));
-    }
-    if (quotationsActive) setExpandedGroups((current) => ({ ...current, Quotations: true }));
-    if (memosActive) setExpandedGroups((current) => ({ ...current, Memos: true }));
-    if (expensesActive) setExpandedGroups((current) => ({ ...current, Expenses: true }));
-  }, [crmActive, purchaseOrdersActive, deliveryOrdersActive, quotationsActive, memosActive, expensesActive]);
+
+    setExpandedGroups((current) => ({ ...current, ...open }));
+  }, [pathname]);
 
   function toggleGroup(label: string): void {
     /*
@@ -603,15 +168,7 @@ export function Sidebar({
       return;
     }
 
-    setExpandedGroups((current) => ({
-      ...current,
-      CRM: crmActive,
-      "Purchase Orders": purchaseOrdersActive,
-      "Delivery Orders": deliveryOrdersActive,
-      Quotations: quotationsActive,
-      Memos: memosActive,
-      Expenses: expensesActive,
-    }));
+    setExpandedGroups(activeGroupKeys(pathname));
   }
 
   return (
@@ -686,10 +243,10 @@ export function Sidebar({
           className="sidebar-scrollbar flex-1 overflow-y-auto overflow-x-visible px-2 py-4"
           onMouseLeave={closeDesktopFlyouts}
         >
-          {visibleSections(license?.licensedModules ?? []).map(
+          {visibleSections(license?.licensedModules ?? [], role).map(
             (section, sectionIndex) => (
               <NavigationSectionBlock
-                key={section.title}
+                key={section.id}
                 section={section}
                 sectionIndex={sectionIndex}
                 pathname={pathname}
@@ -700,8 +257,6 @@ export function Sidebar({
               />
             ))}
         </nav>
-
-        <SidebarFooter collapsed={collapsed} license={license} />
       </aside>
     </>
   );
@@ -721,76 +276,38 @@ function SidebarHeader({
 
   onClose: () => void;
 }) {
-  const [logoShape, setLogoShape] = useState<"square" | "wide" | "tall" | null>(
-    null,
-  );
-  const showWideLogo = logoShape === "wide" && !collapsed;
-
-  useEffect(() => {
-    setLogoShape(null);
-  }, [logoUrl]);
-
   return (
     <div
       className={[
-        "flex min-h-20 items-center border-b border-white/5 py-3",
-        collapsed
-          ? "justify-between px-4 lg:justify-center lg:px-2"
-          : "justify-between px-4",
+        "flex min-h-16 items-center border-b border-white/5 px-4 py-3",
+        collapsed ? "lg:justify-center lg:px-2" : "justify-between",
       ].join(" ")}
     >
       <Link
         href="/dashboard"
         onClick={onClose}
-        title={collapsed ? (company?.name ?? "ERP Platform") : undefined}
-        className={[
-          "flex min-w-0",
-          showWideLogo
-            ? "w-full flex-col items-start gap-1"
-            : "items-center gap-3",
-          collapsed ? "lg:justify-center" : "",
-        ].join(" ")}
+        title={collapsed ? "EMS Pro" : undefined}
+        className="min-w-0"
       >
-        <div
-          className={[
-            "flex shrink-0 items-center justify-center overflow-hidden rounded-xl",
-            showWideLogo ? "h-12 w-full max-w-[188px]" : "h-11 w-11",
-            logoUrl ? "bg-white" : "bg-blue-600",
-          ].join(" ")}
-        >
-          {logoUrl ? (
-            <AuthenticatedImage
-              src={logoUrl}
-              alt={`${company?.name ?? "Company"} logo`}
-              className="h-full w-full object-contain p-1"
-              onLoad={(event) => {
-                const { naturalHeight, naturalWidth } = event.currentTarget;
-                if (!naturalWidth || !naturalHeight) return;
-                const ratio = naturalWidth / naturalHeight;
-                setLogoShape(
-                  ratio > 1.25 ? "wide" : ratio < 0.8 ? "tall" : "square",
-                );
-              }}
-            />
-          ) : (
-            <Package size={21} className="text-white" />
-          )}
-        </div>
-
-        <div
-          className={[
-            "min-w-0",
-            showWideLogo ? "hidden" : collapsed ? "lg:hidden" : "",
-          ].join(" ")}
-        >
-          <p className="truncate text-sm font-semibold text-white">
-            {company?.name ?? "ERP Platform"}
+        {logoUrl ? (
+          <AuthenticatedImage
+            src={logoUrl}
+            alt={`${company?.name ?? "Company"} logo`}
+            className={[
+              "object-contain",
+              collapsed ? "h-8 w-8 lg:h-8 lg:w-8" : "max-h-[45px] w-full",
+            ].join(" ")}
+          />
+        ) : (
+          <p
+            className={[
+              "m-0 text-base font-bold text-white",
+              collapsed ? "lg:text-xs" : "",
+            ].join(" ")}
+          >
+            EMS <span className="text-[#3b82f6]">Pro</span>
           </p>
-
-          <p className="mt-0.5 truncate text-[11px] text-slate-400">
-            {company ? `${company.code} workspace` : "Business management"}
-          </p>
-        </div>
+        )}
       </Link>
 
       <button
@@ -829,32 +346,38 @@ function NavigationSectionBlock({
   onNavigate: () => void;
 }) {
   return (
-    <div className={sectionIndex === 0 ? "" : "mt-6"}>
-      <p
-        className={[
-          "mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500",
-          collapsed ? "lg:hidden" : "",
-        ].join(" ")}
-      >
-        {section.title}
-      </p>
+    <div className={sectionIndex === 0 || !section.title ? "" : "mt-6"}>
+      {section.title ? (
+        <p
+          className={[
+            "mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500",
+            collapsed ? "lg:hidden" : "",
+          ].join(" ")}
+        >
+          {section.title}
+        </p>
+      ) : null}
 
       {collapsed && sectionIndex > 0 ? (
         <div className="mx-2 mb-3 hidden border-t border-white/5 lg:block" />
       ) : null}
 
       <div className="space-y-0.5">
-        {section.items.map((item) => (
-          <SidebarItem
-            key={item.label}
-            item={item}
-            pathname={pathname}
-            collapsed={collapsed}
-            expanded={expandedGroups[item.label] ?? false}
-            onToggle={() => onToggleGroup(item.label)}
-            onNavigate={onNavigate}
-          />
-        ))}
+        {section.items.map((item) => {
+          const groupKey = `${section.id}:${item.label}`;
+
+          return (
+            <SidebarItem
+              key={groupKey}
+              item={item}
+              pathname={pathname}
+              collapsed={collapsed}
+              expanded={expandedGroups[groupKey] ?? false}
+              onToggle={() => onToggleGroup(groupKey)}
+              onNavigate={onNavigate}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -967,34 +490,8 @@ function SidebarItem({
     );
   }
 
-  if (item.disabled || !item.href) {
-    return (
-      <div
-        title={item.disabled ? `${item.label} — Coming soon` : item.label}
-        className={[
-          `group flex cursor-not-allowed items-center rounded-md text-slate-500 ${navRowClass}`,
-          collapsed ? "gap-3 px-3 lg:justify-center lg:px-2" : "gap-3 px-3",
-          nested ? "ml-6" : "",
-        ].join(" ")}
-      >
-        <Icon size={collapsed ? 18 : 16} className="shrink-0 text-slate-600" />
-
-        <span
-          className={[
-            "min-w-0 flex-1 truncate",
-            collapsed ? "lg:hidden" : "",
-          ].join(" ")}
-        >
-          {item.label}
-        </span>
-
-        {!collapsed ? (
-          <span className="text-[10px] uppercase tracking-wide text-slate-600 opacity-0 transition group-hover:opacity-100">
-            Soon
-          </span>
-        ) : null}
-      </div>
-    );
+  if (!item.href) {
+    return null;
   }
 
   return (
@@ -1035,50 +532,37 @@ function SidebarItem({
   );
 }
 
-function SidebarFooter({
-  collapsed,
-  license,
-}: {
-  collapsed: boolean;
-  license: LicenseSummary | null;
-}) {
-  return (
-    <div
-      className={[
-        "border-t border-white/5 py-3",
-        collapsed ? "px-2" : "px-4",
-      ].join(" ")}
-    >
-      <div
-        className={[
-          "flex items-center",
-          collapsed ? "justify-center" : "gap-3",
-        ].join(" ")}
-      >
-        <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-semibold text-white ring-1 ring-white/10"
-          title="ERP Platform"
-        >
-          ERP
-        </div>
+const EXACT_ACTIVE_PATHS = new Set([
+  "/inventory",
+  "/purchase-orders",
+  "/delivery-orders",
+  "/quotations",
+  "/proforma-invoices",
+  "/sales-reports",
+  "/hr/memos",
+  "/hr/support-visits",
+]);
 
-        <div className={collapsed ? "hidden" : ""}>
-          <p className="text-[10px] font-medium text-slate-400">ERP Platform</p>
+function activeGroupKeys(pathname: string): Record<string, boolean> {
+  const open: Record<string, boolean> = {};
 
-          <p className="mt-0.5 text-[10px] text-slate-600">v1.0.0</p>
-          {license && license.status !== "valid" ? (
-            <p className="mt-1 text-[10px] uppercase text-amber-400">
-              License: {license.status.replace("_", " ")}
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
+  for (const section of navigationSections) {
+    for (const item of section.items) {
+      const matches = item.children?.some((child) =>
+        child.href ? isPathActive(pathname, child.href) : false,
+      );
+
+      if (matches) {
+        open[`${section.id}:${item.label}`] = true;
+      }
+    }
+  }
+
+  return open;
 }
 
 function isPathActive(pathname: string, href: string): boolean {
-  if (href === "/inventory" || href === "/purchase-orders" || href === "/delivery-orders" || href === "/quotations" || href === "/hr/memos" || href === "/hr/support-visits") {
+  if (EXACT_ACTIVE_PATHS.has(href)) {
     return pathname === href;
   }
 

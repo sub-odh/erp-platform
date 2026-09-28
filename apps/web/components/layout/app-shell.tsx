@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { restoreSession } from "@/lib/api";
-import { AUTH_SESSION_EXPIRED_EVENT } from "@/lib/auth";
+import { AUTH_SESSION_EXPIRED_EVENT, getStoredUser } from "@/lib/auth";
 import { CalendarSystemProvider } from "@/lib/calendar-system";
 import { getCurrentCompany } from "@/lib/company";
 import { useAuthenticatedMediaUrl } from "@/lib/media";
+import { decidePage, type AppRole } from "@/lib/php-role-access";
 import type { Company } from "@/types/company";
 
 import { Sidebar } from "./sidebar";
@@ -24,6 +25,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [company, setCompany] = useState<Company | null>(null);
+
+  const [role, setRole] = useState<AppRole | null>(null);
 
   const [ready, setReady] = useState(false);
 
@@ -49,6 +52,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         routeToLogin();
 
         return;
+      }
+
+      if (active) {
+        setRole((getStoredUser()?.role as AppRole | undefined) ?? null);
       }
 
       try {
@@ -101,10 +108,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
   }
 
-  if (!ready) {
+  const pageAccess = decidePage(pathname, role);
+
+  useEffect(() => {
+    if (!ready || pageAccess.allowed || !pageAccess.redirect) {
+      return;
+    }
+
+    router.replace(pageAccess.redirect);
+  }, [pageAccess.allowed, pageAccess.redirect, ready, router]);
+
+  if (!ready || (!pageAccess.allowed && pageAccess.redirect)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
         <p className="text-sm text-slate-500">Loading workspace...</p>
+      </div>
+    );
+  }
+
+  if (!pageAccess.allowed) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+        <p className="text-sm text-slate-700">Unauthorized</p>
       </div>
     );
   }

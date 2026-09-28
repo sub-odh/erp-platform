@@ -3,9 +3,64 @@ export type DashboardChartPoint = {
   value: number;
 };
 
+export type DashboardSubstitution = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+};
+
+export type DashboardPartner = {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  portalUrl: string | null;
+  websiteUrl: string | null;
+};
+
+export type DashboardVisit = {
+  id: string;
+  employee: string;
+  fullName: string;
+  agenda: string;
+  visitType: string;
+  outTime: string;
+  inTime: string | null;
+  remarks: string | null;
+  mine: boolean;
+  status: string;
+};
+
 export type DashboardOverview = {
+  adminView: boolean;
+  invMonth: string;
+  salesMonth: string;
+  today: string;
+  activeVisitId: string | null;
   leaveBalance: number;
   leavesToday: number;
+  substitutions: DashboardSubstitution[];
+  partners: DashboardPartner[];
+  hasTarget: boolean;
+  monthlyTarget: number;
+  crmWon: number;
+  inventoryAchievement: number;
+  progress: {
+    achieved: number;
+    target: number;
+    remaining: number;
+    percent: number;
+    cappedPercent: number;
+  };
+  yearly: {
+    year: number;
+    achieved: number;
+    target: number;
+    remaining: number;
+    percent: number;
+    startDate: string;
+    endDate: string;
+  };
   availableInventory: number;
   pendingMemos: number;
   totalDue: number;
@@ -16,33 +71,11 @@ export type DashboardOverview = {
     "90d": DashboardChartPoint[];
     "1y": DashboardChartPoint[];
   };
-  fieldVisits: Array<{
-    employee: string;
-    agenda: string;
-    status: string;
-  }>;
-  progress: {
-    month: string;
-    achieved: number;
-    target: number;
-    remaining: number;
-    percent: number;
-  };
-  crmWon: number;
-  inventoryAchievement: {
-    month: string;
-    achieved: number;
-  };
   salesDistribution: {
     month: string;
     points: DashboardChartPoint[];
+    deliveryMonthTotal: number;
   };
   topDebtors: Array<{ name: string; totalDebt: number }>;
-  yearly: {
-    year: number;
-    achieved: number;
-    target: number;
-    remaining: number;
-    percent: number;
-  };
+  fieldVisits: DashboardVisit[];
 };

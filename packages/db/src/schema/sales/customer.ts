@@ -1,6 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
+  integer,
   numeric,
   pgTable,
   timestamp,
@@ -39,6 +41,12 @@ export const salesCustomers = pgTable(
     taxNumber: varchar("tax_number", {
       length: 100,
     }),
+
+    contactPerson: varchar("contact_person", {
+      length: 200,
+    }),
+
+    address: text("address"),
 
     email: varchar("email", {
       length: 320,
@@ -116,6 +124,20 @@ export const salesCustomers = pgTable(
 
     notes: text("notes"),
 
+    logoUrl: varchar("logo_url", {
+      length: 1000,
+    }),
+
+    logoFileName: varchar("logo_file_name", {
+      length: 255,
+    }),
+
+    logoMimeType: varchar("logo_mime_type", {
+      length: 100,
+    }),
+
+    logoSize: integer("logo_size"),
+
     isActive: boolean("is_active").notNull().default(true),
 
     createdBy: uuid("created_by").references(() => users.id, {
@@ -159,6 +181,16 @@ export const salesCustomers = pgTable(
       table.tenantId,
       table.name,
     ),
+
+    tenantNameUnique: uniqueIndex("sales_customers_tenant_name_unique")
+      .on(table.tenantId, sql`lower(${table.name})`)
+      .where(sql`${table.deletedAt} is null`),
+
+    tenantTaxUnique: uniqueIndex("sales_customers_tenant_tax_unique")
+      .on(table.tenantId, sql`lower(${table.taxNumber})`)
+      .where(
+        sql`${table.deletedAt} is null and ${table.taxNumber} is not null`,
+      ),
   }),
 );
 

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { MediaModule } from '../../media/media.module';
+import { UsersModule } from '../../users/users.module';
 import { CustomerContactsController } from './contacts/customer-contacts.controller';
 import { CustomerContactsFacade } from './contacts/customer-contacts.facade';
 import { CustomerContactsRepository } from './contacts/customer-contacts.repository';
@@ -11,6 +13,7 @@ import { CustomersRepository } from './customers.repository';
 import { CustomersService } from './customers.service';
 
 @Module({
+  imports: [MediaModule, UsersModule],
   controllers: [CustomersController, CustomerContactsController],
 
   providers: [

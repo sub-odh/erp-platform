@@ -1,6 +1,13 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
+
+import { decideApi, type AppRole } from '../php-role-access';
 
 import {
   PERMISSIONS_ANY_KEY,
@@ -39,6 +46,20 @@ export class PermissionsGuard implements CanActivate {
 
     if (!request.user) {
       return false;
+    }
+
+    const phpDecision = decideApi(
+      request.method,
+      request.originalUrl || request.url || '',
+      request.user.role as AppRole,
+    );
+
+    if (phpDecision.matched) {
+      if (!phpDecision.allowed) {
+        throw new ForbiddenException('Unauthorized');
+      }
+
+      return true;
     }
 
     if (requiredPermissions?.length) {

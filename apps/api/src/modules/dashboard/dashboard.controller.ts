@@ -1,27 +1,39 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsOptional, Matches } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 import type { Request } from 'express';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { RequireAnyPermissions } from '../auth/decorators/permissions.decorator';
-import { PERMISSIONS } from '../auth/permissions/permission.constants';
 import type { JwtPayload } from '../auth/types/jwt-payload.type';
 import { DashboardService } from './dashboard.service';
 
 class DashboardQueryDto {
   @IsOptional()
-  @Matches(/^\d{4}-\d{2}$/)
-  invMonth?: string;
+  @IsString()
+  inv_month?: string;
 
   @IsOptional()
-  @Matches(/^\d{4}-\d{2}$/)
-  salesMonth?: string;
+  @IsString()
+  sales_month?: string;
+}
+
+class DashboardActionDto {
+  @IsOptional()
+  @IsString()
+  mark_back_id?: string;
 
   @IsOptional()
-  @Matches(/^\d{4}-\d{2}$/)
-  distMonth?: string;
+  @IsString()
+  visit_remarks?: string;
+
+  @IsOptional()
+  @IsString()
+  confirm_sub_id?: string;
+
+  @IsOptional()
+  @IsString()
+  reject_sub_id?: string;
 }
 
 type AuthenticatedRequest = Request & { user: JwtPayload };
@@ -30,14 +42,6 @@ type AuthenticatedRequest = Request & { user: JwtPayload };
 @ApiBearerAuth()
 @Controller({ path: 'dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@RequireAnyPermissions(
-  PERMISSIONS.CRM_ACCESS,
-  PERMISSIONS.INVENTORY_ACCESS,
-  PERMISSIONS.USERS_MANAGE,
-  PERMISSIONS.ORGANIZATION_MANAGE,
-  PERMISSIONS.AUDIT_READ,
-  PERMISSIONS.HR_EMPLOYEES_MANAGE,
-)
 export class DashboardController {
   constructor(private readonly service: DashboardService) {}
 
@@ -46,6 +50,25 @@ export class DashboardController {
     @Req() request: AuthenticatedRequest,
     @Query() query: DashboardQueryDto,
   ) {
-    return this.service.overview(request.user.organizationId, query);
+    return this.service.overview(
+      request.user.organizationId,
+      request.user.sub,
+      request.user.role,
+      query,
+    );
+  }
+
+  @Post('actions')
+  async action(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: DashboardActionDto,
+  ) {
+    await this.service.applyAction(
+      request.user.organizationId,
+      request.user.sub,
+      body,
+    );
+
+    return { ok: true };
   }
 }

@@ -15,6 +15,8 @@ export interface Customer {
 
   legalName: string | null;
   taxNumber: string | null;
+  contactPerson: string | null;
+  address: string | null;
 
   email: string | null;
   phone: string | null;
@@ -38,8 +40,12 @@ export interface Customer {
   paymentTermsDays: number;
 
   notes: string | null;
+  logoUrl: string | null;
+  logoFileName: string | null;
 
   isActive: boolean;
+  activeDue: string;
+  deliveryOrderCount: number;
 
   createdBy: string | null;
   updatedBy: string | null;
@@ -72,11 +78,13 @@ export interface ListCustomersParams {
 }
 
 export interface CreateCustomerRequest {
-  customerCode: string;
+  customerCode?: string;
   name: string;
 
   legalName?: string;
   taxNumber?: string;
+  contactPerson?: string;
+  address?: string;
 
   email?: string;
   phone?: string;
@@ -110,6 +118,8 @@ export interface UpdateCustomerRequest {
 
   legalName?: string;
   taxNumber?: string;
+  contactPerson?: string;
+  address?: string;
 
   email?: string;
   phone?: string;
@@ -135,4 +145,27 @@ export interface UpdateCustomerRequest {
   notes?: string;
 
   isActive?: boolean;
+}
+
+export interface CustomerCsvImportResult {
+  imported: number;
+  skipped: number;
+}
+
+export interface CustomerHistoryOrder {
+  id: string;
+  deliveryNumber: string;
+  deliveryDate: string;
+  totalAmount: string;
+  balanceDue: string;
+  status: string;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+}
+
+export interface CustomerHistoryResponse {
+  customer: Customer;
+  orders: CustomerHistoryOrder[];
+  totalOrders: number;
+  totalDue: string;
 }

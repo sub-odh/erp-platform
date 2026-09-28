@@ -1,6 +1,11 @@
 import type { SalesCustomer } from '@erp/db';
 import type { PaginationMeta } from '../../../../common/pagination';
 
+export interface CustomerDirectoryStats {
+  activeDue: string;
+  deliveryOrderCount: number;
+}
+
 export class CustomerResponseDto {
   id!: string;
   tenantId!: string;
@@ -8,6 +13,8 @@ export class CustomerResponseDto {
   name!: string;
   legalName!: string | null;
   taxNumber!: string | null;
+  contactPerson!: string | null;
+  address!: string | null;
   email!: string | null;
   phone!: string | null;
   website!: string | null;
@@ -29,13 +36,20 @@ export class CustomerResponseDto {
   creditLimit!: string;
   paymentTermsDays!: number;
   notes!: string | null;
+  logoUrl!: string | null;
+  logoFileName!: string | null;
   isActive!: boolean;
+  activeDue!: string;
+  deliveryOrderCount!: number;
   createdBy!: string | null;
   updatedBy!: string | null;
   createdAt!: Date;
   updatedAt!: Date;
 
-  static fromEntity(customer: SalesCustomer): CustomerResponseDto {
+  static fromEntity(
+    customer: SalesCustomer,
+    stats?: CustomerDirectoryStats,
+  ): CustomerResponseDto {
     return {
       id: customer.id,
       tenantId: customer.tenantId,
@@ -43,6 +57,8 @@ export class CustomerResponseDto {
       name: customer.name,
       legalName: customer.legalName,
       taxNumber: customer.taxNumber,
+      contactPerson: customer.contactPerson,
+      address: customer.address,
       email: customer.email,
       phone: customer.phone,
       website: customer.website,
@@ -64,7 +80,11 @@ export class CustomerResponseDto {
       creditLimit: customer.creditLimit,
       paymentTermsDays: Number(customer.paymentTermsDays),
       notes: customer.notes,
+      logoUrl: customer.logoUrl,
+      logoFileName: customer.logoFileName,
       isActive: customer.isActive,
+      activeDue: stats?.activeDue ?? '0.00',
+      deliveryOrderCount: stats?.deliveryOrderCount ?? 0,
       createdBy: customer.createdBy,
       updatedBy: customer.updatedBy,
       createdAt: customer.createdAt,

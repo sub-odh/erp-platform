@@ -1,12 +1,16 @@
 import { apiRequest } from "@/lib/api";
+import { downloadTextFile } from "@/lib/inventory";
 
 import type {
   CreateCustomerRequest,
   Customer,
+  CustomerCsvImportResult,
+  CustomerHistoryResponse,
   ListCustomersParams,
   PaginatedCustomersResponse,
   UpdateCustomerRequest,
 } from "@/types/customer";
+import type { CsvDownload } from "@/types/inventory";
 
 const CUSTOMERS_PATH = "/sales/customers";
 
@@ -40,6 +44,14 @@ export function getCustomer(customerId: string): Promise<Customer> {
   return apiRequest<Customer>(`${CUSTOMERS_PATH}/${customerId}`);
 }
 
+export function getCustomerHistory(
+  customerId: string,
+): Promise<CustomerHistoryResponse> {
+  return apiRequest<CustomerHistoryResponse>(
+    `${CUSTOMERS_PATH}/${customerId}/history`,
+  );
+}
+
 export function createCustomer(
   payload: CreateCustomerRequest,
 ): Promise<Customer> {
@@ -70,4 +82,46 @@ export function updateCustomerStatus(
       isActive,
     }),
   });
+}
+
+export function uploadCustomerLogo(
+  customerId: string,
+  file: File,
+): Promise<Customer> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiRequest<Customer>(`${CUSTOMERS_PATH}/${customerId}/logo`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function deleteCustomer(
+  customerId: string,
+  password: string,
+): Promise<{ success: true }> {
+  return apiRequest<{ success: true }>(`${CUSTOMERS_PATH}/${customerId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function importCustomersCsv(
+  file: File,
+): Promise<CustomerCsvImportResult> {
+  const body = new FormData();
+  body.append("file", file);
+  return apiRequest<CustomerCsvImportResult>(`${CUSTOMERS_PATH}/import`, {
+    method: "POST",
+    body,
+  });
+}
+
+export function getCustomerCsvTemplate(): Promise<CsvDownload> {
+  return apiRequest<CsvDownload>(`${CUSTOMERS_PATH}/csv-template`);
+}
+
+export async function downloadCustomerCsvTemplate(): Promise<void> {
+  downloadTextFile(await getCustomerCsvTemplate());
 }

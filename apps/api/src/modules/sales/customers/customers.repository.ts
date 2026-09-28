@@ -13,6 +13,9 @@ import {
 
 import {
   db,
+  financeInvoices,
+  operationsDeliveryOrderItems,
+  operationsDeliveryOrders,
   salesCustomers,
   type NewSalesCustomer,
   type SalesCustomer,
@@ -47,6 +50,8 @@ export interface CreateCustomerRepositoryInput {
   name: string;
   legalName?: string;
   taxNumber?: string;
+  contactPerson?: string;
+  address?: string;
   email?: string;
   phone?: string;
   website?: string;
@@ -71,11 +76,29 @@ export interface CreateCustomerRepositoryInput {
   isActive?: boolean;
 }
 
+export interface CustomerDirectoryStats {
+  activeDue: string;
+  deliveryOrderCount: number;
+}
+
+export interface CustomerHistoryOrderRow {
+  id: string;
+  deliveryNumber: string;
+  deliveryDate: string;
+  totalAmount: string;
+  balanceDue: string;
+  status: string;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+}
+
 export interface UpdateCustomerRepositoryInput {
   customerCode?: string;
   name?: string;
   legalName?: string | null;
   taxNumber?: string | null;
+  contactPerson?: string | null;
+  address?: string | null;
   email?: string | null;
   phone?: string | null;
   website?: string | null;
@@ -98,6 +121,10 @@ export interface UpdateCustomerRepositoryInput {
   paymentTermsDays?: number;
   notes?: string | null;
   isActive?: boolean;
+  logoUrl?: string | null;
+  logoFileName?: string | null;
+  logoMimeType?: string | null;
+  logoSize?: number | null;
 }
 
 @Injectable()
@@ -178,6 +205,229 @@ export class CustomersRepository {
     return customer;
   }
 
+  async findByName(
+    tenantId: string,
+    name: string,
+    excludingId?: string,
+  ): Promise<SalesCustomer | undefined> {
+    const conditions: SQL[] = [
+      eq(salesCustomers.tenantId, tenantId),
+      isNull(salesCustomers.deletedAt),
+      sql`lower(${salesCustomers.name}) = ${name.trim().toLowerCase()}`,
+    ];
+
+    if (excludingId) {
+      conditions.push(sql`${salesCustomers.id} <> ${excludingId}`);
+    }
+
+    const [customer] = await db
+      .select()
+      .from(salesCustomers)
+      .where(and(...conditions))
+      .limit(1);
+
+    return customer;
+  }
+
+  async findByTaxNumber(
+    tenantId: string,
+    taxNumber: string,
+    excludingId?: string,
+  ): Promise<SalesCustomer | undefined> {
+    const conditions: SQL[] = [
+      eq(salesCustomers.tenantId, tenantId),
+      isNull(salesCustomers.deletedAt),
+      sql`lower(${salesCustomers.taxNumber}) = ${taxNumber.trim().toLowerCase()}`,
+    ];
+
+    if (excludingId) {
+      conditions.push(sql`${salesCustomers.id} <> ${excludingId}`);
+    }
+
+    const [customer] = await db
+      .select()
+      .from(salesCustomers)
+      .where(and(...conditions))
+      .limit(1);
+
+    return customer;
+  }
+
+  async nextCustomerCode(tenantId: string): Promise<string> {
+    const [row] = await db
+      .select({
+        maxSeq: sql<number>`coalesce(max(nullif(regexp_replace(${salesCustomers.customerCode}, '\\D', '', 'g'), '')::int), 0)::int`,
+      })
+      .from(salesCustomers)
+      .where(
+        and(
+          eq(salesCustomers.tenantId, tenantId),
+          sql`${salesCustomers.customerCode} ~ '^CLI-[0-9]+$'`,
+        ),
+      );
+
+    return `CLI-${String((row?.maxSeq ?? 0) + 1).padStart(4, '0')}`;
+  }
+
+  async loadDirectoryStats(
+    tenantId: string,
+  ): Promise<Map<string, CustomerDirectoryStats>> {
+    const [dues, counts] = await Promise.all([
+      db
+        .select({
+          nameKey: sql<string>`lower(${financeInvoices.customerName})`,
+          outstanding: sql<string>`coalesce(sum(case when ${financeInvoices.status}::text in ('UNPAID', 'PARTIAL') then (${financeInvoices.totalAmount}::numeric - ${financeInvoices.paidAmount}::numeric) else 0 end), 0)::numeric`,
+        })
+        .from(financeInvoices)
+        .where(eq(financeInvoices.tenantId, tenantId))
+        .groupBy(sql`lower(${financeInvoices.customerName})`),
+      db
+        .select({
+          nameKey: sql<string>`lower(${operationsDeliveryOrders.customerName})`,
+          total: sql<number>`count(*)::int`,
+        })
+        .from(operationsDeliveryOrders)
+        .where(eq(operationsDeliveryOrders.tenantId, tenantId))
+        .groupBy(sql`lower(${operationsDeliveryOrders.customerName})`),
+    ]);
+
+    const stats = new Map<string, CustomerDirectoryStats>();
+
+    for (const row of dues) {
+      stats.set(row.nameKey, {
+        activeDue: row.outstanding,
+        deliveryOrderCount: 0,
+      });
+    }
+
+    for (const row of counts) {
+      const current = stats.get(row.nameKey) ?? {
+        activeDue: '0.00',
+        deliveryOrderCount: 0,
+      };
+      current.deliveryOrderCount = row.total;
+      stats.set(row.nameKey, current);
+    }
+
+    return stats;
+  }
+
+  statsFor(
+    customer: SalesCustomer,
+    stats: Map<string, CustomerDirectoryStats>,
+  ): CustomerDirectoryStats {
+    return (
+      stats.get(customer.name.trim().toLowerCase()) ?? {
+        activeDue: '0.00',
+        deliveryOrderCount: 0,
+      }
+    );
+  }
+
+  async listHistory(
+    tenantId: string,
+    customerName: string,
+  ): Promise<CustomerHistoryOrderRow[]> {
+    const nameKey = customerName.trim().toLowerCase();
+
+    const rows = await db
+      .select({
+        id: operationsDeliveryOrders.id,
+        deliveryNumber: operationsDeliveryOrders.deliveryNumber,
+        deliveryDate: operationsDeliveryOrders.deliveryDate,
+        totalAmount: sql<string>`coalesce(sum(${operationsDeliveryOrderItems.quantity} * ${operationsDeliveryOrderItems.unitPrice}), 0)::numeric`,
+        paidAmount: sql<string>`coalesce(${financeInvoices.paidAmount}, 0)::numeric`,
+        invoiceTotal: sql<string>`coalesce(${financeInvoices.totalAmount}, 0)::numeric`,
+        invoiceStatus: financeInvoices.status,
+        invoiceId: financeInvoices.id,
+        invoiceNumber: financeInvoices.invoiceNumber,
+      })
+      .from(operationsDeliveryOrders)
+      .leftJoin(
+        operationsDeliveryOrderItems,
+        eq(
+          operationsDeliveryOrderItems.deliveryOrderId,
+          operationsDeliveryOrders.id,
+        ),
+      )
+      .leftJoin(
+        financeInvoices,
+        eq(financeInvoices.deliveryOrderId, operationsDeliveryOrders.id),
+      )
+      .where(
+        and(
+          eq(operationsDeliveryOrders.tenantId, tenantId),
+          sql`lower(${operationsDeliveryOrders.customerName}) = ${nameKey}`,
+        ),
+      )
+      .groupBy(
+        operationsDeliveryOrders.id,
+        financeInvoices.id,
+        financeInvoices.status,
+        financeInvoices.paidAmount,
+        financeInvoices.totalAmount,
+        financeInvoices.invoiceNumber,
+      )
+      .orderBy(
+        desc(operationsDeliveryOrders.deliveryDate),
+        desc(operationsDeliveryOrders.createdAt),
+      );
+
+    return rows.map((row) => {
+      const invoiceTotal = Number(row.invoiceTotal);
+      const orderTotal = Number(row.totalAmount);
+      const totalAmount = invoiceTotal > 0 ? invoiceTotal : orderTotal;
+      const paidAmount = Number(row.paidAmount);
+      const balanceDue = Math.max(totalAmount - paidAmount, 0);
+      let status = 'Pending';
+
+      if (row.invoiceStatus === 'PAID' || (row.invoiceId && balanceDue <= 0)) {
+        status = 'Paid';
+      } else if (row.invoiceStatus === 'PARTIAL') {
+        status = 'Partial';
+      } else if (row.invoiceStatus === 'UNPAID') {
+        status = 'Unpaid';
+      } else if (row.invoiceStatus === 'VOID') {
+        status = 'Voided';
+      }
+
+      return {
+        id: row.id,
+        deliveryNumber: row.deliveryNumber,
+        deliveryDate: row.deliveryDate,
+        totalAmount: totalAmount.toFixed(2),
+        balanceDue: balanceDue.toFixed(2),
+        status,
+        invoiceId: row.invoiceId,
+        invoiceNumber: row.invoiceNumber,
+      };
+    });
+  }
+
+  async softDelete(
+    tenantId: string,
+    customerId: string,
+    actorUserId: string,
+  ): Promise<SalesCustomer | undefined> {
+    const [deleted] = await db
+      .update(salesCustomers)
+      .set({
+        deletedAt: new Date(),
+        updatedBy: actorUserId,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(salesCustomers.id, customerId),
+          eq(salesCustomers.tenantId, tenantId),
+          isNull(salesCustomers.deletedAt),
+        ),
+      )
+      .returning();
+
+    return deleted;
+  }
+
   async create(input: CreateCustomerRepositoryInput): Promise<SalesCustomer> {
     const values: NewSalesCustomer = {
       tenantId: input.tenantId,
@@ -185,11 +435,13 @@ export class CustomersRepository {
       name: input.name,
       legalName: input.legalName,
       taxNumber: input.taxNumber,
+      contactPerson: input.contactPerson,
+      address: input.address,
       email: input.email,
       phone: input.phone,
       website: input.website,
 
-      billingAddressLine1: input.billingAddressLine1,
+      billingAddressLine1: input.billingAddressLine1 ?? input.address,
       billingAddressLine2: input.billingAddressLine2,
       billingCity: input.billingCity,
       billingState: input.billingState,
@@ -299,6 +551,7 @@ export class CustomersRepository {
         ilike(salesCustomers.email, pattern),
         ilike(salesCustomers.phone, pattern),
         ilike(salesCustomers.taxNumber, pattern),
+        ilike(salesCustomers.contactPerson, pattern),
       );
 
       if (searchCondition) {
@@ -349,6 +602,17 @@ export class CustomersRepository {
 
     if (input.taxNumber !== undefined) {
       values.taxNumber = input.taxNumber;
+    }
+
+    if (input.contactPerson !== undefined) {
+      values.contactPerson = input.contactPerson;
+    }
+
+    if (input.address !== undefined) {
+      values.address = input.address;
+      if (input.billingAddressLine1 === undefined) {
+        values.billingAddressLine1 = input.address;
+      }
     }
 
     if (input.email !== undefined) {
@@ -425,6 +689,22 @@ export class CustomersRepository {
 
     if (input.isActive !== undefined) {
       values.isActive = input.isActive;
+    }
+
+    if (input.logoUrl !== undefined) {
+      values.logoUrl = input.logoUrl;
+    }
+
+    if (input.logoFileName !== undefined) {
+      values.logoFileName = input.logoFileName;
+    }
+
+    if (input.logoMimeType !== undefined) {
+      values.logoMimeType = input.logoMimeType;
+    }
+
+    if (input.logoSize !== undefined) {
+      values.logoSize = input.logoSize;
     }
 
     return values;
