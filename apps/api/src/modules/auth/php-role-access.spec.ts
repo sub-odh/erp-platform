@@ -5,7 +5,18 @@ import { PERMISSIONS_KEY } from './decorators/permissions.decorator';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { PERMISSIONS } from './permissions/permission.constants';
 import { PermissionsService } from './permissions/permissions.service';
-import { decideApi, decidePage, MENU_ROLE_ADMIN } from './php-role-access';
+import {
+  decideApi,
+  decidePage,
+  MENU_ROLE_ADMIN,
+  type AppRole,
+} from './php-role-access';
+
+function apiAllowed(method: string, path: string, role: AppRole): boolean {
+  const decision = decideApi(method, path, role);
+
+  return decision.matched && decision.allowed;
+}
 
 function createContext(input: {
   role: string;
@@ -93,9 +104,7 @@ describe('PHP role access', () => {
 
     expect(decidePage('/users', 'EMPLOYEE').allowed).toBe(false);
     expect(decidePage('/users', 'EMPLOYEE').redirect).toBe('/dashboard');
-    expect(decideApi('GET', '/api/v1/audit-logs', 'SALES').allowed).toBe(true);
-    expect(decideApi('GET', '/api/v1/audit-logs', 'EMPLOYEE').allowed).toBe(
-      false,
-    );
+    expect(apiAllowed('GET', '/api/v1/audit-logs', 'SALES')).toBe(true);
+    expect(apiAllowed('GET', '/api/v1/audit-logs', 'EMPLOYEE')).toBe(false);
   });
 });
