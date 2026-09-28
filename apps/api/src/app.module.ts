@@ -28,7 +28,6 @@ import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-s
 import { InventoryModule } from './modules/operations/inventory/inventory.module';
 import { MasterDataModule } from './modules/operations/master-data/master-data.module';
 import { PurchaseOrdersModule } from './modules/operations/purchase-orders/purchase-orders.module';
-import { GoodsReceiptsModule } from './modules/operations/goods-receipts/goods-receipts.module';
 import { DeliveryOrdersModule } from './modules/operations/delivery-orders/delivery-orders.module';
 import { ItemReturnsModule } from './modules/operations/item-returns/item-returns.module';
 import { InvoicesModule } from './modules/finance/invoices/invoices.module';
@@ -126,8 +125,6 @@ import { VisitsModule } from './modules/hr/visits/visits.module';
     MasterDataModule,
 
     PurchaseOrdersModule,
-
-    GoodsReceiptsModule,
 
     DeliveryOrdersModule,
 
