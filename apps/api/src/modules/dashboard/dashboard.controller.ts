@@ -3,8 +3,10 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 import type { Request } from 'express';
 
+import { RequireAnyPermissions } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PERMISSIONS } from '../auth/permissions/permission.constants';
 import type { JwtPayload } from '../auth/types/jwt-payload.type';
 import { DashboardService } from './dashboard.service';
 
@@ -42,6 +44,13 @@ type AuthenticatedRequest = Request & { user: JwtPayload };
 @ApiBearerAuth()
 @Controller({ path: 'dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequireAnyPermissions(
+  PERMISSIONS.CRM_ACCESS,
+  PERMISSIONS.INVENTORY_ACCESS,
+  PERMISSIONS.USERS_MANAGE,
+  PERMISSIONS.ORGANIZATION_MANAGE,
+  PERMISSIONS.AUDIT_READ,
+)
 export class DashboardController {
   constructor(private readonly service: DashboardService) {}
 

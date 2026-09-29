@@ -89,7 +89,9 @@ export default function DashboardPage() {
     } catch (cause) {
       setError(
         cause instanceof ApiError
-          ? cause.message
+          ? cause.status === 403
+            ? "You do not have permission to view the dashboard."
+            : cause.message
           : "Unable to load the dashboard.",
       );
     } finally {
