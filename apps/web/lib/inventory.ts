@@ -15,6 +15,7 @@ function queryString(params: InventoryListParams): string {
   const searchParams = new URLSearchParams();
   if (params.search?.trim()) searchParams.set("search", params.search.trim());
   if (params.status) searchParams.set("status", params.status);
+  if (params.group) searchParams.set("group", params.group);
   if (params.vendor?.trim()) searchParams.set("vendor", params.vendor.trim());
   searchParams.set("page", String(params.page ?? 1));
   searchParams.set("limit", String(params.limit ?? 20));
@@ -58,6 +59,19 @@ export function archiveInventoryAsset(assetId: string): Promise<void> {
   return apiRequest<void>(`${INVENTORY_PATH}/assets/${assetId}`, {
     method: "DELETE",
   });
+}
+
+export function secureDeleteInventoryAsset(
+  assetId: string,
+  password: string,
+): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>(
+    `${INVENTORY_PATH}/assets/${assetId}/secure-delete`,
+    {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    },
+  );
 }
 
 export function importInventoryCsv(file: File): Promise<{ imported: number }> {

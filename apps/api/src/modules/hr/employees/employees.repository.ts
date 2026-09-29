@@ -4,9 +4,12 @@ import {
   asc,
   desc,
   eq,
+  gte,
   ilike,
+  inArray,
   isNotNull,
   isNull,
+  lte,
   ne,
   or,
   sql,
@@ -17,6 +20,12 @@ import {
   companyEmployeeRoles,
   db,
   hrEmployees,
+  hrLeaveRequests,
+  notifications,
+  operationsDeliveryOrderItems,
+  operationsDeliveryOrders,
+  salesLeads,
+  salesOpportunities,
   users,
   type HrEmployee,
   type NewHrEmployee,
@@ -452,6 +461,189 @@ export class EmployeesRepository {
       .returning();
 
     return row ?? null;
+  }
+
+  async findByWorkEmail(tenantId: string, email: string, exceptId?: string) {
+    const conditions: SQL[] = [
+      eq(hrEmployees.tenantId, tenantId),
+      sql`lower(${hrEmployees.workEmail}) = ${email.toLowerCase()}`,
+    ];
+
+    if (exceptId) {
+      conditions.push(ne(hrEmployees.id, exceptId));
+    }
+
+    const [row] = await db
+      .select({ id: hrEmployees.id })
+      .from(hrEmployees)
+      .where(and(...conditions))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  searchActive(tenantId: string, query: string) {
+    const pattern = `%${query.trim()}%`;
+
+    return db
+      .select({
+        id: hrEmployees.id,
+        first_name: hrEmployees.firstName,
+        last_name: hrEmployees.lastName,
+      })
+      .from(hrEmployees)
+      .where(
+        and(
+          eq(hrEmployees.tenantId, tenantId),
+          eq(hrEmployees.status, 'ACTIVE'),
+          or(
+            ilike(hrEmployees.firstName, pattern),
+            ilike(hrEmployees.lastName, pattern),
+          ),
+        ),
+      )
+      .limit(5);
+  }
+
+  async hardDelete(tenantId: string, employeeId: string, userId: string | null) {
+    await db.transaction(async (tx) => {
+      if (userId) {
+        await tx
+          .delete(notifications)
+          .where(eq(notifications.recipientUserId, userId));
+      }
+
+      await tx
+        .delete(hrLeaveRequests)
+        .where(
+          and(
+            eq(hrLeaveRequests.tenantId, tenantId),
+            eq(hrLeaveRequests.employeeId, employeeId),
+          ),
+        );
+
+      await tx
+        .delete(hrEmployees)
+        .where(
+          and(eq(hrEmployees.tenantId, tenantId), eq(hrEmployees.id, employeeId)),
+        );
+    });
+  }
+
+  async bulkDelete(tenantId: string, ids: string[]) {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(hrEmployees)
+        .set({ managerId: null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(hrEmployees.tenantId, tenantId),
+            inArray(hrEmployees.managerId, ids),
+          ),
+        );
+
+      await tx
+        .delete(hrEmployees)
+        .where(
+          and(eq(hrEmployees.tenantId, tenantId), inArray(hrEmployees.id, ids)),
+        );
+    });
+  }
+
+  async crmDeals(
+    tenantId: string,
+    ownerUserId: string,
+    start: Date,
+    end: Date,
+  ) {
+    return db
+      .select({
+        deal_value: salesOpportunities.amount,
+        updated_at: salesOpportunities.updatedAt,
+        remarks: salesOpportunities.description,
+        company_name: salesLeads.companyName,
+        contact_person: sql<string>`concat(${salesLeads.firstName}, ' ', ${salesLeads.lastName})`,
+      })
+      .from(salesOpportunities)
+      .innerJoin(salesLeads, eq(salesLeads.id, salesOpportunities.leadId))
+      .where(
+        and(
+          eq(salesOpportunities.tenantId, tenantId),
+          eq(salesLeads.ownerUserId, ownerUserId),
+          eq(salesOpportunities.status, 'WON'),
+          gte(salesOpportunities.updatedAt, start),
+          lte(salesOpportunities.updatedAt, end),
+        ),
+      )
+      .orderBy(desc(salesOpportunities.updatedAt));
+  }
+
+  async employeeSales(tenantId: string, userId: string, start: string, end: string) {
+    const rows = await db
+      .select({
+        id: operationsDeliveryOrders.id,
+        invoice_date: operationsDeliveryOrders.deliveryDate,
+        client_name: operationsDeliveryOrders.customerName,
+        do_number: operationsDeliveryOrders.deliveryNumber,
+        products: sql<string | null>`string_agg(concat(${operationsDeliveryOrderItems.itemName}, ' (', ${operationsDeliveryOrderItems.quantity}, ')'), '<br>')`,
+        grand_total: sql<string>`coalesce(sum(${operationsDeliveryOrderItems.quantity} * ${operationsDeliveryOrderItems.unitPrice}), 0)`,
+      })
+      .from(operationsDeliveryOrders)
+      .leftJoin(
+        operationsDeliveryOrderItems,
+        eq(
+          operationsDeliveryOrderItems.deliveryOrderId,
+          operationsDeliveryOrders.id,
+        ),
+      )
+      .where(
+        and(
+          eq(operationsDeliveryOrders.tenantId, tenantId),
+          eq(operationsDeliveryOrders.deliveredBy, userId),
+          gte(operationsDeliveryOrders.deliveryDate, start),
+          lte(operationsDeliveryOrders.deliveryDate, end),
+        ),
+      )
+      .groupBy(
+        operationsDeliveryOrders.id,
+        operationsDeliveryOrders.deliveryDate,
+        operationsDeliveryOrders.customerName,
+        operationsDeliveryOrders.deliveryNumber,
+      )
+      .orderBy(desc(operationsDeliveryOrders.deliveryDate));
+
+    return rows;
+  }
+
+  async reassignLead(tenantId: string, leadId: string, ownerUserId: string | null) {
+    const [updated] = await db
+      .update(salesLeads)
+      .set({ ownerUserId, updatedAt: new Date() })
+      .where(and(eq(salesLeads.tenantId, tenantId), eq(salesLeads.id, leadId)))
+      .returning({ id: salesLeads.id });
+
+    return updated ?? null;
+  }
+
+  async leadsForOwner(tenantId: string, ownerUserId: string) {
+    return db
+      .select({
+        id: salesLeads.id,
+        company_name: salesLeads.companyName,
+        contact_person: sql<string>`concat(${salesLeads.firstName}, ' ', ${salesLeads.lastName})`,
+        email: salesLeads.email,
+        phone: salesLeads.phone,
+        status: salesLeads.status,
+        assigned_to: salesLeads.ownerUserId,
+      })
+      .from(salesLeads)
+      .where(
+        and(
+          eq(salesLeads.tenantId, tenantId),
+          eq(salesLeads.ownerUserId, ownerUserId),
+        ),
+      )
+      .orderBy(desc(salesLeads.id));
   }
 
   private listConditions(input: ListEmployeesInput): SQL[] {

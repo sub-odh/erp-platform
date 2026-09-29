@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { rolesForPhpIds } from '../auth/php-role-access';
+import { rolesForPhpIds } from '../auth/role-access';
 import { DashboardRepository } from './dashboard.repository';
 import {
   cappedPercent,

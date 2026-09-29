@@ -11,7 +11,6 @@ import { getEmployeeLookups, getEmployees } from "@/lib/employees";
 import type {
   Employee,
   EmployeeListCounts,
-  EmployeeListStatus,
   EmployeeLookups,
 } from "@/types/employee";
 
@@ -29,7 +28,6 @@ export default function EmployeeListPage() {
   const [selected, setSelected] = useState<Employee | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [status, setStatus] = useState<EmployeeListStatus>("active");
   const [department, setDepartment] = useState("");
   const [designation, setDesignation] = useState("");
   const [page, setPage] = useState(1);
@@ -45,12 +43,12 @@ export default function EmployeeListPage() {
 
     try {
       const result = await getEmployees({
-        status,
         search: searchQuery || undefined,
         department: department || undefined,
         designation: designation || undefined,
+        status: "active",
         page,
-        limit: 20,
+        limit: 500,
         sortBy: "firstName",
         sortDirection: "asc",
       });
@@ -68,7 +66,7 @@ export default function EmployeeListPage() {
     } finally {
       setLoading(false);
     }
-  }, [department, designation, page, searchQuery, status]);
+  }, [department, designation, page, searchQuery]);
 
   useEffect(() => {
     void getEmployeeLookups()
@@ -107,36 +105,6 @@ export default function EmployeeListPage() {
           <Users size={15} />
           {counts.total} Total Members
         </span>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <StatusTab
-          active={status === "active"}
-          label="Active"
-          count={counts.active}
-          onClick={() => {
-            setStatus("active");
-            setPage(1);
-          }}
-        />
-        <StatusTab
-          active={status === "inactive"}
-          label="Inactive"
-          count={counts.inactive}
-          onClick={() => {
-            setStatus("inactive");
-            setPage(1);
-          }}
-        />
-        <StatusTab
-          active={status === "all"}
-          label="All"
-          count={counts.total}
-          onClick={() => {
-            setStatus("all");
-            setPage(1);
-          }}
-        />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -256,40 +224,5 @@ export default function EmployeeListPage() {
         onEdit={(employee) => router.push(`/hr/employees/${employee.id}/edit`)}
       />
     </div>
-  );
-}
-
-function StatusTab({
-  active,
-  label,
-  count,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  count: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition",
-        active
-          ? "bg-blue-600 text-white"
-          : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
-      ].join(" ")}
-    >
-      {label}
-      <span
-        className={[
-          "rounded-full px-2 py-0.5 text-xs",
-          active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600",
-        ].join(" ")}
-      >
-        {count}
-      </span>
-    </button>
   );
 }

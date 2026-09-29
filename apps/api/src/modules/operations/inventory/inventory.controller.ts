@@ -27,6 +27,7 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PERMISSIONS } from '../../auth/permissions/permission.constants';
 import type { JwtPayload } from '../../auth/types/jwt-payload.type';
 import { CreateInventoryAssetDto } from './dto/create-inventory-asset.dto';
+import { SecureDeleteInventoryDto } from './dto/secure-delete-inventory.dto';
 import { ListInventoryAssetsQueryDto } from './dto/list-inventory-assets-query.dto';
 import { ListInventoryMovementsQueryDto } from './dto/list-inventory-movements-query.dto';
 import { UpdateInventoryAssetDto } from './dto/update-inventory-asset.dto';
@@ -119,6 +120,21 @@ export class InventoryController {
       assetId,
       request.user.sub,
       dto,
+    );
+  }
+
+  @Post('assets/:assetId/secure-delete')
+  @HttpCode(HttpStatus.OK)
+  secureDeleteAsset(
+    @Req() request: AuthenticatedRequest,
+    @Param('assetId', new ParseUUIDPipe()) assetId: string,
+    @Body() dto: SecureDeleteInventoryDto,
+  ) {
+    return this.inventoryService.secureDelete(
+      request.user.organizationId,
+      assetId,
+      request.user.sub,
+      dto.password,
     );
   }
 

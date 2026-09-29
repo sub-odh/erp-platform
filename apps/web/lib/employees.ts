@@ -66,9 +66,27 @@ export function updateEmployee(employeeId: string, payload: EmployeeInput) {
 }
 
 export function deactivateEmployee(employeeId: string) {
-  return apiRequest<Employee>(`/hr/employees/${employeeId}/deactivate`, {
+  return apiRequest<{ message: string }>(
+    `/hr/employees/${employeeId}/deactivate`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export function bulkDeleteEmployees(ids: string[]) {
+  return apiRequest<{ message: string }>("/hr/employees/bulk-delete", {
     method: "POST",
+    body: JSON.stringify({ ids }),
   });
+}
+
+export function searchEmployees(query: string) {
+  const params = new URLSearchParams({ query });
+
+  return apiRequest<
+    Array<{ id: string; first_name: string; last_name: string }>
+  >(`/hr/employees/search?${params.toString()}`);
 }
 
 export function restoreEmployee(employeeId: string) {

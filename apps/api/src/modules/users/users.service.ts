@@ -122,16 +122,12 @@ function canAssignRole(
   actorRole: User['role'],
   targetRole: AssignableUserRole,
 ): boolean {
-  if (actorRole === 'OWNER') {
+  if (
+    actorRole === 'OWNER' ||
+    actorRole === 'SUPER_ADMIN' ||
+    actorRole === 'ADMIN'
+  ) {
     return true;
-  }
-
-  if (actorRole === 'SUPER_ADMIN') {
-    return targetRole !== 'SUPER_ADMIN';
-  }
-
-  if (actorRole === 'ADMIN') {
-    return targetRole !== 'SUPER_ADMIN' && targetRole !== 'ADMIN';
   }
 
   if (actorRole === 'HR') {
@@ -381,7 +377,7 @@ export class UsersService {
       );
     }
 
-    const passwordHash = await hash(createUserDto.password, 12);
+    const passwordHash = await hash(createUserDto.password, 10);
 
     try {
       const [createdUser] = await db
@@ -837,10 +833,12 @@ export class UsersService {
     actorRole: User['role'],
     targetUserId: string,
   ): Promise<void> {
-    if (actorRole !== 'OWNER') {
-      throw new ForbiddenException(
-        'Only the company owner can permanently delete users',
-      );
+    if (
+      actorRole !== 'OWNER' &&
+      actorRole !== 'SUPER_ADMIN' &&
+      actorRole !== 'ADMIN'
+    ) {
+      throw new ForbiddenException('Unauthorized');
     }
 
     if (actorUserId === targetUserId) {

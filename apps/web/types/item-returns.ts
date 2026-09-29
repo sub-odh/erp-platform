@@ -17,6 +17,22 @@ export interface ReturnableAsset {
   clientName: string | null;
 }
 
+export interface ReturnLookupItem {
+  lineId: string;
+  id: string;
+  itemName: string;
+  statusLabel: string;
+  serialNumber: string | null;
+  quantity: number;
+  deliveryNumber: string;
+  customerName: string;
+  deliveryDate: string;
+  daysOld: number;
+  policyDays: number;
+  expired: boolean;
+  processed: boolean;
+}
+
 export interface CreateItemReturnInput {
   assetId: string;
   returnDate: string;

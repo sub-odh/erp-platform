@@ -42,7 +42,7 @@ function normalizeCode(value: unknown): unknown {
     return value;
   }
 
-  return value.trim().toUpperCase();
+  return value.trim();
 }
 
 function normalizeEmail(value: unknown): unknown {
@@ -276,4 +276,13 @@ export class CreateEmployeeDto {
   @IsOptional()
   @IsDateString()
   targetEndDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  compressedPhoto?: string;
 }

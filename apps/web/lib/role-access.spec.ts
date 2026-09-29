@@ -9,7 +9,7 @@ import {
   visibleMenu,
   visibleMenuLabels,
   type AppRole,
-} from "./php-role-access";
+} from "./role-access";
 
 const ROLES = [
   "OWNER",
@@ -215,4 +215,4 @@ assert.equal(decideApi("GET", "/api/v1/company/current", "EMPLOYEE").matched, fa
 assert.ok(PAGE_RULES.length > 0);
 assert.ok(API_RULES.length > 0);
 
-console.log("php-role-access.spec.ts passed");
+console.log("role-access.spec.ts passed");

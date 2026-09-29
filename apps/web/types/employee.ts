@@ -172,4 +172,6 @@ export type EmployeeInput = {
   yearlySalesTarget?: number | null;
   targetStartDate?: string | null;
   targetEndDate?: string | null;
+  password?: string;
+  compressedPhoto?: string;
 };

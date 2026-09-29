@@ -28,9 +28,9 @@ export const inventoryMovements = pgTable(
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    assetId: uuid("asset_id")
-      .notNull()
-      .references(() => inventoryAssets.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").references(() => inventoryAssets.id, {
+      onDelete: "set null",
+    }),
     type: inventoryMovementTypeEnum("type").notNull(),
     quantityDelta: integer("quantity_delta").notNull(),
     stockQuantityAfter: integer("stock_quantity_after").notNull(),

@@ -1,11 +1,32 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 
-import { CreateItemReturnDto } from './dto/item-return.dto';
+import {
+  CreateItemReturnDto,
+  LookupItemReturnQueryDto,
+  ProcessItemReturnsDto,
+} from './dto/item-return.dto';
 import { ItemReturnsRepository } from './item-returns.repository';
+
+const RETURN_POLICY_DAYS = 365;
+const PROCESSED_STATUSES = new Set(['RETURNED', 'DAMAGED', 'RMA']);
+
+const STATUS_LABELS: Record<string, string> = {
+  IN_STOCK: 'Available',
+  AVAILABLE: 'Available',
+  RETURNED: 'Returned',
+  SOLD: 'Sold',
+  DELIVERED: 'Delivered',
+  DAMAGED: 'Damaged',
+  RMA: 'Replaced',
+  OUT_OF_STOCK: 'Out of Stock',
+  IN_USE: 'In Use',
+  POC_LOAN: 'PoC',
+};
 
 @Injectable()
 export class ItemReturnsService {
@@ -17,6 +38,67 @@ export class ItemReturnsService {
 
   listReturnableAssets(tenantId: string) {
     return this.repository.listReturnableAssets(tenantId);
+  }
+
+  async lookup(tenantId: string, query: LookupItemReturnQueryDto) {
+    const doNumber = query.doNumber?.trim();
+    const serial = query.serial?.trim();
+    if (!doNumber && !serial) return [];
+    const rows = await this.repository.search(tenantId, doNumber, serial);
+    return rows.map((row) => {
+      const deliveredAt =
+        row.deliveredAt instanceof Date
+          ? row.deliveredAt
+          : new Date(row.deliveredAt);
+      const daysOld = daysSince(deliveredAt);
+      return {
+        lineId: row.lineId,
+        id: row.id,
+        itemName: row.itemName,
+        statusLabel: STATUS_LABELS[row.status] ?? row.status,
+        serialNumber: row.serialNumber,
+        quantity: row.quantity,
+        deliveryNumber: row.deliveryNumber,
+        customerName: row.customerName,
+        deliveryDate: deliveredAt.toISOString().slice(0, 10),
+        daysOld,
+        policyDays: RETURN_POLICY_DAYS,
+        expired: daysOld > RETURN_POLICY_DAYS,
+        processed: PROCESSED_STATUSES.has(row.status),
+      };
+    });
+  }
+
+  async process(
+    tenantId: string,
+    actorUserId: string,
+    dto: ProcessItemReturnsDto,
+  ) {
+    const lineIds = [...new Set(dto.lineIds)];
+    if (!lineIds.length) {
+      throw new BadRequestException('No items selected for processing.');
+    }
+    const remarks =
+      dto.returnType === 'damaged'
+        ? `DAMAGED: ${dto.remarks?.trim() || 'Marked for Replacement'}`
+        : `RETURNED TO STOCK: ${dto.remarks?.trim() ?? ''}`;
+    try {
+      await this.repository.process({
+        tenantId,
+        actorUserId,
+        lineIds,
+        returnType: dto.returnType,
+        remarks,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'MISSING_ASSET') {
+        throw new NotFoundException('Delivered inventory item not found');
+      }
+      throw error;
+    }
+    return {
+      message: `${lineIds.length} items processed successfully.`,
+    };
   }
 
   async create(
@@ -65,4 +147,19 @@ export class ItemReturnsService {
     const normalized = value?.trim();
     return normalized || undefined;
   }
+}
+
+function daysSince(value: Date): number {
+  const start = Date.UTC(
+    value.getFullYear(),
+    value.getMonth(),
+    value.getDate(),
+  );
+  const today = new Date();
+  const end = Date.UTC(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  return Math.abs(Math.round((end - start) / 86_400_000));
 }

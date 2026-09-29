@@ -10,7 +10,7 @@ import {
   decidePage,
   MENU_ROLE_ADMIN,
   type AppRole,
-} from './php-role-access';
+} from './role-access';
 
 function apiAllowed(method: string, path: string, role: AppRole): boolean {
   const decision = decideApi(method, path, role);

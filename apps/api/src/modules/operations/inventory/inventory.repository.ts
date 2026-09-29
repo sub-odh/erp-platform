@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   ilike,
+  inArray,
   isNull,
   or,
   sql,
@@ -27,10 +28,15 @@ import type {
   InventorySortField,
 } from './dto/list-inventory-assets-query.dto';
 
+export type InventoryStatusGroup = 'stock' | 'sold' | 'damaged';
+
+const STOCK_STATUSES = ['IN_STOCK', 'AVAILABLE', 'RETURNED'] as const;
+
 export interface ListInventoryAssetsInput {
   tenantId: string;
   search?: string;
   status?: InventoryAsset['status'];
+  group?: InventoryStatusGroup;
   vendor?: string;
   page: number;
   limit: number;
@@ -48,6 +54,7 @@ export interface InventoryDashboardData {
   total: number;
   stock: number;
   sold: number;
+  delivered: number;
   damaged: number;
   investment: number;
   marketValue: number;
@@ -62,7 +69,7 @@ export interface InventoryDashboardData {
 
 export interface InventoryMovementListRow {
   id: string;
-  assetId: string;
+  assetId: string | null;
   itemName: string;
   serialNumber: string | null;
   type: InventoryMovementType;
@@ -140,15 +147,16 @@ export class InventoryRepository {
       eq(inventoryAssets.tenantId, tenantId),
       isNull(inventoryAssets.deletedAt),
     );
+    const stockCase = sql`${inventoryAssets.status} in ('IN_STOCK', 'AVAILABLE', 'RETURNED')`;
     const [summaryRows, vendorRows] = await Promise.all([
       db
         .select({
-          total: sql<number>`count(*)::int`,
-          stock: sql<number>`coalesce(sum(${inventoryAssets.stockQuantity}), 0)::int`,
-          sold: sql<number>`coalesce(sum(${inventoryAssets.soldQuantity}), 0)::int`,
-          damaged: sql<number>`coalesce(sum(${inventoryAssets.damagedQuantity}), 0)::int`,
-          investment: sql<string>`coalesce(sum(${inventoryAssets.purchasePrice} * ${inventoryAssets.stockQuantity}), 0)::numeric`,
-          marketValue: sql<string>`coalesce(sum(${inventoryAssets.mrpPrice} * ${inventoryAssets.stockQuantity}), 0)::numeric`,
+          stock: sql<number>`coalesce(sum(case when ${stockCase} then 1 else 0 end), 0)::int`,
+          sold: sql<number>`coalesce(sum(case when ${inventoryAssets.status} = 'SOLD' then 1 else 0 end), 0)::int`,
+          delivered: sql<number>`coalesce(sum(case when ${inventoryAssets.status} = 'DELIVERED' then 1 else 0 end), 0)::int`,
+          damaged: sql<number>`coalesce(sum(case when ${inventoryAssets.status} = 'DAMAGED' then 1 else 0 end), 0)::int`,
+          investment: sql<string>`coalesce(sum(case when ${stockCase} then ${inventoryAssets.purchasePrice} else 0 end), 0)::numeric`,
+          marketValue: sql<string>`coalesce(sum(case when ${stockCase} then ${inventoryAssets.mrpPrice} else 0 end), 0)::numeric`,
         })
         .from(inventoryAssets)
         .where(activeCondition),
@@ -156,24 +164,34 @@ export class InventoryRepository {
         .select({
           vendor: sql<string>`coalesce(nullif(trim(${inventoryAssets.vendor}), ''), 'Unspecified')`,
           total: sql<number>`count(*)::int`,
-          stock: sql<number>`coalesce(sum(${inventoryAssets.stockQuantity}), 0)::int`,
-          sold: sql<number>`coalesce(sum(${inventoryAssets.soldQuantity}), 0)::int`,
-          damaged: sql<number>`coalesce(sum(${inventoryAssets.damagedQuantity}), 0)::int`,
+          stock: sql<number>`coalesce(sum(case when ${stockCase} then 1 else 0 end), 0)::int`,
+          sold: sql<number>`coalesce(sum(case when ${inventoryAssets.status} = 'SOLD' then 1 else 0 end), 0)::int`,
+          damaged: sql<number>`coalesce(sum(case when ${inventoryAssets.status} = 'DAMAGED' then 1 else 0 end), 0)::int`,
         })
         .from(inventoryAssets)
         .where(activeCondition)
         .groupBy(
           sql`coalesce(nullif(trim(${inventoryAssets.vendor}), ''), 'Unspecified')`,
         )
-        .orderBy(desc(sql`count(*)`)),
+        .orderBy(
+          desc(
+            sql`coalesce(sum(case when ${stockCase} then 1 else 0 end), 0)`,
+          ),
+        )
+        .limit(15),
     ]);
 
     const summary = summaryRows[0];
+    const stock = summary?.stock ?? 0;
+    const sold = summary?.sold ?? 0;
+    const delivered = summary?.delivered ?? 0;
+    const damaged = summary?.damaged ?? 0;
     return {
-      total: summary?.total ?? 0,
-      stock: summary?.stock ?? 0,
-      sold: summary?.sold ?? 0,
-      damaged: summary?.damaged ?? 0,
+      total: stock + sold + delivered + damaged,
+      stock,
+      sold,
+      delivered,
+      damaged,
       investment: Number(summary?.investment ?? 0),
       marketValue: Number(summary?.marketValue ?? 0),
       vendors: vendorRows,
@@ -255,6 +273,50 @@ export class InventoryRepository {
     });
   }
 
+  async findActor(organizationId: string, userId: string) {
+    const [actor] = await db
+      .select({
+        passwordHash: users.passwordHash,
+        role: users.role,
+        isActive: users.isActive,
+      })
+      .from(users)
+      .where(
+        and(eq(users.id, userId), eq(users.organizationId, organizationId)),
+      )
+      .limit(1);
+    return actor;
+  }
+
+  async secureDelete(input: {
+    tenantId: string;
+    assetId: string;
+    stockQuantity: number;
+    actorUserId: string;
+  }): Promise<boolean> {
+    return db.transaction(async (tx) => {
+      await tx.insert(inventoryMovements).values({
+        tenantId: input.tenantId,
+        assetId: input.assetId,
+        type: 'REMOVAL',
+        quantityDelta: 0,
+        stockQuantityAfter: input.stockQuantity,
+        remarks: 'Permanent asset deletion',
+        performedBy: input.actorUserId,
+      });
+      const deleted = await tx
+        .delete(inventoryAssets)
+        .where(
+          and(
+            eq(inventoryAssets.id, input.assetId),
+            eq(inventoryAssets.tenantId, input.tenantId),
+          ),
+        )
+        .returning({ id: inventoryAssets.id });
+      return deleted.length > 0;
+    });
+  }
+
   async addMovement(input: {
     tenantId: string;
     assetId: string;
@@ -300,7 +362,7 @@ export class InventoryRepository {
         .select({
           id: inventoryMovements.id,
           assetId: inventoryMovements.assetId,
-          itemName: inventoryAssets.itemName,
+          itemName: sql<string>`coalesce(${inventoryAssets.itemName}, 'Deleted asset')`,
           serialNumber: inventoryAssets.serialNumber,
           type: inventoryMovements.type,
           quantityDelta: inventoryMovements.quantityDelta,
@@ -313,7 +375,7 @@ export class InventoryRepository {
           createdAt: inventoryMovements.createdAt,
         })
         .from(inventoryMovements)
-        .innerJoin(
+        .leftJoin(
           inventoryAssets,
           eq(inventoryAssets.id, inventoryMovements.assetId),
         )
@@ -325,7 +387,7 @@ export class InventoryRepository {
       db
         .select({ total: sql<number>`count(*)::int` })
         .from(inventoryMovements)
-        .innerJoin(
+        .leftJoin(
           inventoryAssets,
           eq(inventoryAssets.id, inventoryMovements.assetId),
         )
@@ -338,7 +400,7 @@ export class InventoryRepository {
   private createAssetConditions(
     input: Pick<
       ListInventoryAssetsInput,
-      'tenantId' | 'search' | 'status' | 'vendor'
+      'tenantId' | 'search' | 'status' | 'group' | 'vendor'
     >,
   ): SQL[] {
     const conditions: SQL[] = [
@@ -346,8 +408,25 @@ export class InventoryRepository {
       isNull(inventoryAssets.deletedAt),
     ];
     if (input.status) conditions.push(eq(inventoryAssets.status, input.status));
-    if (input.vendor?.trim()) {
-      conditions.push(ilike(inventoryAssets.vendor, input.vendor.trim()));
+    if (input.group === 'stock') {
+      conditions.push(inArray(inventoryAssets.status, [...STOCK_STATUSES]));
+    } else if (input.group === 'sold') {
+      conditions.push(eq(inventoryAssets.status, 'SOLD'));
+    } else if (input.group === 'damaged') {
+      conditions.push(eq(inventoryAssets.status, 'DAMAGED'));
+    }
+    const vendor = input.vendor?.trim();
+    if (vendor) {
+      if (
+        vendor.toLowerCase() === 'unspecified' ||
+        vendor.toLowerCase() === 'unknown'
+      ) {
+        conditions.push(
+          sql`nullif(trim(${inventoryAssets.vendor}), '') is null`,
+        );
+      } else {
+        conditions.push(ilike(inventoryAssets.vendor, vendor));
+      }
     }
     if (input.search?.trim()) {
       const pattern = `%${input.search.trim()}%`;

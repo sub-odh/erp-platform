@@ -26,6 +26,7 @@ import { QuotationsModule } from './modules/sales/quotations/quotations.module';
 import { SalesOrdersModule } from './modules/sales/sales-orders/sales-orders.module';
 import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-stages.module';
 import { InventoryModule } from './modules/operations/inventory/inventory.module';
+import { OfficeAssetsModule } from './modules/operations/office-assets/office-assets.module';
 import { MasterDataModule } from './modules/operations/master-data/master-data.module';
 import { PurchaseOrdersModule } from './modules/operations/purchase-orders/purchase-orders.module';
 import { DeliveryOrdersModule } from './modules/operations/delivery-orders/delivery-orders.module';
@@ -121,6 +122,8 @@ import { VisitsModule } from './modules/hr/visits/visits.module';
     SalesOrdersModule,
 
     InventoryModule,
+
+    OfficeAssetsModule,
 
     MasterDataModule,
 

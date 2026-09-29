@@ -6,22 +6,21 @@ import {
   IsIn,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 
-import {
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-  PASSWORD_PATTERN,
-  PASSWORD_POLICY_MESSAGE,
-} from '../../../common/security/password-policy';
+import { PASSWORD_MAX_LENGTH } from '../../../common/security/password-policy';
 
 export const ASSIGNABLE_USER_ROLES = [
   'SUPER_ADMIN',
   'ADMIN',
+  'HR',
+  'OPERATIONS',
   'EMPLOYEE',
+  'SALES',
+  'MANAGEMENT',
+  'HEAD',
 ] as const;
 
 export type AssignableUserRole = (typeof ASSIGNABLE_USER_ROLES)[number];
@@ -42,18 +41,13 @@ export class CreateUserDto {
   email!: string;
 
   @ApiProperty({
-    example: 'Erp@2026',
-    minLength: PASSWORD_MIN_LENGTH,
+    example: '12345678',
+    minLength: 1,
     maxLength: PASSWORD_MAX_LENGTH,
-    description:
-      'Must contain uppercase, lowercase, number, and special character',
   })
   @IsString()
-  @MinLength(PASSWORD_MIN_LENGTH)
+  @MinLength(1)
   @MaxLength(PASSWORD_MAX_LENGTH)
-  @Matches(PASSWORD_PATTERN, {
-    message: PASSWORD_POLICY_MESSAGE,
-  })
   password!: string;
 
   @ApiProperty({
@@ -81,12 +75,14 @@ export class CreateUserDto {
   @IsIn(ASSIGNABLE_USER_ROLES)
   role!: AssignableUserRole;
 
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(100)
-  employeeRole!: string;
+  employeeRole?: string;
 
   @ApiProperty({ format: 'date', example: '2026-08-15' })
+  @IsOptional()
   @IsDateString()
-  joinedDate!: string;
+  joinedDate?: string;
 }

@@ -19,12 +19,12 @@ describe('Permanent user deletion', () => {
     {} as MediaService,
   );
 
-  it('rejects permanent deletion by a non-owner before accessing the target', async () => {
+  it('rejects permanent deletion by a role other than Super Admin', async () => {
     await expect(
       service.permanentlyDeleteUser(
         organizationId,
         ownerId,
-        'SUPER_ADMIN',
+        'EMPLOYEE',
         targetUserId,
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);

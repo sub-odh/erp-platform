@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { EmployeeForm } from "@/components/employees/employee-form";
@@ -20,6 +20,7 @@ import type { Employee, EmployeeLookups } from "@/types/employee";
 export default function EditEmployeePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const flash = useSearchParams().get("msg");
   const employeeId = params.id;
 
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -93,6 +94,12 @@ export default function EditEmployeePage() {
         {employee.firstName} {employee.lastName}
       </button>
 
+      {flash ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">
+          {flash}
+        </div>
+      ) : null}
+
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Edit Employee
@@ -121,7 +128,9 @@ export default function EditEmployeePage() {
 
           try {
             const updated = await updateEmployee(employee.id, payload);
-            router.push(`/hr/employees/${updated.id}`);
+            router.replace(
+              `/hr/employees/${updated.id}/edit?msg=${encodeURIComponent("Employee updated successfully.")}`,
+            );
           } catch (requestError) {
             setSubmitting(false);
             throw requestError;

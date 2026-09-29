@@ -9,12 +9,7 @@ import { Button, Input, Modal, Select } from "@/components/ui";
 
 import { getStoredUser } from "@/lib/auth";
 
-import {
-  isStrongPassword,
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-  PASSWORD_POLICY_MESSAGE,
-} from "@/lib/password-policy";
+import { PASSWORD_MAX_LENGTH } from "@/lib/password-policy";
 
 import { createUser, getEmployeeRoles, uploadUserAvatar } from "@/lib/users";
 
@@ -132,8 +127,8 @@ export function CreateUserModal({
 
     setError(null);
 
-    if (!isStrongPassword(form.password)) {
-      setError(PASSWORD_POLICY_MESSAGE);
+    if (!form.password.trim()) {
+      setError("Password is required.");
 
       return;
     }
@@ -309,7 +304,7 @@ export function CreateUserModal({
                 event.target.value,
               )
             }
-            minLength={PASSWORD_MIN_LENGTH}
+            minLength={1}
             maxLength={PASSWORD_MAX_LENGTH}
             disabled={userAlreadyCreated}
             required

@@ -1,4 +1,5 @@
 export * from "./inventory-asset";
+export * from "./office-asset";
 export * from "./inventory-movement";
 export * from "./category";
 export * from "./unit";

@@ -4,58 +4,66 @@ import { Save } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { Button, Input, Modal, Select, Textarea } from "@/components/ui";
-import { createInventoryAsset, updateInventoryAsset } from "@/lib/inventory";
-import type {
-  InventoryAsset,
-  InventoryAssetInput,
-  InventoryAssetStatus,
-} from "@/types/inventory";
+import { officeFormStatus } from "@/lib/asset-office";
+import { createOfficeAsset, updateOfficeAsset } from "@/lib/office-assets";
+import type { OfficeAsset, OfficeAssetStatus } from "@/types/office-asset";
 
 interface Props {
   open: boolean;
-  asset: InventoryAsset | null;
+  asset: OfficeAsset | null;
   onClose: () => void;
   onSaved: () => void;
 }
 
 interface FormState {
-  itemName: string;
+  assetName: string;
   category: string;
   purchaseDate: string;
-  notes: string;
+  itemDetails: string;
   purchasePrice: string;
   location: string;
-  status: InventoryAssetStatus;
+  status: OfficeAssetStatus;
   assigned: boolean;
-  assignedUserName: string;
-  assignedUserContact: string;
-  assignedDate: string;
-  purpose: string;
+  techPersonName: string;
+  techPersonContact: string;
+  techUsedDate: string;
+  techUsageDetails: string;
+  pocCompanyName: string;
+  pocClientName: string;
+  pocPersonContact: string;
+  pocStartDate: string;
+  pocTakenTime: string;
+  returnDeadline: string;
+  returnTime: string;
 }
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 function emptyForm(): FormState {
   return {
-    itemName: "",
+    assetName: "",
     category: "",
-    purchaseDate: today(),
-    notes: "",
+    purchaseDate: "",
+    itemDetails: "",
     purchasePrice: "",
     location: "",
-    status: "AVAILABLE",
+    status: "Available",
     assigned: false,
-    assignedUserName: "",
-    assignedUserContact: "",
-    assignedDate: today(),
-    purpose: "",
+    techPersonName: "",
+    techPersonContact: "",
+    techUsedDate: "",
+    techUsageDetails: "",
+    pocCompanyName: "",
+    pocClientName: "",
+    pocPersonContact: "",
+    pocStartDate: "",
+    pocTakenTime: "",
+    returnDeadline: "",
+    returnTime: "",
   };
 }
 
-function registryStatus(status: InventoryAssetStatus): InventoryAssetStatus {
-  return ["AVAILABLE", "IN_USE", "POC_LOAN"].includes(status)
-    ? status
-    : "AVAILABLE";
+function blank(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }
 
 export function AssetRegistryModal({ open, asset, onClose, onSaved }: Props) {
@@ -66,29 +74,34 @@ export function AssetRegistryModal({ open, asset, onClose, onSaved }: Props) {
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setForm(
-      asset
-        ? {
-            itemName: asset.itemName,
-            category: asset.category,
-            purchaseDate: asset.purchaseDate ?? today(),
-            notes: asset.notes ?? "",
-            purchasePrice: String(asset.purchasePrice),
-            location: asset.location ?? "",
-            status: registryStatus(asset.status),
-            assigned: Boolean(
-              asset.assignedUserName ||
-              asset.assignedUserContact ||
-              asset.assignedDate ||
-              asset.purpose,
-            ),
-            assignedUserName: asset.assignedUserName ?? "",
-            assignedUserContact: asset.assignedUserContact ?? "",
-            assignedDate: asset.assignedDate ?? today(),
-            purpose: asset.purpose ?? "",
-          }
-        : emptyForm(),
-    );
+
+    if (!asset) {
+      setForm(emptyForm());
+      return;
+    }
+
+    setForm({
+      assetName: asset.assetName,
+      category: asset.category ?? "",
+      purchaseDate: asset.purchaseDate ?? "",
+      itemDetails: asset.itemDetails ?? "",
+      purchasePrice:
+        asset.purchasePrice === 0 ? "" : String(asset.purchasePrice),
+      location: asset.currentLocation ?? "",
+      status: officeFormStatus(asset.utilizationStatus),
+      assigned: Boolean(asset.techPersonName?.trim()),
+      techPersonName: asset.techPersonName ?? "",
+      techPersonContact: asset.techPersonContact ?? "",
+      techUsedDate: asset.techUsedDate ?? "",
+      techUsageDetails: asset.techUsageDetails ?? "",
+      pocCompanyName: asset.pocCompanyName ?? "",
+      pocClientName: asset.pocClientName ?? "",
+      pocPersonContact: asset.pocPersonContact ?? "",
+      pocStartDate: asset.pocStartDate ?? "",
+      pocTakenTime: asset.pocTakenTime ?? "",
+      returnDeadline: asset.returnDeadline ?? "",
+      returnTime: asset.returnTime ?? "",
+    });
   }, [asset, open]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -97,32 +110,33 @@ export function AssetRegistryModal({ open, asset, onClose, onSaved }: Props) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!form.itemName.trim() || !form.category.trim()) {
-      setError("Asset name and category are required.");
-      return;
-    }
-
-    const payload: InventoryAssetInput = {
-      itemName: form.itemName.trim(),
-      category: form.category.trim(),
-      quantity: asset?.stockQuantity ?? 1,
-      purchasePrice: Number(form.purchasePrice || 0),
-      mrpPrice: asset?.mrpPrice ?? 0,
-      status: form.status,
-      purchaseDate: form.purchaseDate || undefined,
-      notes: form.notes.trim() || undefined,
-      location: form.location.trim() || undefined,
-      assignedUserName: form.assigned ? form.assignedUserName.trim() : "",
-      assignedUserContact: form.assigned ? form.assignedUserContact.trim() : "",
-      assignedDate: form.assigned ? form.assignedDate || undefined : "",
-      purpose: form.assigned ? form.purpose.trim() : "",
-    };
 
     setSubmitting(true);
     setError(null);
     try {
-      if (asset) await updateInventoryAsset(asset.id, payload);
-      else await createInventoryAsset(payload);
+      const payload = {
+        assetName: form.assetName.trim() || "Unnamed Asset",
+        category: blank(form.category),
+        purchasePrice: Number(form.purchasePrice || 0),
+        purchaseDate: blank(form.purchaseDate),
+        itemDetails: blank(form.itemDetails),
+        currentLocation: blank(form.location),
+        utilizationStatus: form.status,
+        techPersonName: blank(form.techPersonName),
+        techPersonContact: blank(form.techPersonContact),
+        techUsageDetails: blank(form.techUsageDetails),
+        techUsedDate: blank(form.techUsedDate),
+        pocCompanyName: blank(form.pocCompanyName),
+        pocClientName: blank(form.pocClientName),
+        pocPersonContact: blank(form.pocPersonContact),
+        pocStartDate: blank(form.pocStartDate),
+        pocTakenTime: blank(form.pocTakenTime),
+        returnDeadline: blank(form.returnDeadline),
+        returnTime: blank(form.returnTime),
+      };
+
+      if (asset) await updateOfficeAsset(asset.id, payload);
+      else await createOfficeAsset(payload);
       onSaved();
       onClose();
     } catch (requestError) {
@@ -144,43 +158,53 @@ export function AssetRegistryModal({ open, asset, onClose, onSaved }: Props) {
       className="max-w-4xl"
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" className="rounded-full px-5" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="asset-registry-form" loading={submitting}>
-            <Save size={16} /> {asset ? "Update Inventory" : "Register Asset"}
+          <Button
+            type="submit"
+            form="asset-registry-form"
+            loading={submitting}
+            className="rounded-full px-6"
+          >
+            <Save size={16} /> Update Inventory
           </Button>
         </>
       }
     >
-      <form id="asset-registry-form" onSubmit={submit} className="space-y-5">
-        <div className="grid gap-4 md:grid-cols-[1.5fr_0.72fr_0.72fr]">
-          <Input
-            label="Asset Name"
-            required
-            value={form.itemName}
-            onChange={(event) => update("itemName", event.target.value)}
-          />
-          <Input
-            label="Category"
-            required
-            value={form.category}
-            onChange={(event) => update("category", event.target.value)}
-          />
-          <Input
-            label="Purchase Date"
-            type="date"
-            value={form.purchaseDate}
-            onChange={(event) => update("purchaseDate", event.target.value)}
-          />
+      <form id="asset-registry-form" onSubmit={submit} className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-6">
+          <div className="md:col-span-3">
+            <Input
+              label="Asset Name"
+              required
+              value={form.assetName}
+              onChange={(event) => update("assetName", event.target.value)}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <Input
+              label="Category"
+              value={form.category}
+              onChange={(event) => update("category", event.target.value)}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Input
+              label="Purchase Date"
+              type="date"
+              value={form.purchaseDate}
+              onChange={(event) => update("purchaseDate", event.target.value)}
+            />
+          </div>
         </div>
 
         <Textarea
           label="Device / Item Details & Specs"
-          rows={3}
+          rows={2}
           placeholder="S/N, configuration, hardware details..."
-          value={form.notes}
-          onChange={(event) => update("notes", event.target.value)}
+          value={form.itemDetails}
+          onChange={(event) => update("itemDetails", event.target.value)}
         />
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -201,62 +225,129 @@ export function AssetRegistryModal({ open, asset, onClose, onSaved }: Props) {
             label="Status"
             value={form.status}
             onChange={(event) =>
-              update("status", event.target.value as InventoryAssetStatus)
+              update("status", event.target.value as OfficeAssetStatus)
             }
           >
-            <option value="AVAILABLE">Available</option>
-            <option value="IN_USE">In Use</option>
-            <option value="POC_LOAN">PoC (Loan)</option>
+            <option value="Available">Available</option>
+            <option value="In Use">In Use</option>
+            <option value="PoC">PoC (Loan)</option>
           </Select>
         </div>
 
-        <button
-          type="button"
-          role="switch"
-          aria-checked={form.assigned}
-          onClick={() => update("assigned", !form.assigned)}
-          className="inline-flex items-center gap-2 text-sm font-medium text-slate-700"
-        >
-          <span
-            className={`relative h-5 w-9 rounded-full transition ${form.assigned ? "bg-blue-600" : "bg-slate-300"}`}
-          >
-            <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${form.assigned ? "left-4.5" : "left-0.5"}`}
-            />
-          </span>
+        <label className="inline-flex items-center gap-2 text-sm font-semibold text-[#1b2559]">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={form.assigned}
+            onChange={(event) => update("assigned", event.target.checked)}
+          />
           Assigned Technical User
-        </button>
+        </label>
 
         {form.assigned ? (
-          <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+          <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
             <div className="grid gap-4 md:grid-cols-3">
               <Input
                 label="Name"
-                value={form.assignedUserName}
+                value={form.techPersonName}
                 onChange={(event) =>
-                  update("assignedUserName", event.target.value)
+                  update("techPersonName", event.target.value)
                 }
               />
               <Input
                 label="Contact"
-                value={form.assignedUserContact}
+                value={form.techPersonContact}
                 onChange={(event) =>
-                  update("assignedUserContact", event.target.value)
+                  update("techPersonContact", event.target.value)
                 }
               />
               <Input
-                label="Assigned Date"
+                label="Usage Date"
                 type="date"
-                value={form.assignedDate}
-                onChange={(event) => update("assignedDate", event.target.value)}
+                value={form.techUsedDate}
+                onChange={(event) => update("techUsedDate", event.target.value)}
               />
             </div>
             <div className="mt-4">
               <Input
                 label="Purpose / Usage"
-                value={form.purpose}
-                onChange={(event) => update("purpose", event.target.value)}
+                value={form.techUsageDetails}
+                onChange={(event) =>
+                  update("techUsageDetails", event.target.value)
+                }
               />
+            </div>
+          </section>
+        ) : null}
+
+        {form.status === "PoC" ? (
+          <section className="rounded-2xl border border-red-200 bg-red-50/40 p-4">
+            <div className="grid gap-4 md:grid-cols-6">
+              <div className="md:col-span-3">
+                <Input
+                  label="Company Name"
+                  value={form.pocCompanyName}
+                  onChange={(event) =>
+                    update("pocCompanyName", event.target.value)
+                  }
+                />
+              </div>
+              <div className="md:col-span-3">
+                <Input
+                  label="Receiver Person"
+                  value={form.pocClientName}
+                  onChange={(event) =>
+                    update("pocClientName", event.target.value)
+                  }
+                />
+              </div>
+              <div className="md:col-span-3">
+                <Input
+                  label="Contact / Email"
+                  value={form.pocPersonContact}
+                  onChange={(event) =>
+                    update("pocPersonContact", event.target.value)
+                  }
+                />
+              </div>
+              <div className="md:col-span-1">
+                <Input
+                  label="PoC Start Date"
+                  type="date"
+                  value={form.pocStartDate}
+                  onChange={(event) =>
+                    update("pocStartDate", event.target.value)
+                  }
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Input
+                  label="Start Time"
+                  type="time"
+                  value={form.pocTakenTime}
+                  onChange={(event) =>
+                    update("pocTakenTime", event.target.value)
+                  }
+                />
+              </div>
+              <div className="md:col-span-3">
+                <Input
+                  label="Return Date"
+                  type="date"
+                  value={form.returnDeadline}
+                  onChange={(event) =>
+                    update("returnDeadline", event.target.value)
+                  }
+                />
+              </div>
+              <div className="md:col-span-3">
+                <Input
+                  label="Return Time"
+                  type="time"
+                  value={form.returnTime}
+                  onChange={(event) => update("returnTime", event.target.value)}
+                />
+              </div>
             </div>
           </section>
         ) : null}

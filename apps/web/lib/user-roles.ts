@@ -17,24 +17,23 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 const ASSIGNABLE_ROLES: Array<Exclude<UserRole, "OWNER">> = [
   "SUPER_ADMIN",
   "ADMIN",
+  "HR",
+  "OPERATIONS",
   "EMPLOYEE",
+  "SALES",
+  "MANAGEMENT",
+  "HEAD",
 ];
 
 export function getAssignableRoles(
   currentRole: UserRole | undefined,
 ): Array<Exclude<UserRole, "OWNER">> {
-  if (currentRole === "OWNER") {
+  if (
+    currentRole === "OWNER" ||
+    currentRole === "SUPER_ADMIN" ||
+    currentRole === "ADMIN"
+  ) {
     return ASSIGNABLE_ROLES;
-  }
-
-  if (currentRole === "SUPER_ADMIN") {
-    return ASSIGNABLE_ROLES.filter((role) => role !== "SUPER_ADMIN");
-  }
-
-  if (currentRole === "ADMIN") {
-    return ASSIGNABLE_ROLES.filter(
-      (role) => role !== "SUPER_ADMIN" && role !== "ADMIN",
-    );
   }
 
   if (currentRole === "HR") {
@@ -52,16 +51,12 @@ export function canManageUserRole(
     return false;
   }
 
-  if (currentRole === "OWNER") {
+  if (
+    currentRole === "OWNER" ||
+    currentRole === "SUPER_ADMIN" ||
+    currentRole === "ADMIN"
+  ) {
     return true;
-  }
-
-  if (currentRole === "SUPER_ADMIN") {
-    return targetRole !== "SUPER_ADMIN";
-  }
-
-  if (currentRole === "ADMIN") {
-    return targetRole !== "SUPER_ADMIN" && targetRole !== "ADMIN";
   }
 
   return currentRole === "HR" && targetRole === "EMPLOYEE";

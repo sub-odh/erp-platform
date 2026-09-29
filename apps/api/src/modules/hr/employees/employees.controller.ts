@@ -67,6 +67,80 @@ export class EmployeesController {
     return this.employeesService.directory(user.organizationId);
   }
 
+  @Get('search')
+  search(@CurrentUser() user: JwtPayload, @Query('query') query = '', @Query('q') q = '') {
+    return this.employeesService.search(user.organizationId, query || q);
+  }
+
+  @Post('bulk-delete')
+  @HttpCode(HttpStatus.OK)
+  bulkDelete(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { ids?: string[] },
+  ) {
+    return this.employeesService.bulkDelete(
+      user.organizationId,
+      user.role,
+      body.ids ?? [],
+    );
+  }
+
+  @Get('leads')
+  leads(
+    @CurrentUser() user: JwtPayload,
+    @Query('employee_id') employeeId: string,
+  ) {
+    return this.employeesService.employeeLeads(
+      user.organizationId,
+      user.role,
+      employeeId,
+    );
+  }
+
+  @Post('reassign-lead')
+  @HttpCode(HttpStatus.OK)
+  reassignLead(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { lead_id?: string; assigned_to?: string },
+  ) {
+    return this.employeesService.reassignLead(
+      user.organizationId,
+      user.role,
+      body.lead_id ?? '',
+      body.assigned_to ? body.assigned_to : null,
+    );
+  }
+
+  @Get(':employeeId/crm')
+  crmDetails(
+    @CurrentUser() user: JwtPayload,
+    @Param('employeeId', new ParseUUIDPipe()) employeeId: string,
+    @Query('start_date') startDate?: string,
+    @Query('end_date') endDate?: string,
+  ) {
+    return this.employeesService.crmDetails(
+      user.organizationId,
+      employeeId,
+      startDate,
+      endDate,
+    );
+  }
+
+  @Get(':employeeId/sales')
+  employeeSales(
+    @CurrentUser() user: JwtPayload,
+    @Param('employeeId', new ParseUUIDPipe()) employeeId: string,
+    @Query('start_date') startDate?: string,
+    @Query('end_date') endDate?: string,
+  ) {
+    return this.employeesService.employeeSales(
+      user.organizationId,
+      employeeId,
+      startDate,
+      endDate,
+    );
+  }
+
   @Get(':employeeId')
   @RequirePermissions(PERMISSIONS.HR_EMPLOYEES_MANAGE)
   findById(

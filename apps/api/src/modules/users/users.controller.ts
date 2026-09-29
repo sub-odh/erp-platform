@@ -402,7 +402,7 @@ export class UsersController {
     description: 'Missing, invalid, or expired token',
   })
   @ApiForbiddenResponse({
-    description: 'Only the company owner can permanently delete users',
+    description: 'Only Super Admin can permanently delete users',
   })
   @ApiNotFoundResponse({
     description: 'User was not found in the company',

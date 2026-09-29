@@ -806,7 +806,8 @@ export class CompanyDataService {
             !leadIds.has(row.leadId)),
       ) ||
       rows.inventoryMovements.some(
-        (row) => !inventoryAssetIds.has(row.assetId),
+        (row) =>
+          row.assetId !== null && !inventoryAssetIds.has(row.assetId),
       ) ||
       rows.products.some(
         (row) =>

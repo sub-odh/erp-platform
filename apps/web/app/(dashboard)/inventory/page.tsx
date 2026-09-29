@@ -6,7 +6,6 @@ import {
   CircleDollarSign,
   Layers3,
   PackagePlus,
-  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -48,30 +47,35 @@ export default function InventoryDashboardPage() {
           value: String(dashboard.total),
           icon: Boxes,
           tone: "slate",
+          href: "/inventory/master",
         },
         {
           label: "Stock",
           value: String(dashboard.stock),
           icon: Layers3,
           tone: "blue",
+          href: "/inventory/master?group=stock",
         },
         {
           label: "Sold",
           value: String(dashboard.sold),
           icon: BadgeDollarSign,
           tone: "emerald",
+          href: "/inventory/master?group=sold",
         },
         {
           label: "Investment",
           value: formatRupees(dashboard.investment),
           icon: CircleDollarSign,
           tone: "cyan",
+          href: undefined,
         },
         {
           label: "Market Value",
           value: formatRupees(dashboard.marketValue),
           icon: CircleDollarSign,
           tone: "strong",
+          href: undefined,
         },
       ]
     : [];
@@ -83,26 +87,11 @@ export default function InventoryDashboardPage() {
           <h1 className="text-xl font-semibold text-[#16266b]">
             Inventory Intelligence
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Managing {dashboard?.total ?? 0} asset
-            {dashboard?.total === 1 ? "" : "s"}
+          <p className="mt-1 text-xs font-semibold text-[#a3aed0]">
+            Managing {dashboard?.total ?? 0} Assets
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => void load()}
-            disabled={loading}
-          >
-            <RefreshCw
-              size={16}
-              className={loading ? "animate-spin" : undefined}
-            />{" "}
-            Refresh
-          </Button>
-          <Link href="/inventory/master">
-            <Button variant="outline">Inventory Master</Button>
-          </Link>
           <Button
             className="rounded-full px-6 shadow-lg shadow-blue-200"
             onClick={() => setRegisterOpen(true)}
@@ -138,28 +127,31 @@ export default function InventoryDashboardPage() {
                       : strong
                         ? "bg-white text-blue-600"
                         : "bg-slate-100 text-slate-500";
-              return (
-                <article
-                  key={card.label}
-                  className={`rounded-2xl border p-5 shadow-[0_16px_36px_rgba(15,23,42,0.08)] ${strong ? "border-blue-600 bg-blue-600 text-white" : "border-white bg-white text-[#16266b]"}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconTone}`}
-                    >
-                      <Icon size={22} />
-                    </div>
-                    <div>
-                      <p
-                        className={`text-xs font-bold uppercase ${strong ? "text-blue-200" : "text-[#16266b]"}`}
-                      >
-                        {card.label}
-                      </p>
-                      <p className="mt-1 text-2xl font-semibold">
-                        {card.value}
-                      </p>
-                    </div>
+              const body = (
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconTone}`}
+                  >
+                    <Icon size={22} />
                   </div>
+                  <div>
+                    <p
+                      className={`text-xs font-bold uppercase ${strong ? "text-blue-200" : "text-[#16266b]"}`}
+                    >
+                      {card.label}
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold">{card.value}</p>
+                  </div>
+                </div>
+              );
+              const className = `rounded-2xl border p-5 shadow-[0_16px_36px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 ${strong ? "border-blue-600 bg-blue-600 text-white" : "border-white bg-white text-[#16266b]"}`;
+              return card.href ? (
+                <Link key={card.label} href={card.href} className={className}>
+                  {body}
+                </Link>
+              ) : (
+                <article key={card.label} className={className}>
+                  {body}
                 </article>
               );
             })}
@@ -181,53 +173,60 @@ export default function InventoryDashboardPage() {
                 Register your first asset to see inventory intelligence.
               </div>
             ) : (
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {dashboard.vendors.map((vendor) => (
-                  <article
-                    key={vendor.vendor}
-                    className="rounded-2xl bg-white p-5 shadow-[0_18px_42px_rgba(30,58,138,0.10)]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#27398a] font-semibold text-white">
-                        {vendor.vendor.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-[#16266b]">
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                {dashboard.vendors.map((vendor) => {
+                  const vendorQuery = `vendor=${encodeURIComponent(vendor.vendor)}`;
+                  return (
+                    <article
+                      key={vendor.vendor}
+                      className="rounded-2xl bg-white p-5 shadow-[0_18px_42px_rgba(30,58,138,0.10)]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#27398a] font-semibold text-white">
+                          {vendor.vendor.charAt(0).toUpperCase()}
+                        </div>
+                        <p className="truncate font-semibold text-[#16266b]">
                           {vendor.vendor}
                         </p>
-                        <p className="text-xs text-slate-400">
-                          {vendor.total} registered
-                        </p>
                       </div>
-                    </div>
-                    <div className="mt-4 grid grid-cols-3 divide-x divide-slate-200 rounded-xl bg-slate-50 px-2 py-3 text-center">
-                      <div>
-                        <p className="text-[10px] uppercase text-blue-500">
-                          Stock
-                        </p>
-                        <p className="font-semibold text-blue-600">
-                          {vendor.stock}
-                        </p>
+                      <div className="mt-4 grid grid-cols-3 divide-x divide-slate-200 rounded-xl bg-slate-50 px-2 py-3 text-center">
+                        <Link
+                          href={`/inventory/master?${vendorQuery}&group=stock`}
+                          className="hover:opacity-70"
+                        >
+                          <p className="text-[10px] uppercase text-blue-500">
+                            Stock
+                          </p>
+                          <p className="font-semibold text-blue-600">
+                            {vendor.stock}
+                          </p>
+                        </Link>
+                        <Link
+                          href={`/inventory/master?${vendorQuery}&group=sold`}
+                          className="hover:opacity-70"
+                        >
+                          <p className="text-[10px] uppercase text-blue-500">
+                            Sold
+                          </p>
+                          <p className="font-semibold text-emerald-600">
+                            {vendor.sold}
+                          </p>
+                        </Link>
+                        <Link
+                          href={`/inventory/master?${vendorQuery}&group=damaged`}
+                          className="hover:opacity-70"
+                        >
+                          <p className="text-[10px] uppercase text-blue-500">
+                            Dmg
+                          </p>
+                          <p className="font-semibold text-red-600">
+                            {vendor.damaged}
+                          </p>
+                        </Link>
                       </div>
-                      <div>
-                        <p className="text-[10px] uppercase text-blue-500">
-                          Sold
-                        </p>
-                        <p className="font-semibold text-emerald-600">
-                          {vendor.sold}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase text-blue-500">
-                          Dmg
-                        </p>
-                        <p className="font-semibold text-red-600">
-                          {vendor.damaged}
-                        </p>
-                      </div>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>

@@ -232,6 +232,20 @@
       "when": 1789435200000,
       "tag": "0032_client_directory",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1789521600000,
+      "tag": "0033_office_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789608000000,
+      "tag": "0034_inventory_log_keeps_deleted_asset",
+      "breakpoints": true
     }
   ]
 }

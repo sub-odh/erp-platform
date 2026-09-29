@@ -82,6 +82,7 @@ interface FormState {
   yearlySalesTarget: string;
   targetStartDate: string;
   targetEndDate: string;
+  password: string;
 }
 
 function emptyToNull(value: string): string | null {
@@ -111,7 +112,7 @@ function fromEmployee(employee?: Employee | null): FormState {
     fatherName: employee?.fatherName ?? "",
     motherName: employee?.motherName ?? "",
     dateOfBirth: employee?.dateOfBirth ?? "",
-    gender: employee?.gender ?? "",
+    gender: employee?.gender ?? "MALE",
     maritalStatus: employee?.maritalStatus ?? "SINGLE",
     spouseName: employee?.spouseName ?? "",
     workEmail: employee?.workEmail ?? "",
@@ -146,6 +147,7 @@ function fromEmployee(employee?: Employee | null): FormState {
         : "",
     targetStartDate: employee?.targetStartDate ?? "",
     targetEndDate: employee?.targetEndDate ?? "",
+    password: "",
   };
 }
 
@@ -227,7 +229,7 @@ export function EmployeeForm({
       fatherName: emptyToNull(form.fatherName),
       motherName: emptyToNull(form.motherName),
       dateOfBirth: emptyToNull(form.dateOfBirth),
-      gender: emptyToNull(form.gender) as EmployeeGender | null,
+      gender: (emptyToNull(form.gender) ?? "MALE") as EmployeeGender,
       maritalStatus,
       spouseName:
         maritalStatus === "MARRIED" ? emptyToNull(form.spouseName) : null,
@@ -263,6 +265,7 @@ export function EmployeeForm({
         ? emptyToNull(form.targetStartDate)
         : null,
       targetEndDate: form.hasSalesTarget ? emptyToNull(form.targetEndDate) : null,
+      password: form.password,
     };
 
     try {
@@ -439,14 +442,27 @@ export function EmployeeForm({
             <option value="FEMALE">Female</option>
             <option value="OTHERS">Others</option>
           </Select>
-          <Select
-            label="Marital Status"
-            value={form.maritalStatus}
-            onChange={(event) => update("maritalStatus", event.target.value)}
-          >
-            <option value="SINGLE">Single</option>
-            <option value="MARRIED">Married</option>
-          </Select>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.maritalStatus === "MARRIED"}
+              onChange={(event) =>
+                update(
+                  "maritalStatus",
+                  event.target.checked ? "MARRIED" : "SINGLE",
+                )
+              }
+            />
+            Married
+          </label>
+          <Input
+            label="Password"
+            type="password"
+            autoComplete="new-password"
+            value={form.password}
+            placeholder={mode === "edit" ? "Leave blank to keep the current password" : "Defaults to 12345678"}
+            onChange={(event) => update("password", event.target.value)}
+          />
           {form.maritalStatus === "MARRIED" ? (
             <Input
               label="Spouse Name"

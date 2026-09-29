@@ -74,11 +74,15 @@ export default function EmployeeDetailPage() {
     setError(null);
 
     try {
-      const updated =
-        employee.status === "ACTIVE"
-          ? await deactivateEmployee(employee.id)
-          : await restoreEmployee(employee.id);
+      if (employee.status === "ACTIVE") {
+        const result = await deactivateEmployee(employee.id);
+        router.push(
+          `/hr/employees?msg=${encodeURIComponent(result.message)}`,
+        );
+        return;
+      }
 
+      const updated = await restoreEmployee(employee.id);
       setEmployee(updated);
       setConfirmOpen(false);
     } catch (requestError) {

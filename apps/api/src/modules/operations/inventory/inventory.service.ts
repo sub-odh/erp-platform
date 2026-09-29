@@ -1,13 +1,16 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { compare } from 'bcrypt';
 
 import type { InventoryAsset, NewInventoryAsset } from '@erp/db';
 
 import { createPaginatedResult } from '../../../common/pagination';
+import { PHP_ROLE_1 } from '../../auth/role-access';
 import { CreateInventoryAssetDto } from './dto/create-inventory-asset.dto';
 import { InventoryAssetResponseDto } from './dto/inventory-response.dto';
 import { ListInventoryAssetsQueryDto } from './dto/list-inventory-assets-query.dto';
@@ -25,6 +28,7 @@ export class InventoryService {
       tenantId,
       search: query.search,
       status: query.status,
+      group: query.group,
       vendor: query.vendor,
       page: query.page,
       limit: query.limit,
@@ -157,6 +161,45 @@ export class InventoryService {
       actorUserId,
     });
     await this.inventoryRepository.archive(tenantId, assetId, actorUserId);
+  }
+
+  async secureDelete(
+    tenantId: string,
+    assetId: string,
+    actorUserId: string,
+    password: string,
+  ): Promise<{ message: string }> {
+    const actor = await this.inventoryRepository.findActor(
+      tenantId,
+      actorUserId,
+    );
+    const roleAllowed =
+      !!actor &&
+      actor.isActive &&
+      (PHP_ROLE_1 as readonly string[]).includes(actor.role) &&
+      (await compare(password, actor.passwordHash));
+    if (!roleAllowed) {
+      throw new ForbiddenException('Admin verification failed!');
+    }
+
+    const existing = await this.requireAsset(tenantId, assetId);
+    try {
+      const removed = await this.inventoryRepository.secureDelete({
+        tenantId,
+        assetId,
+        stockQuantity: existing.stockQuantity,
+        actorUserId,
+      });
+      if (!removed) throw new NotFoundException('Inventory asset not found');
+    } catch (error: unknown) {
+      if (this.databaseErrorCode(error) === '23503') {
+        throw new BadRequestException(
+          'Delete failed: this item is linked to a delivery order or return.',
+        );
+      }
+      throw error;
+    }
+    return { message: 'Asset permanently removed.' };
   }
 
   async importCsv(
@@ -390,11 +433,14 @@ export class InventoryService {
   }
 
   private databaseErrorCode(error: unknown): string | undefined {
-    if (typeof error !== 'object' || error === null) return undefined;
-    const record = error as { code?: unknown; cause?: { code?: unknown } };
-    if (typeof record.code === 'string') return record.code;
-    return typeof record.cause?.code === 'string'
-      ? record.cause.code
-      : undefined;
+    const seen = new Set<unknown>();
+    let current: unknown = error;
+    while (current && typeof current === 'object' && !seen.has(current)) {
+      seen.add(current);
+      const code = (current as { code?: unknown }).code;
+      if (typeof code === 'string') return code;
+      current = (current as { cause?: unknown }).cause;
+    }
+    return undefined;
   }
 }

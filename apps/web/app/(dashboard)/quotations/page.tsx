@@ -4,7 +4,7 @@ import { Eye, FileText, Filter, Plus, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Button, Select } from "@/components/ui";
+import { Button, DeleteConfirmView, Select } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/currency";
 import { deleteQuotation, getQuotations } from "@/lib/quotations";
@@ -21,6 +21,9 @@ export default function QuotationsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] =
+    useState<QuotationListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,10 +66,11 @@ export default function QuotationsPage() {
   );
 
   async function remove(quotation: QuotationListItem) {
-    if (!window.confirm(`Delete quotation ${quotation.quotationNumber}?`))
-      return;
+    setDeleting(true);
+    setError(null);
     try {
       await deleteQuotation(quotation.id);
+      setPendingDelete(null);
       await load();
     } catch (cause) {
       setError(
@@ -74,6 +78,8 @@ export default function QuotationsPage() {
           ? cause.message
           : "Unable to delete quotation.",
       );
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -228,7 +234,7 @@ export default function QuotationsPage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => void remove(quotation)}
+                        onClick={() => setPendingDelete(quotation)}
                         className="rounded-md border border-rose-200 p-2 text-rose-600 hover:bg-rose-50"
                         aria-label={`Delete ${quotation.quotationNumber}`}
                       >
@@ -242,6 +248,24 @@ export default function QuotationsPage() {
           </table>
         </div>
       </section>
+      <DeleteConfirmView
+        open={pendingDelete !== null}
+        title="Delete Quotation"
+        description={
+          pendingDelete
+            ? `Delete quotation ${pendingDelete.quotationNumber}?`
+            : "Delete this quotation?"
+        }
+        confirmLabel="Delete"
+        loading={deleting}
+        onConfirm={() => {
+          if (pendingDelete) void remove(pendingDelete);
+        }}
+        onClose={() => {
+          if (deleting) return;
+          setPendingDelete(null);
+        }}
+      />
     </div>
   );
 }

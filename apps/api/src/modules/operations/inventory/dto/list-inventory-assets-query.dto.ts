@@ -38,6 +38,10 @@ export class ListInventoryAssetsQueryDto {
   status?: (typeof INVENTORY_ASSET_STATUSES)[number];
 
   @IsOptional()
+  @IsIn(['stock', 'sold', 'damaged'])
+  group?: 'stock' | 'sold' | 'damaged';
+
+  @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MaxLength(200)

@@ -1,89 +1,150 @@
 "use client";
 
-import { RefreshCw, RotateCcw } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Calendar, RotateCcw, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, type FormEvent } from "react";
 
 import {
   Button,
   Input,
-  Modal,
+  ReplacementConfirmView,
   Select,
-  Spinner,
   Textarea,
 } from "@/components/ui";
-import {
-  createItemReturn,
-  getItemReturns,
-  getReturnableAssets,
-} from "@/lib/item-returns";
-import type {
-  ItemReturnListItem,
-  ReturnableAsset,
-} from "@/types/item-returns";
+import { ApiError } from "@/lib/api";
+import { lookupReturnItems, processItemReturns } from "@/lib/item-returns";
+import type { ReturnLookupItem } from "@/types/item-returns";
+
+type ReturnAction = "standard" | "damaged";
+
+function formatDoDate(value: string): string {
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  return new Date(year, (month ?? 1) - 1, day ?? 1).toLocaleDateString(
+    "en-US",
+    { month: "short", day: "2-digit", year: "numeric" },
+  );
+}
+
+function statusChipClass(label: string): string {
+  if (label === "Returned" || label === "Available") {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  }
+  if (label === "Delivered" || label === "Sold") {
+    return "bg-blue-50 text-blue-700 ring-blue-200";
+  }
+  if (label === "Damaged" || label === "Out of Stock") {
+    return "bg-red-50 text-red-700 ring-red-200";
+  }
+  return "bg-amber-50 text-amber-700 ring-amber-200";
+}
 
 export default function ItemReturnsPage() {
-  const [records, setRecords] = useState<ItemReturnListItem[]>([]);
-  const [assets, setAssets] = useState<ReturnableAsset[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [doNumber, setDoNumber] = useState("");
+  const [serial, setSerial] = useState("");
+  const [items, setItems] = useState<ReturnLookupItem[] | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [action, setAction] = useState<ReturnAction>("standard");
+  const [remarks, setRemarks] = useState("");
+  const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [assetId, setAssetId] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [reason, setReason] = useState("");
-  const [notes, setNotes] = useState("");
+  const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const [searchIsError, setSearchIsError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const chosen = useMemo(
+    () =>
+      (items ?? []).filter(
+        (item) => selected.includes(item.lineId) && !item.processed,
+      ),
+    [items, selected],
+  );
+
+  async function search(event: FormEvent) {
+    event.preventDefault();
+    const delivery = doNumber.trim();
+    const serialNumber = serial.trim();
+    setActionError(null);
+    if (!delivery && !serialNumber) {
+      setItems(null);
+      setSelected([]);
+      setSearchIsError(false);
+      setSearchMessage("Enter a DO number or a serial number.");
+      return;
+    }
+    setSearching(true);
+    setSearchMessage(null);
+    setSelected([]);
     try {
-      const [returnResult, assetResult] = await Promise.all([
-        getItemReturns(),
-        getReturnableAssets(),
-      ]);
-      setRecords(returnResult);
-      setAssets(assetResult);
+      const rows = await lookupReturnItems({
+        doNumber: delivery,
+        serial: serialNumber,
+      });
+      setItems(rows);
+      setSearchIsError(false);
+      setSearchMessage(
+        rows.length ? null : "No records found matching your input.",
+      );
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
+      setItems(null);
+      setSearchIsError(true);
+      setSearchMessage(
+        requestError instanceof ApiError
           ? requestError.message
-          : "Unable to load item returns.",
+          : "Unable to search delivery items.",
       );
     } finally {
-      setLoading(false);
+      setSearching(false);
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  function toggle(lineId: string) {
+    setActionError(null);
+    setSelected((current) =>
+      current.includes(lineId)
+        ? current.filter((value) => value !== lineId)
+        : [...current, lineId],
+    );
+  }
 
-  const selected = assets.find((asset) => asset.id === assetId);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function process(returnType: ReturnAction) {
+    const lineIds = chosen.map((item) => item.lineId);
+    if (!lineIds.length) {
+      setActionError("Select at least one item.");
+      setConfirmOpen(false);
+      return;
+    }
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
-      await createItemReturn({
-        assetId,
-        quantity: Number(quantity),
-        returnDate: new Date().toISOString().slice(0, 10),
-        reason: reason.trim() || undefined,
-        notes: notes.trim() || undefined,
+      const result = await processItemReturns({
+        lineIds,
+        returnType,
+        remarks: remarks.trim() || undefined,
       });
-      setOpen(false);
-      setAssetId("");
-      setQuantity("1");
-      setReason("");
-      setNotes("");
-      await load();
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to save return.",
+      if (returnType === "damaged") {
+        const clientName = chosen[0]?.customerName ?? "";
+        const params = new URLSearchParams({
+          billable: "0",
+          replaceItemIds: [...new Set(chosen.map((item) => item.id))].join(
+            ",",
+          ),
+        });
+        if (clientName) params.set("clientName", clientName);
+        router.push(`/delivery-orders/new?${params.toString()}`);
+        return;
+      }
+      router.push(
+        `/inventory/master?notice=${encodeURIComponent(result.message)}`,
       );
+    } catch (requestError) {
+      setActionError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : "Processing failed.",
+      );
+      setConfirmOpen(false);
     } finally {
       setSaving(false);
     }
@@ -91,132 +152,240 @@ export default function ItemReturnsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Item Returns</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Receive delivered items back into company inventory.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => void load()}
-            loading={loading}
-          >
-            <RefreshCw size={16} /> Refresh
-          </Button>
-          <Button onClick={() => setOpen(true)} disabled={!assets.length}>
-            <RotateCcw size={17} /> Record Return
-          </Button>
-        </div>
+      <div>
+        <h1 className="flex items-center gap-2 text-base font-bold tracking-tight text-[#1b2559]">
+          <RotateCcw size={18} className="text-blue-600" />
+          Device Return & Replacement
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Find a delivered item, then return it to stock or mark it damaged.
+        </p>
       </div>
-      {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-      <section className="overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(15,23,42,.1)]">
-        {loading ? (
-          <div className="flex min-h-60 items-center justify-center">
-            <Spinner />
+
+      <section className="mx-auto w-full max-w-3xl rounded-[20px] bg-white px-5 py-6 shadow-[0_20px_50px_rgba(0,0,0,0.05)] sm:px-8 sm:py-8">
+        <h2 className="text-lg font-bold text-[#1b2559]">Asset Verification</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Search with a DO number, a serial number, or both.
+        </p>
+
+        <form className="mt-5" onSubmit={(event) => void search(event)}>
+          <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <Input
+              label="DO Number"
+              name="do_no"
+              placeholder="DO-..."
+              value={doNumber}
+              onChange={(event) => setDoNumber(event.target.value)}
+            />
+            <Input
+              label="Serial Number"
+              name="serial"
+              placeholder="SN..."
+              value={serial}
+              onChange={(event) => setSerial(event.target.value)}
+            />
+            <Button
+              type="submit"
+              loading={searching}
+              className="w-full rounded-xl bg-[#1b2559] hover:bg-[#16266b] sm:w-auto sm:px-6"
+            >
+              Search Items
+            </Button>
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs uppercase text-slate-500">
-                <th className="p-4">Return No.</th>
-                <th>Item</th>
-                <th>Date</th>
-                <th>Customer</th>
-                <th>Quantity</th>
-                <th>Reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.length ? (
-                records.map((record) => (
-                  <tr className="border-b border-slate-100" key={record.id}>
-                    <td className="p-4 font-semibold text-blue-600">
-                      {record.returnNumber}
-                    </td>
-                    <td>
-                      {record.itemName}
-                      {record.serialNumber ? ` — ${record.serialNumber}` : ""}
-                    </td>
-                    <td>{record.returnDate}</td>
-                    <td>{record.customerName ?? "—"}</td>
-                    <td>{record.quantity}</td>
-                    <td>{record.reason ?? "—"}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="h-32 text-center text-slate-400">
-                    No item returns recorded yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </section>
-      <Modal
-        open={open}
-        title="Record Item Return"
-        description="Returned stock is restored to inventory immediately."
-        onClose={() => setOpen(false)}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" form="return-form" loading={saving}>
-              Save Return
-            </Button>
-          </>
-        }
-      >
-        <form
-          id="return-form"
-          onSubmit={(event) => void submit(event)}
-          className="space-y-4"
-        >
-          <Select
-            label="Delivered Item"
-            required
-            value={assetId}
-            onChange={(event) => setAssetId(event.target.value)}
-          >
-            <option value="">Select Item</option>
-            {assets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.itemName} ({asset.soldQuantity} delivered)
-              </option>
-            ))}
-          </Select>
-          <Input
-            label="Return Quantity"
-            type="number"
-            min="1"
-            max={selected?.soldQuantity}
-            required
-            value={quantity}
-            onChange={(event) => setQuantity(event.target.value)}
-          />
-          <Input
-            label="Reason"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="e.g. Customer return"
-          />
-          <Textarea
-            label="Notes"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-          />
         </form>
-      </Modal>
+
+        {searchMessage ? (
+          <div
+            className={`mt-4 rounded-xl px-4 py-3 text-center text-sm ${
+              searchIsError
+                ? "bg-red-50 text-red-700"
+                : "bg-slate-50 text-slate-600"
+            }`}
+          >
+            {searchMessage}
+          </div>
+        ) : null}
+
+        {items?.length ? (
+          <form
+            className="mt-6"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void process("standard");
+            }}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-[#1b2559]">
+                Select Items to Process
+              </p>
+              <p className="text-xs font-semibold text-slate-500">
+                {chosen.length} selected
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {items.map((item) => {
+                const isSelected = chosen.some(
+                  (row) => row.lineId === item.lineId,
+                );
+                return (
+                  <label
+                    key={item.lineId}
+                    className={`block rounded-xl border p-4 ${
+                      item.processed
+                        ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-70"
+                        : isSelected
+                          ? "cursor-pointer border-[#4318ff] bg-[#f4f7fe] ring-1 ring-[#4318ff]"
+                          : "cursor-pointer border-slate-200 bg-[#f4f7fe] hover:border-[#4318ff]"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-5 w-5 shrink-0 accent-[#4318ff]"
+                        checked={isSelected}
+                        disabled={item.processed || saving}
+                        onChange={() => toggle(item.lineId)}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="font-bold text-slate-900">
+                            {item.itemName}
+                          </p>
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${statusChipClass(item.statusLabel)}`}
+                          >
+                            {item.statusLabel}
+                          </span>
+                        </div>
+                        <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                          <User size={12} />
+                          {item.customerName || "Unknown"}
+                        </p>
+                        <p className="mt-2 text-sm text-slate-500">
+                          SN:{" "}
+                          <span className="font-semibold text-slate-700">
+                            {item.serialNumber || "—"}
+                          </span>
+                          <span className="px-1.5 text-slate-300">|</span>
+                          DO:{" "}
+                          <span className="font-semibold text-slate-700">
+                            {item.deliveryNumber}
+                          </span>
+                          <span className="px-1.5 text-slate-300">|</span>
+                          Qty:{" "}
+                          <span className="font-semibold text-slate-700">
+                            {item.quantity}
+                          </span>
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 text-sm text-slate-500">
+                            <Calendar size={13} />
+                            {formatDoDate(item.deliveryDate)}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              item.expired
+                                ? "bg-red-100 text-red-800"
+                                : "bg-emerald-100 text-emerald-800"
+                            }`}
+                          >
+                            {item.expired ? "Policy Expired" : "Eligible"} ·{" "}
+                            {item.daysOld} days old
+                          </span>
+                          {item.processed ? (
+                            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">
+                              Already processed
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 space-y-4 border-t border-slate-100 pt-5">
+              <Select
+                label="Action Type"
+                value={action}
+                onChange={(event) => {
+                  setAction(event.target.value as ReturnAction);
+                  setActionError(null);
+                }}
+              >
+                <option value="standard">
+                  Standard Return (Back to Stock)
+                </option>
+                <option value="damaged">Damaged / RMA Replacement</option>
+              </Select>
+
+              {action === "standard" ? (
+                <div className="space-y-4">
+                  <Textarea
+                    label="Remarks"
+                    rows={2}
+                    placeholder="Reason for return..."
+                    value={remarks}
+                    onChange={(event) => setRemarks(event.target.value)}
+                    style={{ minHeight: "4.5rem" }}
+                  />
+                  {actionError ? (
+                    <p className="text-sm text-red-600">{actionError}</p>
+                  ) : null}
+                  <Button
+                    type="submit"
+                    loading={saving}
+                    disabled={!chosen.length}
+                    className="w-full rounded-xl bg-[#4318ff] hover:bg-[#3311db]"
+                  >
+                    Confirm Process
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-red-200 bg-red-50 px-4 py-4">
+                  <p className="text-sm font-bold text-red-700">
+                    Replacement Workflow
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Selected devices are marked damaged, then a new
+                    non-billable delivery order opens for the replacement.
+                  </p>
+                  {actionError ? (
+                    <p className="mt-3 text-sm text-red-700">{actionError}</p>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="danger"
+                    className="mt-4 w-full rounded-full"
+                    disabled={!chosen.length}
+                    onClick={() => {
+                      if (!chosen.length) {
+                        setActionError("Select at least one item.");
+                        return;
+                      }
+                      setActionError(null);
+                      setConfirmOpen(true);
+                    }}
+                  >
+                    Mark as Damaged & Create DO
+                  </Button>
+                </div>
+              )}
+            </div>
+          </form>
+        ) : null}
+      </section>
+
+      <ReplacementConfirmView
+        open={confirmOpen}
+        loading={saving}
+        onClose={() => {
+          if (!saving) setConfirmOpen(false);
+        }}
+        onConfirm={() => void process("damaged")}
+      />
     </div>
   );
 }

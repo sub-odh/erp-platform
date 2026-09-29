@@ -1,12 +1,29 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { hash } from 'bcrypt';
+import { eq } from 'drizzle-orm';
+
+import { db, users } from '@erp/db';
 
 import { createPaginatedResult } from '../../../common/pagination';
+import { rolesForPhpIds, type AppRole } from '../../auth/role-access';
 import { MediaService } from '../../media/media.service';
+import {
+  publicEmployeePhotoPath,
+  writeEmployeePhoto,
+  writeEmployeePhotoBytes,
+} from './employee-photo';
+import {
+  phpDuplicateEmailMessage,
+  phpEmployeeStatus,
+  phpPasswordToStore,
+  phpSalesTargetCleared,
+} from './employees.rules';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import {
   EmployeeLookupsDto,
@@ -99,8 +116,9 @@ export class EmployeesService {
     actorUserId: string,
     dto: CreateEmployeeDto,
   ): Promise<EmployeeResponseDto> {
-    const employeeCode = dto.employeeCode.trim().toUpperCase();
+    const employeeCode = dto.employeeCode.trim();
     await this.assertCodeAvailable(tenantId, employeeCode);
+    await this.assertEmailAvailable(tenantId, dto.workEmail);
     await this.assertUserAvailable(tenantId, dto.userId);
     await this.assertDeviceAvailable(tenantId, dto.attendanceDeviceId);
     await this.assertManager(tenantId, dto.managerId);
@@ -112,10 +130,20 @@ export class EmployeesService {
       employeeCode,
       firstName: dto.firstName.trim(),
       lastName: dto.lastName.trim(),
+      gender: dto.gender ?? 'MALE',
+      status: phpEmployeeStatus(dto.resignationDate, 'active'),
       createdBy: actorUserId,
       updatedBy: actorUserId,
       ...this.toPersistable(dto),
     });
+
+    await this.applyPassword(tenantId, created.id, created.userId, dto, true);
+    await this.applyCompressedPhoto(
+      tenantId,
+      actorUserId,
+      created.id,
+      dto.compressedPhoto,
+    );
 
     return this.findById(tenantId, created.id);
   }
@@ -129,11 +157,15 @@ export class EmployeesService {
     const current = await this.requireEmployee(tenantId, employeeId);
 
     if (dto.employeeCode) {
-      const employeeCode = dto.employeeCode.trim().toUpperCase();
+      const employeeCode = dto.employeeCode.trim();
 
       if (employeeCode !== current.employee.employeeCode) {
         await this.assertCodeAvailable(tenantId, employeeCode);
       }
+    }
+
+    if (dto.workEmail !== undefined) {
+      await this.assertEmailAvailable(tenantId, dto.workEmail, employeeId);
     }
 
     if (dto.userId !== undefined) {
@@ -167,42 +199,67 @@ export class EmployeesService {
         : dto.targetEndDate,
     );
 
+    const values = this.toPersistable(dto);
+
+    if (dto.resignationDate) {
+      values.status = phpEmployeeStatus(dto.resignationDate, 'active');
+    }
+
     const updated = await this.repository.update(tenantId, employeeId, {
       updatedBy: actorUserId,
       ...(dto.employeeCode
-        ? { employeeCode: dto.employeeCode.trim().toUpperCase() }
+        ? { employeeCode: dto.employeeCode.trim() }
         : {}),
-      ...this.toPersistable(dto),
+      ...values,
     });
 
     if (!updated) {
       throw new NotFoundException('Employee was not found');
     }
+
+    await this.applyPassword(
+      tenantId,
+      employeeId,
+      updated.userId,
+      {
+        ...dto,
+        employeeCode: updated.employeeCode,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        workEmail: updated.workEmail,
+      },
+      false,
+    );
+    await this.applyCompressedPhoto(
+      tenantId,
+      actorUserId,
+      employeeId,
+      dto.compressedPhoto,
+    );
 
     return this.findById(tenantId, employeeId);
   }
 
   async deactivate(
     tenantId: string,
-    actorUserId: string,
+    _actorUserId: string,
     employeeId: string,
-  ): Promise<EmployeeResponseDto> {
+  ): Promise<{ message: string }> {
     const current = await this.requireEmployee(tenantId, employeeId);
 
-    if (current.employee.status === 'INACTIVE') {
-      return this.toResponse(current);
+    try {
+      await this.repository.hardDelete(
+        tenantId,
+        employeeId,
+        current.employee.userId,
+      );
+    } catch {
+      throw new BadRequestException(
+        'Error: Could not delete employee. (They might have active records).',
+      );
     }
 
-    const updated = await this.repository.update(tenantId, employeeId, {
-      status: 'INACTIVE',
-      updatedBy: actorUserId,
-    });
-
-    if (!updated) {
-      throw new NotFoundException('Employee was not found');
-    }
-
-    return this.findById(tenantId, employeeId);
+    return { message: 'Employee deleted successfully!' };
   }
 
   async restore(
@@ -234,26 +291,31 @@ export class EmployeesService {
     employeeId: string,
     file: Express.Multer.File | undefined,
   ): Promise<EmployeeResponseDto> {
-    const current = await this.requireEmployee(tenantId, employeeId);
-    const uploaded = await this.mediaService.uploadImage(file, 'employees');
+    await this.requireEmployee(tenantId, employeeId);
 
-    try {
-      const updated = await this.repository.update(tenantId, employeeId, {
-        photoUrl: uploaded.url,
-        photoFileName: uploaded.fileName,
-        photoMimeType: uploaded.mimeType,
-        photoSize: uploaded.size,
-        updatedBy: actorUserId,
-      });
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Photo file is required');
+    }
 
-      if (!updated) {
-        throw new NotFoundException('Employee was not found');
-      }
+    const uploaded = await writeEmployeePhotoBytes(
+      file.buffer,
+      file.mimetype || 'image/jpeg',
+    );
 
-      await this.mediaService.deleteImage(current.employee.photoUrl);
-    } catch (error: unknown) {
-      await this.mediaService.deleteImage(uploaded.url);
-      throw error;
+    if (!uploaded) {
+      throw new BadRequestException('Photo file is required');
+    }
+
+    const updated = await this.repository.update(tenantId, employeeId, {
+      photoUrl: uploaded.url,
+      photoFileName: uploaded.fileName,
+      photoMimeType: uploaded.mimeType,
+      photoSize: uploaded.size,
+      updatedBy: actorUserId,
+    });
+
+    if (!updated) {
+      throw new NotFoundException('Employee was not found');
     }
 
     return this.findById(tenantId, employeeId);
@@ -338,6 +400,266 @@ export class EmployeesService {
     }
 
     return record;
+  }
+
+  async search(tenantId: string, query: string) {
+    const trimmed = query.trim();
+
+    if (!trimmed) {
+      return [];
+    }
+
+    return this.repository.searchActive(tenantId, trimmed);
+  }
+
+  async bulkDelete(tenantId: string, role: string, ids: string[]) {
+    if (!rolesForPhpIds([1, 2, 3, 6, 7]).includes(role as AppRole)) {
+      throw new ForbiddenException('Unauthorized');
+    }
+
+    if (ids.length === 0) {
+      throw new BadRequestException('No employees were selected for deletion.');
+    }
+
+    try {
+      await this.repository.bulkDelete(tenantId, ids);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Delete failed';
+      throw new BadRequestException(message);
+    }
+
+    return {
+      message: `Successfully deleted ${ids.length} employee record(s). Subordinates were unlinked.`,
+    };
+  }
+
+  async crmDetails(
+    tenantId: string,
+    employeeId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const current = await this.requireEmployee(tenantId, employeeId);
+    const day = kathmanduDate();
+    const start = new Date(`${startDate || day}T00:00:00`);
+    const end = new Date(`${endDate || day}T23:59:59`);
+
+    if (!current.employee.userId) {
+      return { deals: [] };
+    }
+
+    const deals = await this.repository.crmDeals(
+      tenantId,
+      current.employee.userId,
+      start,
+      end,
+    );
+
+    return { deals };
+  }
+
+  async employeeSales(
+    tenantId: string,
+    employeeId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const current = await this.requireEmployee(tenantId, employeeId);
+    const day = kathmanduDate();
+    const start = startDate || day;
+    const end = endDate || day;
+
+    if (!current.employee.userId) {
+      return { sales: [], grand_total: 0 };
+    }
+
+    const sales = await this.repository.employeeSales(
+      tenantId,
+      current.employee.userId,
+      start,
+      end,
+    );
+    const grandTotal = sales.reduce(
+      (sum, row) => sum + Number(row.grand_total),
+      0,
+    );
+
+    return { sales, grand_total: grandTotal };
+  }
+
+  async reassignLead(
+    tenantId: string,
+    role: string,
+    leadId: string,
+    assignedTo: string | null,
+  ) {
+    if (!rolesForPhpIds([1]).includes(role as AppRole)) {
+      throw new ForbiddenException(
+        'Access denied: Unauthorized assignment attempt.',
+      );
+    }
+
+    let ownerUserId: string | null = null;
+
+    if (assignedTo) {
+      const employee = await this.requireEmployee(tenantId, assignedTo);
+      ownerUserId = employee.employee.userId;
+    }
+
+    const updated = await this.repository.reassignLead(
+      tenantId,
+      leadId,
+      ownerUserId,
+    );
+
+    if (!updated) {
+      throw new BadRequestException('Database update failed.');
+    }
+
+    return { message: 'Lead successfully reassigned.' };
+  }
+
+  async employeeLeads(tenantId: string, role: string, employeeId: string) {
+    if (!rolesForPhpIds([1, 2, 3, 5, 6, 7]).includes(role as AppRole)) {
+      throw new ForbiddenException('Unauthorized');
+    }
+
+    const current = await this.requireEmployee(tenantId, employeeId);
+
+    if (!current.employee.userId) {
+      return { employee: current.employee.id, leads: [] };
+    }
+
+    const leads = await this.repository.leadsForOwner(
+      tenantId,
+      current.employee.userId,
+    );
+
+    return {
+      employee: {
+        id: current.employee.id,
+        first_name: current.employee.firstName,
+        last_name: current.employee.lastName,
+        email: current.employee.workEmail,
+      },
+      leads,
+    };
+  }
+
+  private async assertEmailAvailable(
+    tenantId: string,
+    email: string | null | undefined,
+    exceptId?: string,
+  ) {
+    if (!email) {
+      return;
+    }
+
+    const existing = await this.repository.findByWorkEmail(
+      tenantId,
+      email,
+      exceptId,
+    );
+
+    if (existing) {
+      throw new ConflictException(phpDuplicateEmailMessage(email));
+    }
+  }
+
+  private async applyPassword(
+    tenantId: string,
+    employeeId: string,
+    userId: string | null,
+    dto: {
+      password?: string;
+      workEmail?: string | null;
+      employeeCode: string;
+      firstName: string;
+      lastName: string;
+    },
+    isCreate: boolean,
+  ) {
+    const posted = dto.password?.trim() ?? '';
+
+    if (userId) {
+      if (!posted) {
+        return;
+      }
+
+      const passwordHash = await hash(posted, 10);
+      await db
+        .update(users)
+        .set({ passwordHash, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+      return;
+    }
+
+    if (!isCreate) {
+      return;
+    }
+
+    const plain = phpPasswordToStore(true, posted);
+
+    if (!plain) {
+      return;
+    }
+
+    const passwordHash = await hash(plain, 10);
+    const email = dto.workEmail?.trim().toLowerCase();
+
+    if (!email) {
+      return;
+    }
+
+    try {
+      const [createdUser] = await db
+        .insert(users)
+        .values({
+          organizationId: tenantId,
+          employeeId: dto.employeeCode.trim(),
+          email,
+          passwordHash,
+          firstName: dto.firstName.trim(),
+          lastName: dto.lastName.trim(),
+          role: 'EMPLOYEE',
+          isActive: true,
+          mustChangePassword: false,
+        })
+        .returning({ id: users.id });
+
+      if (createdUser) {
+        await this.repository.update(tenantId, employeeId, {
+          userId: createdUser.id,
+        });
+      }
+    } catch {
+      throw new ConflictException(phpDuplicateEmailMessage(email));
+    }
+  }
+
+  private async applyCompressedPhoto(
+    tenantId: string,
+    actorUserId: string,
+    employeeId: string,
+    compressedPhoto: string | undefined,
+  ) {
+    if (!compressedPhoto) {
+      return;
+    }
+
+    const saved = await writeEmployeePhoto(compressedPhoto);
+
+    if (!saved) {
+      return;
+    }
+
+    await this.repository.update(tenantId, employeeId, {
+      photoUrl: saved.url,
+      photoFileName: saved.fileName,
+      photoMimeType: saved.mimeType,
+      photoSize: saved.size,
+      updatedBy: actorUserId,
+    });
   }
 
   private async assertCodeAvailable(
@@ -521,6 +843,14 @@ export class EmployeesService {
     assign('targetStartDate', dto.targetStartDate);
     assign('targetEndDate', dto.targetEndDate);
 
+    if (phpSalesTargetCleared(dto.hasSalesTarget)) {
+      values.hasSalesTarget = false;
+      values.salesTarget = null;
+      values.yearlySalesTarget = null;
+      values.targetStartDate = null;
+      values.targetEndDate = null;
+    }
+
     return values;
   }
 
@@ -567,7 +897,7 @@ export class EmployeesService {
       targetStartDate: employee.targetStartDate,
       targetEndDate: employee.targetEndDate,
       status: employee.status,
-      photoUrl: employee.photoUrl,
+      photoUrl: publicEmployeePhotoPath(employee.photoUrl),
       photoFileName: employee.photoFileName,
       signatureUrl: employee.signatureUrl,
       signatureFileName: employee.signatureFileName,
@@ -593,4 +923,10 @@ export class EmployeesService {
 
     return Number.isFinite(parsed) ? parsed : null;
   }
+}
+
+function kathmanduDate(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kathmandu',
+  }).format(new Date());
 }

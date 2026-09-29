@@ -8,7 +8,7 @@ import { AUTH_SESSION_EXPIRED_EVENT, getStoredUser } from "@/lib/auth";
 import { CalendarSystemProvider } from "@/lib/calendar-system";
 import { getCurrentCompany } from "@/lib/company";
 import { useAuthenticatedMediaUrl } from "@/lib/media";
-import { decidePage, type AppRole } from "@/lib/php-role-access";
+import { decidePage, type AppRole } from "@/lib/role-access";
 import type { Company } from "@/types/company";
 
 import { Sidebar } from "./sidebar";

@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import type { ItemReturnsRepository } from './item-returns.repository';
 import { ItemReturnsService } from './item-returns.service';
@@ -12,6 +16,8 @@ describe('ItemReturnsService', () => {
     listReturnableAssets: jest.fn(),
     latestNumber: jest.fn(),
     create: jest.fn(),
+    search: jest.fn(),
+    process: jest.fn(),
   };
   const service = new ItemReturnsService(
     repository as unknown as ItemReturnsRepository,
@@ -90,5 +96,71 @@ describe('ItemReturnsService', () => {
         quantity: 1,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('marks a standard return back to stock and a damaged return for replacement', async () => {
+    const lineId = '55555555-5555-4555-8555-555555555555';
+    await service.process(tenantId, actorUserId, {
+      lineIds: [lineId, lineId],
+      returnType: 'standard',
+      remarks: '  Customer changed mind  ',
+    });
+    expect(repository.process).toHaveBeenCalledWith({
+      tenantId,
+      actorUserId,
+      lineIds: [lineId],
+      returnType: 'standard',
+      remarks: 'RETURNED TO STOCK: Customer changed mind',
+    });
+
+    await service.process(tenantId, actorUserId, {
+      lineIds: [lineId],
+      returnType: 'damaged',
+    });
+    expect(repository.process).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        returnType: 'damaged',
+        remarks: 'DAMAGED: Marked for Replacement',
+      }),
+    );
+  });
+
+  it('labels delivery matches and flags an expired return policy', async () => {
+    repository.search.mockResolvedValue([
+      {
+        lineId: '55555555-5555-4555-8555-555555555555',
+        id: assetId,
+        itemName: 'Cisco Switch',
+        status: 'DELIVERED',
+        serialNumber: 'SN-1',
+        quantity: 1,
+        deliveryNumber: 'DO-2026-001',
+        deliveredAt: new Date('2020-01-01T00:00:00'),
+        customerName: 'Acme',
+      },
+    ]);
+
+    const rows = await service.lookup(tenantId, {
+      doNumber: 'DO-2026-001',
+    });
+
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        statusLabel: 'Delivered',
+        customerName: 'Acme',
+        policyDays: 365,
+        expired: true,
+        processed: false,
+      }),
+    );
+  });
+
+  it('rejects processing when no items are selected', async () => {
+    await expect(
+      service.process(tenantId, actorUserId, {
+        lineIds: [],
+        returnType: 'standard',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

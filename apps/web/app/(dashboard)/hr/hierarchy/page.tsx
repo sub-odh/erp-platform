@@ -61,7 +61,7 @@ export default function HierarchyPage() {
         </div>
       ) : roots.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center text-sm text-slate-500">
-          No employees are available in the directory.
+          No hierarchy data available.
         </div>
       ) : (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

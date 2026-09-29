@@ -48,6 +48,9 @@ export function EmployeeDirectoryTable({
                 Designation
               </th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Leave Balance
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Status
               </th>
               <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -96,6 +99,9 @@ export function EmployeeDirectoryTable({
                   <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
                     {employee.designation ?? "Staff"}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-slate-700">
+                  {employee.sickLeaveBal + employee.casualLeaveBal}
                 </td>
                 <td className="px-4 py-3">
                   <EmployeeStatusBadge status={employee.status} />

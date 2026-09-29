@@ -14,15 +14,17 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { InventoryAssetModal } from "@/components/inventory/inventory-asset-modal";
-import { Button, Select, Spinner } from "@/components/ui";
+import { Button, SecureDeleteView, Select, Spinner } from "@/components/ui";
+import { ApiError } from "@/lib/api";
 import {
-  archiveInventoryAsset,
   downloadTextFile,
   exportInventoryCsv,
   getInventoryAssets,
+  secureDeleteInventoryAsset,
 } from "@/lib/inventory";
 import {
   formatRupees,
@@ -40,6 +42,13 @@ import type {
 const PAGE_SIZE = 20;
 
 export default function InventoryMasterPage() {
+  const searchParams = useSearchParams();
+  const vendor = searchParams.get("vendor")?.trim() ?? "";
+  const groupParam = searchParams.get("group");
+  const group =
+    groupParam === "stock" || groupParam === "sold" || groupParam === "damaged"
+      ? groupParam
+      : "";
   const [assets, setAssets] = useState<InventoryAsset[]>([]);
   const [meta, setMeta] = useState<InventoryListResponse["pagination"] | null>(
     null,
@@ -62,6 +71,11 @@ export default function InventoryMasterPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryAsset | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<InventoryAsset | null>(
+    null,
+  );
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,6 +84,8 @@ export default function InventoryMasterPage() {
       const result = await getInventoryAssets({
         search: search || undefined,
         status: status || undefined,
+        group: status ? undefined : group || undefined,
+        vendor: vendor || undefined,
         page,
         limit: PAGE_SIZE,
         sortBy,
@@ -87,7 +103,7 @@ export default function InventoryMasterPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, sortBy, sortDirection, status]);
+  }, [group, page, search, sortBy, sortDirection, status, vendor]);
 
   useEffect(() => void load(), [load]);
 
@@ -105,23 +121,24 @@ export default function InventoryMasterPage() {
       setSortDirection("asc");
     }
   }
-  async function archive(asset: InventoryAsset) {
-    if (
-      !window.confirm(
-        `Archive ${asset.itemName}? Its movement history will be retained.`,
-      )
-    )
-      return;
-    setBusyId(asset.id);
+  async function confirmSecureDelete(password: string) {
+    if (!pendingDelete) return;
+    setBusyId(pendingDelete.id);
+    setDeleteError(null);
     setError(null);
     try {
-      await archiveInventoryAsset(asset.id);
+      const result = await secureDeleteInventoryAsset(
+        pendingDelete.id,
+        password,
+      );
+      setNotice(result.message);
+      setPendingDelete(null);
       await load();
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
+      setDeleteError(
+        requestError instanceof ApiError
           ? requestError.message
-          : "Unable to archive asset.",
+          : "Admin verification failed!",
       );
     } finally {
       setBusyId(null);
@@ -258,9 +275,25 @@ export default function InventoryMasterPage() {
           </Select>
         </div>
       ) : null}
+      {notice || searchParams.get("notice") ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+          {notice || searchParams.get("notice")}
+        </div>
+      ) : null}
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
+        </div>
+      ) : null}
+      {vendor || group ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+          <p>
+            {vendor ? `Vendor: ${vendor}` : "All vendors"}
+            {group ? ` · ${group === "stock" ? "Stock" : group === "sold" ? "Sold" : "Damaged"}` : ""}
+          </p>
+          <Link href="/inventory/master" className="font-semibold text-blue-700">
+            Clear Filter
+          </Link>
         </div>
       ) : null}
 
@@ -382,10 +415,13 @@ export default function InventoryMasterPage() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            title="Archive asset"
+                            title="Delete asset"
                             disabled={busyId === asset.id}
                             className="text-red-600 hover:bg-red-50"
-                            onClick={() => void archive(asset)}
+                            onClick={() => {
+                              setDeleteError(null);
+                              setPendingDelete(asset);
+                            }}
                           >
                             <Trash2 size={16} />
                           </Button>
@@ -448,6 +484,18 @@ export default function InventoryMasterPage() {
         asset={editing}
         onClose={() => setModalOpen(false)}
         onSaved={() => void load()}
+      />
+      <SecureDeleteView
+        open={pendingDelete !== null}
+        itemName={pendingDelete?.itemName ?? ""}
+        loading={busyId !== null}
+        error={deleteError}
+        onConfirm={(password) => void confirmSecureDelete(password)}
+        onClose={() => {
+          if (busyId) return;
+          setPendingDelete(null);
+          setDeleteError(null);
+        }}
       />
     </div>
   );

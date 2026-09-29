@@ -52,6 +52,7 @@ export interface InventoryDashboard {
   total: number;
   stock: number;
   sold: number;
+  delivered: number;
   damaged: number;
   investment: number;
   marketValue: number;
@@ -104,6 +105,7 @@ export interface InventoryAssetInput {
 export interface InventoryListParams {
   search?: string;
   status?: InventoryAssetStatus;
+  group?: "stock" | "sold" | "damaged";
   vendor?: string;
   page?: number;
   limit?: number;
@@ -113,7 +115,7 @@ export interface InventoryListParams {
 
 export interface InventoryMovement {
   id: string;
-  assetId: string;
+  assetId: string | null;
   itemName: string;
   serialNumber: string | null;
   type: "ADDITION" | "ADJUSTMENT" | "REMOVAL" | "RETURN" | "SALE" | "DAMAGE";

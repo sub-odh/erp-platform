@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, isNull, or, sql, type SQL } from 'drizzle-orm';
 
 import {
   db,
   inventoryAssets,
   inventoryMovements,
+  operationsDeliveryOrderItems,
+  operationsDeliveryOrders,
   operationsItemReturns,
 } from '@erp/db';
 
@@ -150,6 +152,139 @@ export class ItemReturnsRepository {
       });
 
       return record;
+    });
+  }
+
+  search(tenantId: string, doNumber?: string, serial?: string) {
+    const matches: SQL[] = [];
+    if (doNumber) {
+      matches.push(
+        sql`lower(${operationsDeliveryOrders.deliveryNumber}) = lower(${doNumber})`,
+      );
+    }
+    if (serial) {
+      matches.push(
+        sql`lower(${inventoryAssets.serialNumber}) = lower(${serial})`,
+      );
+    }
+    if (!matches.length) return Promise.resolve([]);
+    const match = matches.length === 1 ? matches[0] : or(...matches);
+
+    return db
+      .select({
+        lineId: operationsDeliveryOrderItems.id,
+        id: inventoryAssets.id,
+        itemName: inventoryAssets.itemName,
+        status: inventoryAssets.status,
+        serialNumber: inventoryAssets.serialNumber,
+        quantity: operationsDeliveryOrderItems.quantity,
+        deliveryNumber: operationsDeliveryOrders.deliveryNumber,
+        deliveredAt: operationsDeliveryOrders.createdAt,
+        customerName: operationsDeliveryOrders.customerName,
+      })
+      .from(operationsDeliveryOrderItems)
+      .innerJoin(
+        operationsDeliveryOrders,
+        eq(
+          operationsDeliveryOrders.id,
+          operationsDeliveryOrderItems.deliveryOrderId,
+        ),
+      )
+      .innerJoin(
+        inventoryAssets,
+        eq(inventoryAssets.id, operationsDeliveryOrderItems.assetId),
+      )
+      .where(
+        and(
+          eq(operationsDeliveryOrderItems.tenantId, tenantId),
+          eq(operationsDeliveryOrders.tenantId, tenantId),
+          match,
+        ),
+      )
+      .orderBy(asc(inventoryAssets.itemName));
+  }
+
+  async process(input: {
+    tenantId: string;
+    actorUserId: string;
+    lineIds: string[];
+    returnType: 'standard' | 'damaged';
+    remarks: string;
+  }): Promise<void> {
+    const damaged = input.returnType === 'damaged';
+    await db.transaction(async (tx) => {
+      for (const lineId of input.lineIds) {
+        const [line] = await tx
+          .select({
+            quantity: operationsDeliveryOrderItems.quantity,
+            assetId: inventoryAssets.id,
+            stockQuantity: inventoryAssets.stockQuantity,
+            soldQuantity: inventoryAssets.soldQuantity,
+            damagedQuantity: inventoryAssets.damagedQuantity,
+            status: inventoryAssets.status,
+          })
+          .from(operationsDeliveryOrderItems)
+          .innerJoin(
+            inventoryAssets,
+            eq(inventoryAssets.id, operationsDeliveryOrderItems.assetId),
+          )
+          .where(
+            and(
+              eq(operationsDeliveryOrderItems.id, lineId),
+              eq(operationsDeliveryOrderItems.tenantId, input.tenantId),
+              eq(inventoryAssets.tenantId, input.tenantId),
+            ),
+          )
+          .limit(1);
+        if (!line) throw new Error('MISSING_ASSET');
+
+        const soldQuantity = Math.max(0, line.soldQuantity - line.quantity);
+        const stockQuantity = damaged
+          ? line.stockQuantity
+          : line.stockQuantity + line.quantity;
+        const damagedQuantity = damaged
+          ? line.damagedQuantity + line.quantity
+          : line.damagedQuantity;
+        const status = damaged
+          ? stockQuantity === 0 && soldQuantity === 0
+            ? 'DAMAGED'
+            : stockQuantity > 0
+              ? 'IN_STOCK'
+              : line.status
+          : soldQuantity === 0
+            ? 'RETURNED'
+            : stockQuantity > 0
+              ? 'IN_STOCK'
+              : line.status;
+
+        await tx
+          .update(inventoryAssets)
+          .set({
+            status,
+            stockQuantity,
+            soldQuantity,
+            damagedQuantity,
+            deletedAt: null,
+            updatedAt: new Date(),
+            updatedBy: input.actorUserId,
+          })
+          .where(
+            and(
+              eq(inventoryAssets.id, line.assetId),
+              eq(inventoryAssets.tenantId, input.tenantId),
+            ),
+          );
+
+        await tx.insert(inventoryMovements).values({
+          tenantId: input.tenantId,
+          assetId: line.assetId,
+          type: 'RETURN',
+          quantityDelta: damaged ? 0 : line.quantity,
+          stockQuantityAfter: stockQuantity,
+          remarks: input.remarks,
+          performedBy: input.actorUserId,
+        });
+      }
     });
   }
 }

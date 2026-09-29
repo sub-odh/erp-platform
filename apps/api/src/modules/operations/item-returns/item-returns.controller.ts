@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 
@@ -9,7 +17,11 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PERMISSIONS } from '../../auth/permissions/permission.constants';
 import type { JwtPayload } from '../../auth/types/jwt-payload.type';
-import { CreateItemReturnDto } from './dto/item-return.dto';
+import {
+  CreateItemReturnDto,
+  LookupItemReturnQueryDto,
+  ProcessItemReturnsDto,
+} from './dto/item-return.dto';
 import { ItemReturnsService } from './item-returns.service';
 
 type AuthenticatedRequest = Request & { user: JwtPayload };
@@ -27,6 +39,26 @@ export class ItemReturnsController {
   @Get()
   list(@Req() request: AuthenticatedRequest) {
     return this.service.list(request.user.organizationId);
+  }
+
+  @Get('lookup')
+  lookup(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: LookupItemReturnQueryDto,
+  ) {
+    return this.service.lookup(request.user.organizationId, query);
+  }
+
+  @Post('process')
+  process(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: ProcessItemReturnsDto,
+  ) {
+    return this.service.process(
+      request.user.organizationId,
+      request.user.sub,
+      dto,
+    );
   }
 
   @Get('returnable-assets')

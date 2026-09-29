@@ -61,7 +61,7 @@ export class ListEmployeesQueryDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(5000)
   limit: number = 20;
 
   @IsOptional()

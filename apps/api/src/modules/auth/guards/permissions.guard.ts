@@ -7,7 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 
-import { decideApi, type AppRole } from '../php-role-access';
+import { decideApi, type AppRole } from '../role-access';
 
 import {
   PERMISSIONS_ANY_KEY,

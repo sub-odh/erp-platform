@@ -38,7 +38,7 @@ import {
   MENU_ROLE_SALES_REPEAT,
   MENU_ROLE_TENDER,
   MENU_ROLE_WITH_SALES,
-} from "@/lib/php-role-access";
+} from "@/lib/role-access";
 import type { UserRole } from "@/types/auth";
 
 export interface NavigationItem {

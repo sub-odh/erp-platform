@@ -9,7 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Input, Modal, Select, Spinner, Textarea } from "@/components/ui";
 import {
   createDeliveryOrder,
@@ -26,8 +26,21 @@ type ServiceLine = {
 };
 const today = () => new Date().toISOString().slice(0, 10);
 
+function useReplacementPrefill(
+  searchParams: ReturnType<typeof useSearchParams>,
+  setCustomerName: (value: string) => void,
+  setBillable: (value: boolean) => void,
+) {
+  useEffect(() => {
+    const name = searchParams.get("clientName");
+    if (name) setCustomerName(name);
+    if (searchParams.get("billable") === "0") setBillable(false);
+  }, [searchParams, setBillable, setCustomerName]);
+}
+
 export default function CreateDeliveryOrderPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [assets, setAssets] = useState<DeliverableAsset[] | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [search, setSearch] = useState("");
@@ -50,6 +63,8 @@ export default function CreateDeliveryOrderPage() {
   const [servicePrice, setServicePrice] = useState("0");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useReplacementPrefill(searchParams, setCustomerName, setBillable);
 
   useEffect(() => {
     void getDeliverableAssets()

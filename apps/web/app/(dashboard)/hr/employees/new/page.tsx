@@ -110,7 +110,9 @@ export default function NewEmployeePage() {
                 /* The record exists; photo and signature can be added from Edit. */
               }
 
-              router.push(`/hr/employees/${created.id}`);
+              router.push(
+                `/hr/employees?msg=${encodeURIComponent("Employee created successfully.")}`,
+              );
             } catch (requestError) {
               setSubmitting(false);
               throw requestError;
