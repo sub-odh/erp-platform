@@ -162,6 +162,10 @@ const deniedProbes: Array<{
   { role: "EMPLOYEE", path: "/hr/halls", allowed: false },
   { role: "SALES", path: "/hr/fuel", allowed: false },
   { role: "SALES", path: "/hr/my-fuel", allowed: true },
+  { role: "SALES", path: "/proforma-invoices", allowed: true },
+  { role: "SALES", path: "/proforma-invoices/new", allowed: true },
+  { role: "HR", path: "/proforma-invoices", allowed: true },
+  { role: "EMPLOYEE", path: "/proforma-invoices", allowed: false },
 ];
 
 for (const probe of deniedProbes) {
@@ -211,6 +215,18 @@ assert.equal(
 assert.equal(apiAllowed("GET", "/api/v1/audit-logs", "EMPLOYEE"), false);
 assert.equal(apiAllowed("GET", "/api/v1/audit-logs", "SALES"), true);
 assert.equal(decideApi("GET", "/api/v1/company/current", "EMPLOYEE").matched, false);
+assert.equal(
+  apiAllowed("GET", "/api/v1/sales/proforma-invoices", "SALES"),
+  true,
+);
+assert.equal(
+  apiAllowed("POST", "/api/v1/sales/proforma-invoices", "EMPLOYEE"),
+  false,
+);
+assert.equal(
+  apiAllowed("PUT", "/api/v1/sales/proforma-invoices/abc", "HEAD"),
+  true,
+);
 
 assert.ok(PAGE_RULES.length > 0);
 assert.ok(API_RULES.length > 0);

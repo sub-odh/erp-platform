@@ -22,6 +22,7 @@ import { CompanyModule } from './modules/company/company.module';
 import { CustomersModule } from './modules/sales/customers/customers.module';
 import { LeadsModule } from './modules/sales/leads/leads.module';
 import { OpportunitiesModule } from './modules/sales/opportunities/opportunities.module';
+import { ProformaInvoicesModule } from './modules/sales/proforma-invoices/proforma-invoices.module';
 import { QuotationsModule } from './modules/sales/quotations/quotations.module';
 import { SalesOrdersModule } from './modules/sales/sales-orders/sales-orders.module';
 import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-stages.module';
@@ -118,6 +119,8 @@ import { VisitsModule } from './modules/hr/visits/visits.module';
     OpportunitiesModule,
 
     QuotationsModule,
+
+    ProformaInvoicesModule,
 
     SalesOrdersModule,
 

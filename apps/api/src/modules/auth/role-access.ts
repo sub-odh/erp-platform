@@ -183,6 +183,12 @@ export const PAGE_RULES: readonly PageRule[] = [
     phpFile: "views/admin/view_invoice.php",
   },
   {
+    prefix: "/proforma-invoices",
+    phpIds: [1, 2, 3, 5, 6, 7],
+    deny: "dashboard",
+    phpFile: "views/admin/pi_dashboard.php",
+  },
+  {
     prefix: "/hr/employees/new",
     phpIds: [1, 2, 3, 5, 6, 7],
     deny: "index",
@@ -460,6 +466,14 @@ export const API_RULES: readonly ApiRule[] = [
     deny: "dashboard",
     phpFile: "views/admin/quotation_dashboard.php",
     label: "quotations",
+  },
+  {
+    methods: ["GET", "POST", "PUT"],
+    pattern: /^sales\/proforma-invoices(\/.*)?$/,
+    phpIds: [1, 2, 3, 5, 6, 7],
+    deny: "dashboard",
+    phpFile: "views/admin/pi_dashboard.php",
+    label: "proforma-invoices",
   },
   {
     methods: ["GET", "POST", "PATCH"],

@@ -4,3 +4,4 @@ export * from "./pipeline-stage";
 export * from "./lead";
 export * from "./opportunity";
 export * from "./quotation";
+export * from "./proforma-invoice";
