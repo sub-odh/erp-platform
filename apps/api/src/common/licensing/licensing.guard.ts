@@ -37,7 +37,7 @@ export class LicensingGuard implements CanActivate {
   private moduleFromPath(path: string): string | undefined {
     if (
       /\/(customers|leads|opportunities|pipeline-stages)(\/|$)/.test(path) ||
-      /\/sales\/proforma-invoices(\/|$)/.test(path)
+      /\/sales\/(proforma-invoices|reports|recoveries)(\/|$)/.test(path)
     ) {
       return 'sales';
     }

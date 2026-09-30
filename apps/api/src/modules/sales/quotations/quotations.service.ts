@@ -1,16 +1,19 @@
 import {
-  ConflictException,
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { randomBytes } from 'crypto';
+import { compare } from 'bcrypt';
 
-import type { NewSalesQuotation, NewSalesQuotationItem } from '@erp/db';
+import type { NewSalesQuotationItem } from '@erp/db';
 
-import { createPaginatedResult } from '../../../common/pagination';
-import {
-  CreateQuotationDto,
+import { amountInWords } from '../proforma-invoices/pi-words';
+
+import type {
   ListQuotationsQueryDto,
+  QuotationItemDto,
+  SaveQuotationDto,
 } from './dto/quotation.dto';
 import { QuotationsRepository } from './quotations.repository';
 
@@ -18,129 +21,189 @@ import { QuotationsRepository } from './quotations.repository';
 export class QuotationsService {
   constructor(private readonly repository: QuotationsRepository) {}
 
+  draft() {
+    const today = this.kathmanduDate();
+    const expiry = this.addDays(today, 30);
+    const stamp = today.replaceAll('-', '');
+    const suffix = randomBytes(2).toString('hex').toUpperCase();
+    return {
+      quotationNumber: `QT-${stamp}-${suffix}`,
+      quotationDate: today,
+      expiryDate: expiry,
+      termsConditions: this.defaultTerms(expiry),
+    };
+  }
+
   async list(tenantId: string, query: ListQuotationsQueryDto) {
-    const result = await this.repository.list({ tenantId, ...query });
-    return createPaginatedResult(
-      result.data.map((quotation) => this.money(quotation)),
-      query.page,
-      query.limit,
-      result.total,
-    );
+    const [items, metrics] = await Promise.all([
+      this.repository.list(tenantId, query),
+      this.repository.metrics(tenantId),
+    ]);
+    return { items, metrics };
   }
 
   async findDetails(tenantId: string, id: string) {
-    const quotation = await this.repository.findDetails(tenantId, id);
-    if (!quotation) throw new NotFoundException('Quotation not found');
+    const header = await this.repository.findHeader(tenantId, id);
+    if (!header) throw new NotFoundException('Quotation not found.');
+    const items = await this.repository.findItems(tenantId, id);
+    const currency = header.currency === 'USD' ? 'USD' : 'NPR';
     return {
-      ...this.money(quotation),
-      items: quotation.items.map((item) => this.money(item)),
+      ...header,
+      currency,
+      amountInWords: amountInWords(Number(header.totalAmount), currency),
+      items,
     };
   }
 
-  async nextNumber(tenantId: string, date: string) {
-    return { quotationNumber: await this.generateNumber(tenantId, date) };
-  }
-
-  async create(tenantId: string, actorUserId: string, dto: CreateQuotationDto) {
-    if (dto.expiryDate < dto.issueDate) {
-      throw new ConflictException(
-        'Quotation expiry date must be on or after the issue date',
-      );
-    }
-    const customer = await this.repository.findCustomer(
-      tenantId,
-      dto.customerId,
-    );
-    if (!customer) throw new NotFoundException('Active customer not found');
-
-    const now = new Date();
-    const id = randomUUID();
-    let subtotal = 0;
-    const items: NewSalesQuotationItem[] = dto.items.map((item, sortOrder) => {
-      const itemName = item.itemName.trim();
-      if (!itemName)
-        throw new ConflictException(
-          'Each quotation line must have an item name',
-        );
-      const lineTotal = item.quantity * item.unitPrice;
-      subtotal += lineTotal;
-      return {
-        tenantId,
-        quotationId: id,
-        itemName,
-        description: this.optional(item.description),
-        quantity: item.quantity,
-        unitPrice: item.unitPrice.toFixed(2),
-        lineTotal: lineTotal.toFixed(2),
-        sortOrder,
-      };
-    });
-    const vat = subtotal * 0.13;
-    const quotation: NewSalesQuotation = {
-      id,
-      tenantId,
-      quotationNumber: await this.generateNumber(tenantId, dto.issueDate),
-      customerId: customer.id,
-      issueDate: dto.issueDate,
-      expiryDate: dto.expiryDate,
-      destinationAddress: this.optional(dto.destinationAddress),
-      terms: this.optional(dto.terms),
-      status: 'ACTIVE',
-      subtotalAmount: subtotal.toFixed(2),
-      vatAmount: vat.toFixed(2),
-      totalAmount: (subtotal + vat).toFixed(2),
-      createdBy: actorUserId,
-      updatedBy: actorUserId,
-      createdAt: now,
-      updatedAt: now,
-    };
+  async create(tenantId: string, userId: string, dto: SaveQuotationDto) {
+    const money = this.money(dto);
     try {
-      const created = await this.repository.create(quotation, items);
+      const created = await this.repository.create(
+        {
+          tenantId,
+          quotationNumber: dto.quotationNumber.trim(),
+          customerId: dto.customerId ?? null,
+          customerName: dto.customerName.trim(),
+          leadId: dto.leadId ?? null,
+          issueDate: dto.quotationDate,
+          expiryDate: dto.expiryDate,
+          destinationAddress: this.optional(dto.customerAddress),
+          terms: this.optional(dto.termsConditions),
+          currency: dto.currency,
+          vatApplicable: money.vatApplicable,
+          status: 'ACTIVE',
+          subtotalAmount: money.subtotal,
+          vatAmount: money.vat,
+          totalAmount: money.total,
+          createdBy: userId,
+        },
+        this.itemRows(tenantId, dto.items),
+      );
       return this.findDetails(tenantId, created.id);
     } catch (error: unknown) {
-      if (this.databaseErrorCode(error) === '23505') {
-        throw new ConflictException(
-          'Quotation number already exists. Try saving again.',
+      if (this.isUnique(error)) {
+        throw new BadRequestException(
+          'That quotation number was just used. Reload the page and save again.',
         );
       }
-      throw error;
+      throw new BadRequestException('The quotation could not be saved.');
     }
   }
 
-  async remove(tenantId: string, actorUserId: string, id: string) {
-    const removed = await this.repository.softDelete(tenantId, id, actorUserId);
-    if (!removed) throw new NotFoundException('Quotation not found');
+  async update(tenantId: string, id: string, dto: SaveQuotationDto) {
+    const money = this.money(dto);
+    const updated = await this.repository.update(
+      tenantId,
+      id,
+      {
+        customerId: dto.customerId ?? null,
+        customerName: dto.customerName.trim(),
+        leadId: dto.leadId ?? null,
+        issueDate: dto.quotationDate,
+        expiryDate: dto.expiryDate,
+        destinationAddress: this.optional(dto.customerAddress),
+        terms: this.optional(dto.termsConditions),
+        currency: dto.currency,
+        vatApplicable: money.vatApplicable,
+        subtotalAmount: money.subtotal,
+        vatAmount: money.vat,
+        totalAmount: money.total,
+      },
+      this.itemRows(tenantId, dto.items, id),
+    );
+    if (!updated) throw new NotFoundException('Quotation not found.');
+    return this.findDetails(tenantId, id);
   }
 
-  private async generateNumber(tenantId: string, date: string) {
-    const year = Number(date.slice(0, 4));
-    const latest = await this.repository.latestNumber(tenantId, year);
-    const suffix = latest ? Number(latest.split('-').at(-1)) : 0;
-    return `QT-${year}-${String((Number.isFinite(suffix) ? suffix : 0) + 1).padStart(4, '0')}`;
+  async purge(tenantId: string, userId: string, id: string, password: string) {
+    if (!password.trim()) {
+      throw new BadRequestException(
+        'Administrative clearance failure: Security code authorization mismatch.',
+      );
+    }
+    const actor = await this.repository.findActor(tenantId, userId);
+    const matches =
+      Boolean(actor?.passwordHash) &&
+      (await compare(password, actor?.passwordHash ?? '').catch(() => false));
+    if (!matches) {
+      throw new BadRequestException(
+        'Administrative clearance failure: Security code authorization mismatch.',
+      );
+    }
+    const removed = await this.repository.purge(tenantId, id);
+    if (!removed) throw new NotFoundException('Quotation not found.');
+    return {
+      success: true,
+      message:
+        'Target proposal entry and related child arrays dropped permanently from records.',
+    };
   }
 
-  private money<T extends Record<string, unknown>>(value: T): T {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, entry]) =>
-        key.endsWith('Amount') || key === 'unitPrice' || key === 'lineTotal'
-          ? [key, Number(entry)]
-          : [key, entry],
-      ),
-    ) as T;
+  private money(dto: SaveQuotationDto) {
+    const subtotal = dto.items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0,
+    );
+    const vatApplicable = dto.currency === 'USD' ? 0 : dto.vatApplicable === false ? 0 : 1;
+    const vat = vatApplicable ? Math.round(subtotal * 0.13 * 100) / 100 : 0;
+    const total = Math.round((subtotal + vat) * 100) / 100;
+    return {
+      vatApplicable,
+      subtotal: subtotal.toFixed(2),
+      vat: vat.toFixed(2),
+      total: total.toFixed(2),
+    };
   }
 
-  private optional(value: string | null | undefined) {
-    const normalized = value?.trim();
-    return normalized || undefined;
+  private itemRows(
+    tenantId: string,
+    items: QuotationItemDto[],
+    quotationId = '00000000-0000-0000-0000-000000000000',
+  ): NewSalesQuotationItem[] {
+    return items
+      .filter((item) => item.itemName.trim())
+      .map((item, index) => ({
+        tenantId,
+        quotationId,
+        itemName: item.itemName.trim(),
+        description: item.description?.trim() || null,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice.toFixed(2),
+        lineTotal: (item.quantity * item.unitPrice).toFixed(2),
+        sortOrder: index,
+      }));
   }
 
-  private databaseErrorCode(error: unknown): string | undefined {
-    if (typeof error !== 'object' || error === null) return undefined;
-    const record = error as { code?: unknown; cause?: { code?: unknown } };
-    return typeof record.code === 'string'
-      ? record.code
-      : typeof record.cause?.code === 'string'
-        ? record.cause.code
-        : undefined;
+  private defaultTerms(expiry: string): string {
+    return `• Delivery: 4-5 weeks from PO date\n• 100% Advance Payment.\n• Quotation Validity: ${expiry}`;
+  }
+
+  private kathmanduDate(date = new Date()): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kathmandu',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  }
+
+  private addDays(isoDate: string, days: number): string {
+    const date = new Date(`${isoDate}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  }
+
+  private optional(value: string | undefined): string | null {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+  }
+
+  private isUnique(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === '23505'
+    );
   }
 }

@@ -1,12 +1,11 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
-  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -21,8 +20,9 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PERMISSIONS } from '../../auth/permissions/permission.constants';
 import type { JwtPayload } from '../../auth/types/jwt-payload.type';
 import {
-  CreateQuotationDto,
   ListQuotationsQueryDto,
+  PurgeQuotationDto,
+  SaveQuotationDto,
 } from './dto/quotation.dto';
 import { QuotationsService } from './quotations.service';
 
@@ -45,21 +45,15 @@ export class QuotationsController {
     return this.service.list(request.user.organizationId, query);
   }
 
-  @Get('next-number')
-  nextNumber(
-    @Req() request: AuthenticatedRequest,
-    @Query('date') date: string,
-  ) {
-    return this.service.nextNumber(
-      request.user.organizationId,
-      date || new Date().toISOString().slice(0, 10),
-    );
+  @Get('draft')
+  draft() {
+    return this.service.draft();
   }
 
   @Get(':id')
-  findDetails(
+  details(
     @Req() request: AuthenticatedRequest,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.findDetails(request.user.organizationId, id);
   }
@@ -67,7 +61,7 @@ export class QuotationsController {
   @Post()
   create(
     @Req() request: AuthenticatedRequest,
-    @Body() dto: CreateQuotationDto,
+    @Body() dto: SaveQuotationDto,
   ) {
     return this.service.create(
       request.user.organizationId,
@@ -76,16 +70,26 @@ export class QuotationsController {
     );
   }
 
-  @Delete(':id')
-  @HttpCode(204)
-  remove(
+  @Put(':id')
+  update(
     @Req() request: AuthenticatedRequest,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SaveQuotationDto,
   ) {
-    return this.service.remove(
+    return this.service.update(request.user.organizationId, id, dto);
+  }
+
+  @Post(':id/purge')
+  purge(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PurgeQuotationDto,
+  ) {
+    return this.service.purge(
       request.user.organizationId,
       request.user.sub,
       id,
+      dto.password,
     );
   }
 }

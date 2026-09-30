@@ -2,7 +2,12 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import type { SalesOrderReportMonth } from "@/types/sales-orders";
+export interface TrendPoint {
+  key: string;
+  label: string;
+  invoiced: number;
+  won: number;
+}
 
 const SALES_COLOR = "#1cc88a";
 const WON_COLOR = "#4e73df";
@@ -11,7 +16,7 @@ const CHART_HEIGHT = 350;
 export function SalesTrendChart({
   months,
 }: {
-  months: SalesOrderReportMonth[];
+  months: TrendPoint[];
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -44,7 +49,7 @@ export function SalesTrendChart({
             height={CHART_HEIGHT}
             className="block"
             role="img"
-            aria-label="Sales order value compared with won CRM deals"
+            aria-label="Invoiced revenue compared with won CRM deals"
           >
             {chart.gridY.map((line) => (
               <g key={line.y}>
@@ -118,7 +123,7 @@ export function SalesTrendChart({
         ) : null}
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-center gap-8 text-sm text-slate-600">
-        <LegendSwatch color={SALES_COLOR} label="Actual Sales Order Value" />
+        <LegendSwatch color={SALES_COLOR} label="Actual Invoiced Revenue" />
         <LegendSwatch color={WON_COLOR} dashed label="Won Deals (CRM)" />
       </div>
     </div>
@@ -148,7 +153,7 @@ function LegendSwatch({
 }
 
 function buildChart(
-  months: SalesOrderReportMonth[],
+  months: TrendPoint[],
   width: number,
   height: number,
 ) {
@@ -162,7 +167,7 @@ function buildChart(
   const plotBottom = paddingTop + plotHeight;
   const maxValue = Math.max(
     1,
-    ...months.flatMap((month) => [month.salesOrderValue, month.wonDealValue]),
+    ...months.flatMap((month) => [month.invoiced, month.won]),
   );
   const niceMax = niceCeiling(maxValue);
   const ticks = 5;
@@ -170,7 +175,7 @@ function buildChart(
     const ratio = index / ticks;
     return {
       y: paddingTop + plotHeight * (1 - ratio),
-      label: formatAxis(niceMax * ratio),
+      label: `Rs. ${formatAxis(niceMax * ratio)}`,
     };
   });
   const step = months.length > 1 ? plotWidth / (months.length - 1) : plotWidth;
@@ -182,8 +187,8 @@ function buildChart(
       label: month.label.slice(0, 3),
       showLabel: index % labelEvery === 0 || index === months.length - 1,
       x,
-      salesY: paddingTop + plotHeight * (1 - month.salesOrderValue / niceMax),
-      wonY: paddingTop + plotHeight * (1 - month.wonDealValue / niceMax),
+      salesY: paddingTop + plotHeight * (1 - month.invoiced / niceMax),
+      wonY: paddingTop + plotHeight * (1 - month.won / niceMax),
     };
   });
   const salesCoords = points.map((point) => ({ x: point.x, y: point.salesY }));

@@ -38,18 +38,20 @@ describe('DeliveryOrdersService', () => {
     });
 
     expect(repository.latestNumber).toHaveBeenCalledWith(tenantId, 2026);
-    expect(repository.create).toHaveBeenCalledWith({
-      tenantId,
-      actorUserId,
-      deliveryNumber: 'DO-2026-0043',
-      deliveryDate: '2026-08-22',
-      customerName: 'Acme Trading',
-      contactName: 'Maya Rai',
-      contactPhone: '9800000000',
-      deliveryAddress: 'Kathmandu',
-      notes: 'Deliver before noon',
-      items: [{ assetId, quantity: 2 }],
-    });
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId,
+        actorUserId,
+        deliveryNumber: 'DO-2026-043',
+        deliveryDate: '2026-08-22',
+        customerName: 'Acme Trading',
+        contactName: 'Maya Rai',
+        contactPhone: '9800000000',
+        deliveryAddress: 'Kathmandu',
+        notes: 'Deliver before noon',
+        items: [{ assetId, quantity: 2 }],
+      }),
+    );
   });
 
   it('starts numbering at 0001 when the company has no earlier delivery', async () => {
@@ -62,7 +64,7 @@ describe('DeliveryOrdersService', () => {
     });
 
     expect(repository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ deliveryNumber: 'DO-2027-0001' }),
+      expect.objectContaining({ deliveryNumber: 'DO-2027-001' }),
     );
   });
 

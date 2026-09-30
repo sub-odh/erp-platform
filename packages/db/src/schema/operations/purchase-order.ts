@@ -33,10 +33,16 @@ export const operationsPurchaseOrders = pgTable(
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
+    sequence: integer("sequence"),
     poNumber: varchar("po_number", { length: 40 }).notNull(),
-    vendorId: uuid("vendor_id")
-      .notNull()
-      .references(() => operationsVendors.id, { onDelete: "restrict" }),
+    vendorId: uuid("vendor_id").references(() => operationsVendors.id, {
+      onDelete: "restrict",
+    }),
+    vendorDetails: text("vendor_details"),
+    billTo: text("bill_to"),
+    shipTo: text("ship_to"),
+    termsConditions: text("terms_conditions"),
+    currency: varchar("currency", { length: 3 }).notNull().default("NPR"),
     poDate: date("po_date").notNull(),
     attentionContact: varchar("attention_contact", { length: 200 }),
     deliveryAddress: text("delivery_address"),
@@ -91,6 +97,7 @@ export const operationsPurchaseOrderItems = pgTable(
       onDelete: "set null",
     }),
     productName: varchar("product_name", { length: 255 }).notNull(),
+    partNumber: varchar("part_number", { length: 255 }).notNull().default(""),
     description: text("description"),
     unitSymbol: varchar("unit_symbol", { length: 30 }).notNull(),
     quantity: integer("quantity").notNull(),

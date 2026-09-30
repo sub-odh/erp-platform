@@ -1,99 +1,157 @@
 import { Injectable } from '@nestjs/common';
-import { and, desc, eq, ilike, isNull, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  isNull,
+  lt,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 
 import {
   db,
+  hrEmployees,
   salesCustomers,
+  salesLeads,
   salesQuotationItems,
   salesQuotations,
-  type NewSalesQuotation,
+  users,
   type NewSalesQuotationItem,
 } from '@erp/db';
 
-import { getPaginationOffset } from '../../../common/pagination';
 import type { ListQuotationsQueryDto } from './dto/quotation.dto';
 
 @Injectable()
 export class QuotationsRepository {
-  async list(input: ListQuotationsQueryDto & { tenantId: string }) {
+  async list(tenantId: string, query: ListQuotationsQueryDto) {
+    const customerName = sql<string>`coalesce(${salesQuotations.customerName}, ${salesCustomers.name}, '')`;
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kathmandu',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
     const conditions: SQL[] = [
-      eq(salesQuotations.tenantId, input.tenantId),
+      eq(salesQuotations.tenantId, tenantId),
       isNull(salesQuotations.deletedAt),
     ];
-    if (input.search?.trim()) {
-      const pattern = `%${input.search.trim()}%`;
-      const search = or(
+    const search = query.search?.trim();
+    if (search) {
+      const pattern = `%${search}%`;
+      const match = or(
         ilike(salesQuotations.quotationNumber, pattern),
-        ilike(salesCustomers.name, pattern),
-        ilike(salesCustomers.customerCode, pattern),
+        ilike(customerName, pattern),
+        ilike(salesLeads.companyName, pattern),
       );
-      if (search) conditions.push(search);
+      if (match) conditions.push(match);
     }
-    if (input.status) conditions.push(eq(salesQuotations.status, input.status));
-
-    const [data, count] = await Promise.all([
-      db
-        .select({
-          id: salesQuotations.id,
-          quotationNumber: salesQuotations.quotationNumber,
-          issueDate: salesQuotations.issueDate,
-          expiryDate: salesQuotations.expiryDate,
-          status: salesQuotations.status,
-          subtotalAmount: salesQuotations.subtotalAmount,
-          vatAmount: salesQuotations.vatAmount,
-          totalAmount: salesQuotations.totalAmount,
-          customerId: salesCustomers.id,
-          customerName: salesCustomers.name,
-          customerCode: salesCustomers.customerCode,
-          createdAt: salesQuotations.createdAt,
-        })
-        .from(salesQuotations)
-        .innerJoin(
-          salesCustomers,
-          eq(salesCustomers.id, salesQuotations.customerId),
-        )
-        .where(and(...conditions))
-        .orderBy(
-          desc(salesQuotations.issueDate),
-          desc(salesQuotations.createdAt),
-        )
-        .limit(input.limit)
-        .offset(getPaginationOffset(input)),
-      db
-        .select({ total: sql<number>`count(*)::int` })
-        .from(salesQuotations)
-        .innerJoin(
-          salesCustomers,
-          eq(salesCustomers.id, salesQuotations.customerId),
-        )
-        .where(and(...conditions)),
-    ]);
-    return { data, total: count[0]?.total ?? 0 };
-  }
-
-  async findDetails(tenantId: string, id: string) {
-    const [quotation] = await db
+    if (query.status === 'expired') {
+      conditions.push(lt(salesQuotations.expiryDate, today));
+    }
+    if (query.status === 'active') {
+      conditions.push(sql`(${salesQuotations.expiryDate} >= ${today} OR ${salesQuotations.expiryDate} IS NULL)`);
+    }
+    const direction = query.direction === 'asc' ? asc : desc;
+    const sortColumn = {
+      quotation_number: salesQuotations.quotationNumber,
+      quotation_date: salesQuotations.issueDate,
+      expiry_date: salesQuotations.expiryDate,
+      customer_name: customerName,
+      total_amount: salesQuotations.totalAmount,
+      lead: salesLeads.companyName,
+    }[query.sort ?? 'quotation_date'];
+    const creator = sql<string>`coalesce(nullif(trim(concat(${hrEmployees.firstName}, ' ', ${hrEmployees.lastName})), ''), ${users.email}, 'System Executive')`;
+    return db
       .select({
         id: salesQuotations.id,
         quotationNumber: salesQuotations.quotationNumber,
-        issueDate: salesQuotations.issueDate,
+        quotationDate: salesQuotations.issueDate,
         expiryDate: salesQuotations.expiryDate,
-        status: salesQuotations.status,
-        destinationAddress: salesQuotations.destinationAddress,
-        terms: salesQuotations.terms,
-        subtotalAmount: salesQuotations.subtotalAmount,
-        vatAmount: salesQuotations.vatAmount,
+        customerName,
         totalAmount: salesQuotations.totalAmount,
-        customerId: salesCustomers.id,
-        customerName: salesCustomers.name,
-        customerCode: salesCustomers.customerCode,
-        customerEmail: salesCustomers.email,
-        createdAt: salesQuotations.createdAt,
+        currency: salesQuotations.currency,
+        leadId: salesQuotations.leadId,
+        leadName: salesLeads.companyName,
+        creatorName: creator,
       })
       .from(salesQuotations)
-      .innerJoin(
-        salesCustomers,
-        eq(salesCustomers.id, salesQuotations.customerId),
+      .leftJoin(salesCustomers, eq(salesCustomers.id, salesQuotations.customerId))
+      .leftJoin(salesLeads, eq(salesLeads.id, salesQuotations.leadId))
+      .leftJoin(users, eq(users.id, salesQuotations.createdBy))
+      .leftJoin(
+        hrEmployees,
+        and(
+          eq(hrEmployees.userId, users.id),
+          eq(hrEmployees.tenantId, salesQuotations.tenantId),
+        ),
+      )
+      .where(and(...conditions))
+      .orderBy(direction(sortColumn), desc(salesQuotations.id));
+  }
+
+  async metrics(tenantId: string) {
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kathmandu',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const [row] = await db
+      .select({
+        totalCount: sql<number>`count(*)::int`,
+        pipelineGrossValue: sql<string>`coalesce(sum(${salesQuotations.totalAmount}), 0)`,
+        expiredCount: sql<number>`count(*) filter (where ${salesQuotations.expiryDate} < ${today})::int`,
+      })
+      .from(salesQuotations)
+      .where(
+        and(
+          eq(salesQuotations.tenantId, tenantId),
+          isNull(salesQuotations.deletedAt),
+        ),
+      );
+    return {
+      totalCount: row?.totalCount ?? 0,
+      pipelineGrossValue: row?.pipelineGrossValue ?? '0',
+      expiredCount: row?.expiredCount ?? 0,
+    };
+  }
+
+  async findHeader(tenantId: string, id: string) {
+    const [row] = await db
+      .select({
+        id: salesQuotations.id,
+        quotationNumber: salesQuotations.quotationNumber,
+        quotationDate: salesQuotations.issueDate,
+        expiryDate: salesQuotations.expiryDate,
+        customerId: salesQuotations.customerId,
+        customerName: sql<string>`coalesce(${salesQuotations.customerName}, ${salesCustomers.name}, '')`,
+        customerAddress: sql<string>`coalesce(${salesQuotations.destinationAddress}, '')`,
+        termsConditions: sql<string>`coalesce(${salesQuotations.terms}, '')`,
+        totalAmount: salesQuotations.totalAmount,
+        subtotalAmount: salesQuotations.subtotalAmount,
+        vatAmount: salesQuotations.vatAmount,
+        currency: salesQuotations.currency,
+        vatApplicable: salesQuotations.vatApplicable,
+        leadId: salesQuotations.leadId,
+        leadName: salesLeads.companyName,
+        createdAt: salesQuotations.createdAt,
+        creatorName: sql<string>`coalesce(nullif(trim(concat(${hrEmployees.firstName}, ' ', ${hrEmployees.lastName})), ''), ${users.email}, 'System Executive')`,
+        signatureUrl: sql<string | null>`coalesce(${hrEmployees.signatureUrl}, ${users.signatureUrl})`,
+      })
+      .from(salesQuotations)
+      .leftJoin(salesCustomers, eq(salesCustomers.id, salesQuotations.customerId))
+      .leftJoin(salesLeads, eq(salesLeads.id, salesQuotations.leadId))
+      .leftJoin(users, eq(users.id, salesQuotations.createdBy))
+      .leftJoin(
+        hrEmployees,
+        and(
+          eq(hrEmployees.userId, users.id),
+          eq(hrEmployees.tenantId, salesQuotations.tenantId),
+        ),
       )
       .where(
         and(
@@ -103,87 +161,98 @@ export class QuotationsRepository {
         ),
       )
       .limit(1);
-    if (!quotation) return undefined;
+    return row;
+  }
 
-    const items = await db
+  async findItems(tenantId: string, quotationId: string) {
+    return db
       .select({
         id: salesQuotationItems.id,
         itemName: salesQuotationItems.itemName,
         description: salesQuotationItems.description,
         quantity: salesQuotationItems.quantity,
         unitPrice: salesQuotationItems.unitPrice,
-        lineTotal: salesQuotationItems.lineTotal,
       })
       .from(salesQuotationItems)
       .where(
         and(
           eq(salesQuotationItems.tenantId, tenantId),
-          eq(salesQuotationItems.quotationId, id),
+          eq(salesQuotationItems.quotationId, quotationId),
         ),
       )
-      .orderBy(salesQuotationItems.sortOrder);
-    return { ...quotation, items };
+      .orderBy(asc(salesQuotationItems.sortOrder), asc(salesQuotationItems.id));
   }
 
-  async findCustomer(tenantId: string, id: string) {
-    const [customer] = await db
-      .select({ id: salesCustomers.id })
-      .from(salesCustomers)
-      .where(
-        and(
-          eq(salesCustomers.tenantId, tenantId),
-          eq(salesCustomers.id, id),
-          eq(salesCustomers.isActive, true),
-          isNull(salesCustomers.deletedAt),
-        ),
-      )
-      .limit(1);
-    return customer;
-  }
-
-  async latestNumber(tenantId: string, year: number) {
+  async findActor(tenantId: string, userId: string) {
     const [row] = await db
-      .select({ quotationNumber: salesQuotations.quotationNumber })
-      .from(salesQuotations)
-      .where(
-        and(
-          eq(salesQuotations.tenantId, tenantId),
-          ilike(salesQuotations.quotationNumber, `QT-${year}-%`),
-        ),
-      )
-      .orderBy(desc(salesQuotations.quotationNumber))
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(and(eq(users.id, userId), eq(users.organizationId, tenantId)))
       .limit(1);
-    return row?.quotationNumber;
+    return row;
   }
 
-  async create(quotation: NewSalesQuotation, items: NewSalesQuotationItem[]) {
+  async create(
+    header: typeof salesQuotations.$inferInsert,
+    items: NewSalesQuotationItem[],
+  ) {
     return db.transaction(async (tx) => {
       const [created] = await tx
         .insert(salesQuotations)
-        .values(quotation)
-        .returning();
-      if (!created) throw new Error('Database did not return the quotation');
-      await tx.insert(salesQuotationItems).values(items);
+        .values(header)
+        .returning({ id: salesQuotations.id });
+      if (!created) throw new Error('MISSING_QUOTATION');
+      if (items.length) {
+        await tx.insert(salesQuotationItems).values(
+          items.map((item) => ({ ...item, quotationId: created.id })),
+        );
+      }
       return created;
     });
   }
 
-  async softDelete(tenantId: string, id: string, actorUserId: string) {
-    const [deleted] = await db
-      .update(salesQuotations)
-      .set({
-        deletedAt: new Date(),
-        updatedAt: new Date(),
-        updatedBy: actorUserId,
-      })
+  async update(
+    tenantId: string,
+    id: string,
+    header: Partial<typeof salesQuotations.$inferInsert>,
+    items: NewSalesQuotationItem[],
+  ) {
+    return db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(salesQuotations)
+        .set({ ...header, updatedAt: new Date() })
+        .where(
+          and(
+            eq(salesQuotations.tenantId, tenantId),
+            eq(salesQuotations.id, id),
+            isNull(salesQuotations.deletedAt),
+          ),
+        )
+        .returning({ id: salesQuotations.id });
+      if (!updated) return undefined;
+      await tx
+        .delete(salesQuotationItems)
+        .where(
+          and(
+            eq(salesQuotationItems.tenantId, tenantId),
+            eq(salesQuotationItems.quotationId, id),
+          ),
+        );
+      if (items.length) await tx.insert(salesQuotationItems).values(items);
+      return updated;
+    });
+  }
+
+  async purge(tenantId: string, id: string) {
+    const [removed] = await db
+      .delete(salesQuotations)
       .where(
         and(
           eq(salesQuotations.tenantId, tenantId),
           eq(salesQuotations.id, id),
-          isNull(salesQuotations.deletedAt),
         ),
       )
       .returning({ id: salesQuotations.id });
-    return deleted;
+    return removed;
   }
 }

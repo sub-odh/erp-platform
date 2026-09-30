@@ -45,6 +45,8 @@ import {
   salesPipelineStages,
   salesQuotationItems,
   salesQuotations,
+  salesCloudQuotations,
+  salesCloudQuotationItems,
   users,
   type InventoryAsset,
   type InventoryMovement,
@@ -817,7 +819,9 @@ export class CompanyDataService {
             row.defaultVendorId !== undefined &&
             !vendorIds.has(row.defaultVendorId)),
       ) ||
-      rows.purchaseOrders.some((row) => !vendorIds.has(row.vendorId)) ||
+      rows.purchaseOrders.some(
+        (row) => row.vendorId != null && !vendorIds.has(row.vendorId),
+      ) ||
       rows.purchaseOrderItems.some(
         (row) =>
           !purchaseOrderIds.has(row.purchaseOrderId) ||
@@ -825,7 +829,11 @@ export class CompanyDataService {
             row.productId !== undefined &&
             !productIds.has(row.productId)),
       ) ||
-      rows.quotations.some((row) => !customerIds.has(row.customerId)) ||
+      rows.quotations.some(
+        (row) =>
+          (row.customerId != null && !customerIds.has(row.customerId)) ||
+          (row.leadId != null && !leadIds.has(row.leadId)),
+      ) ||
       rows.quotationItems.some((row) => !quotationIds.has(row.quotationId)) ||
       rows.goodsReceipts.some(
         (row) => !purchaseOrderIds.has(row.purchaseOrderId),
@@ -841,7 +849,7 @@ export class CompanyDataService {
       rows.deliveryOrderItems.some(
         (row) =>
           !deliveryOrderIds.has(row.deliveryOrderId) ||
-          !inventoryAssetIds.has(row.assetId),
+          (row.assetId != null && !inventoryAssetIds.has(row.assetId)),
       ) ||
       rows.itemReturns.some((row) => !inventoryAssetIds.has(row.assetId))
     ) {
@@ -994,6 +1002,12 @@ export class CompanyDataService {
     await db
       .delete(hrFieldVisits)
       .where(eq(hrFieldVisits.tenantId, organizationId));
+    await db
+      .delete(salesCloudQuotationItems)
+      .where(eq(salesCloudQuotationItems.tenantId, organizationId));
+    await db
+      .delete(salesCloudQuotations)
+      .where(eq(salesCloudQuotations.tenantId, organizationId));
     const quotationItemRows = await db
       .delete(salesQuotationItems)
       .where(eq(salesQuotationItems.tenantId, organizationId))

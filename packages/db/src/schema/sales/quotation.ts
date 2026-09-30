@@ -16,6 +16,7 @@ import {
 import { organizations } from "../organization";
 import { users } from "../user";
 import { salesCustomers } from "./customer";
+import { salesLeads } from "./lead";
 
 export const quotationStatusEnum = pgEnum("sales_quotation_status", [
   "ACTIVE",
@@ -31,7 +32,16 @@ export const salesQuotations = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     tenantId: uuid("tenant_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
     quotationNumber: varchar("quotation_number", { length: 40 }).notNull(),
-    customerId: uuid("customer_id").notNull().references(() => salesCustomers.id, { onDelete: "restrict" }),
+    customerId: uuid("customer_id").references(() => salesCustomers.id, {
+      onDelete: "restrict",
+    }),
+    customerName: varchar("customer_name", { length: 255 }),
+    leadId: uuid("lead_id").references(() => salesLeads.id, {
+      onDelete: "set null",
+    }),
+    currency: varchar("currency", { length: 3 }).notNull().default("NPR"),
+    vatApplicable: integer("vat_applicable").notNull().default(1),
+    isFinal: integer("is_final").notNull().default(0),
     issueDate: date("issue_date").notNull(),
     expiryDate: date("expiry_date").notNull(),
     destinationAddress: text("destination_address"),

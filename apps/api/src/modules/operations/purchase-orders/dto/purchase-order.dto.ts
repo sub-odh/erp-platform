@@ -1,14 +1,15 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsDateString,
+  IsEmail,
+  IsIn,
   IsInt,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -19,46 +20,50 @@ export class ListPurchaseOrdersQueryDto {
   @IsOptional()
   @IsString()
   @MaxLength(200)
-  search?: string;
-
-  @IsOptional()
-  @IsUUID()
-  vendorId?: string;
-
-  @IsOptional()
-  @IsDateString()
-  fromDate?: string;
-
-  @IsOptional()
-  @IsDateString()
-  toDate?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page = 1;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
-}
-
-export class CreatePurchaseOrderItemDto {
-  @IsUUID()
-  productId!: string;
+  searchVendor?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(5000)
-  description?: string | null;
+  @MaxLength(40)
+  searchPoNum?: string;
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsIn(['po_number', 'po_date', 'vendor_name', 'total_amount', 'first_name'])
+  sort?: 'po_number' | 'po_date' | 'vendor_name' | 'total_amount' | 'first_name';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  direction?: 'asc' | 'desc';
+}
+
+export class PurchaseOrderItemDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  itemName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  partNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  description?: string;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(1_000_000)
   quantity!: number;
 
   @Type(() => Number)
@@ -67,36 +72,63 @@ export class CreatePurchaseOrderItemDto {
   unitPrice!: number;
 }
 
-export class CreatePurchaseOrderDto {
-  @IsUUID()
-  vendorId!: string;
+export class SavePurchaseOrderDto {
+  @IsString()
+  @MaxLength(40)
+  poNumber!: string;
 
   @IsDateString()
   poDate!: string;
 
-  @IsOptional()
   @IsString()
-  @MaxLength(200)
-  attentionContact?: string | null;
+  @MaxLength(4000)
+  vendorDetails!: string;
+
+  @IsString()
+  @MaxLength(4000)
+  billTo!: string;
+
+  @IsString()
+  @MaxLength(4000)
+  shipTo!: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
-  deliveryAddress?: string | null;
+  @MaxLength(8000)
+  termsConditions?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  paymentTerms?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  notes?: string | null;
+  @IsIn(['NPR', 'USD'])
+  currency!: 'NPR' | 'USD';
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(200)
   @ValidateNested({ each: true })
-  @Type(() => CreatePurchaseOrderItemDto)
-  items!: CreatePurchaseOrderItemDto[];
+  @Type(() => PurchaseOrderItemDto)
+  items!: PurchaseOrderItemDto[];
+}
+
+export class PurgePurchaseOrderDto {
+  @IsString()
+  @MaxLength(200)
+  password!: string;
+}
+
+export class DispatchPurchaseOrderDto {
+  @IsEmail()
+  @MaxLength(320)
+  recipientEmail!: string;
+
+  @IsString()
+  @MaxLength(200)
+  emailSubject!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  emailBodyNotes?: string;
+
+  @IsString()
+  @MaxLength(40)
+  poNumber!: string;
 }

@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -20,8 +21,10 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { PERMISSIONS } from '../../auth/permissions/permission.constants';
 import type { JwtPayload } from '../../auth/types/jwt-payload.type';
 import {
-  CreatePurchaseOrderDto,
+  DispatchPurchaseOrderDto,
   ListPurchaseOrdersQueryDto,
+  PurgePurchaseOrderDto,
+  SavePurchaseOrderDto,
 } from './dto/purchase-order.dto';
 import { PurchaseOrdersService } from './purchase-orders.service';
 
@@ -45,30 +48,31 @@ export class PurchaseOrdersController {
     return this.service.list(request.user.organizationId, query);
   }
 
-  @Get('next-number')
-  nextNumber(
+  @Get('draft')
+  draft(@Req() request: AuthenticatedRequest) {
+    return this.service.draft(request.user.organizationId, request.user.sub);
+  }
+
+  @Post('dispatch-email')
+  dispatch(
     @Req() request: AuthenticatedRequest,
-    @Query('date') date: string,
+    @Body() dto: DispatchPurchaseOrderDto,
   ) {
-    return this.service.nextNumber(
-      request.user.organizationId,
-      date || new Date().toISOString().slice(0, 10),
-    );
+    return this.service.dispatch(request.user.organizationId, dto);
   }
 
   @Get(':id')
-  findDetails(
+  details(
     @Req() request: AuthenticatedRequest,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.findDetails(request.user.organizationId, id);
   }
 
   @Post()
-  @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
   create(
     @Req() request: AuthenticatedRequest,
-    @Body() dto: CreatePurchaseOrderDto,
+    @Body() dto: SavePurchaseOrderDto,
   ) {
     return this.service.create(
       request.user.organizationId,
@@ -77,12 +81,26 @@ export class PurchaseOrdersController {
     );
   }
 
-  @Post(':id/email')
-  @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
-  sendEmail(
+  @Put(':id')
+  update(
     @Req() request: AuthenticatedRequest,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SavePurchaseOrderDto,
   ) {
-    return this.service.sendEmail(request.user.organizationId, id);
+    return this.service.update(request.user.organizationId, id, dto);
+  }
+
+  @Post(':id/purge')
+  purge(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PurgePurchaseOrderDto,
+  ) {
+    return this.service.purge(
+      request.user.organizationId,
+      request.user.sub,
+      id,
+      dto.password,
+    );
   }
 }

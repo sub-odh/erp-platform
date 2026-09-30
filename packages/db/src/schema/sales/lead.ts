@@ -1,5 +1,8 @@
 import {
+  date,
   index,
+  integer,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -8,8 +11,10 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+import { hrEmployees } from "../hr/employee";
 import { organizations } from "../organization";
 import { users } from "../user";
+import { salesCustomers } from "./customer";
 
 export const salesLeadStatusEnum = pgEnum("sales_lead_status", [
   "NEW",
@@ -44,6 +49,20 @@ export const salesLeads = pgTable(
 
     jobTitle: varchar("job_title", {
       length: 150,
+    }),
+
+    projectTitle: varchar("project_title", { length: 255 }),
+    contactPerson: varchar("contact_person", { length: 255 }),
+    stage: varchar("stage", { length: 40 }).notNull().default("Discovery"),
+    dealValue: numeric("deal_value", { precision: 18, scale: 2 }).notNull().default("0.00"),
+    winningProbability: integer("winning_probability").notNull().default(0),
+    expectedClosing: date("expected_closing"),
+    dealRemarks: text("deal_remarks"),
+    customerId: uuid("customer_id").references(() => salesCustomers.id, {
+      onDelete: "set null",
+    }),
+    assignedEmployeeId: uuid("assigned_employee_id").references(() => hrEmployees.id, {
+      onDelete: "set null",
     }),
 
     email: varchar("email", {

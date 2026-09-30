@@ -1,50 +1,83 @@
-import type { PaginationMeta } from "@/types/customer";
+export type QuotationCurrency = "NPR" | "USD";
 
-export type QuotationStatus =
-  "ACTIVE" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
-
-export interface QuotationItem {
-  id: string;
-  itemName: string;
-  description: string | null;
-  quantity: number;
-  unitPrice: number;
-  lineTotal: number;
+export interface QuotationDraft {
+  quotationNumber: string;
+  quotationDate: string;
+  expiryDate: string;
+  termsConditions: string;
 }
+
 export interface QuotationListItem {
   id: string;
   quotationNumber: string;
-  issueDate: string;
-  expiryDate: string;
-  status: QuotationStatus;
-  subtotalAmount: number;
-  vatAmount: number;
-  totalAmount: number;
-  customerId: string;
+  quotationDate: string;
+  expiryDate: string | null;
   customerName: string;
-  customerCode: string;
-  createdAt: string;
+  totalAmount: string;
+  currency: QuotationCurrency;
+  leadId: string | null;
+  leadName: string | null;
+  creatorName: string;
 }
-export interface QuotationDetails extends QuotationListItem {
-  destinationAddress: string | null;
-  terms: string | null;
-  customerEmail: string | null;
+
+export interface QuotationMetrics {
+  totalCount: number;
+  pipelineGrossValue: string;
+  expiredCount: number;
+}
+
+export interface QuotationListResponse {
+  items: QuotationListItem[];
+  metrics: QuotationMetrics;
+}
+
+export interface QuotationItem {
+  id?: string;
+  itemName: string;
+  description: string | null;
+  quantity: number;
+  unitPrice: string | number;
+}
+
+export interface QuotationDetails {
+  id: string;
+  quotationNumber: string;
+  quotationDate: string;
+  expiryDate: string | null;
+  customerId: string | null;
+  customerName: string;
+  customerAddress: string;
+  termsConditions: string;
+  totalAmount: string;
+  subtotalAmount: string;
+  vatAmount: string;
+  currency: QuotationCurrency;
+  vatApplicable: number;
+  leadId: string | null;
+  leadName: string | null;
+  creatorName: string;
+  signatureUrl: string | null;
+  amountInWords: string;
   items: QuotationItem[];
 }
-export interface QuotationListResponse {
-  data: QuotationListItem[];
-  pagination: PaginationMeta;
+
+export interface QuotationLineInput {
+  itemName: string;
+  description?: string;
+  quantity: number;
+  unitPrice: number;
 }
-export interface CreateQuotationInput {
-  customerId: string;
-  issueDate: string;
+
+export interface SaveQuotationInput {
+  quotationNumber: string;
+  quotationDate: string;
   expiryDate: string;
-  destinationAddress?: string | null;
-  terms?: string | null;
-  items: Array<{
-    itemName: string;
-    description?: string | null;
-    quantity: number;
-    unitPrice: number;
-  }>;
+  leadId?: string;
+  customerId?: string;
+  customerName: string;
+  customerAddress?: string;
+  currency: QuotationCurrency;
+  vatApplicable?: boolean;
+  termsConditions?: string;
+  items: QuotationLineInput[];
 }

@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import {
   and,
+  asc,
   desc,
   eq,
   gte,
   ilike,
-  inArray,
   isNull,
   lte,
   or,
@@ -15,110 +15,123 @@ import {
 
 import {
   db,
-  operationsProducts,
+  hrEmployees,
   operationsPurchaseOrderItems,
   operationsPurchaseOrders,
-  operationsUnits,
   operationsVendors,
-  type NewOperationsPurchaseOrder,
+  users,
   type NewOperationsPurchaseOrderItem,
 } from '@erp/db';
 
-import { getPaginationOffset } from '../../../common/pagination';
 import type { ListPurchaseOrdersQueryDto } from './dto/purchase-order.dto';
-
-interface ListInput extends ListPurchaseOrdersQueryDto {
-  tenantId: string;
-}
 
 @Injectable()
 export class PurchaseOrdersRepository {
-  async list(input: ListInput) {
-    const conditions: SQL[] = [
-      eq(operationsPurchaseOrders.tenantId, input.tenantId),
-      isNull(operationsPurchaseOrders.deletedAt),
-    ];
-    if (input.search) {
-      const pattern = `%${input.search.trim()}%`;
-      const search = or(
-        ilike(operationsPurchaseOrders.poNumber, pattern),
-        ilike(operationsVendors.name, pattern),
-        ilike(operationsVendors.code, pattern),
-      );
-      if (search) conditions.push(search);
-    }
-    if (input.vendorId) {
-      conditions.push(eq(operationsPurchaseOrders.vendorId, input.vendorId));
-    }
-    if (input.fromDate) {
-      conditions.push(gte(operationsPurchaseOrders.poDate, input.fromDate));
-    }
-    if (input.toDate) {
-      conditions.push(lte(operationsPurchaseOrders.poDate, input.toDate));
-    }
-
-    const [data, countRows] = await Promise.all([
-      db
-        .select({
-          id: operationsPurchaseOrders.id,
-          poNumber: operationsPurchaseOrders.poNumber,
-          poDate: operationsPurchaseOrders.poDate,
-          vendorId: operationsPurchaseOrders.vendorId,
-          vendorCode: operationsVendors.code,
-          vendorName: operationsVendors.name,
-          attentionContact: operationsPurchaseOrders.attentionContact,
-          status: operationsPurchaseOrders.status,
-          totalAmount: operationsPurchaseOrders.totalAmount,
-          createdAt: operationsPurchaseOrders.createdAt,
-        })
-        .from(operationsPurchaseOrders)
-        .innerJoin(
-          operationsVendors,
-          eq(operationsVendors.id, operationsPurchaseOrders.vendorId),
-        )
-        .where(and(...conditions))
-        .orderBy(
-          desc(operationsPurchaseOrders.poDate),
-          desc(operationsPurchaseOrders.createdAt),
-        )
-        .limit(input.limit)
-        .offset(getPaginationOffset(input)),
-      db
-        .select({ total: sql<number>`count(*)::int` })
-        .from(operationsPurchaseOrders)
-        .innerJoin(
-          operationsVendors,
-          eq(operationsVendors.id, operationsPurchaseOrders.vendorId),
-        )
-        .where(and(...conditions)),
-    ]);
-    return { data, total: countRows[0]?.total ?? 0 };
+  async nextSequence(tenantId: string): Promise<number> {
+    const [row] = await db
+      .select({
+        max: sql<number>`coalesce(max(${operationsPurchaseOrders.sequence}), 0)::int`,
+      })
+      .from(operationsPurchaseOrders)
+      .where(eq(operationsPurchaseOrders.tenantId, tenantId));
+    return (row?.max ?? 0) + 1;
   }
 
-  async findDetails(tenantId: string, id: string) {
-    const [order] = await db
+  async list(tenantId: string, query: ListPurchaseOrdersQueryDto) {
+    const vendorText = sql<string>`coalesce(${operationsPurchaseOrders.vendorDetails}, ${operationsVendors.name}, '')`;
+    const conditions: SQL[] = [
+      eq(operationsPurchaseOrders.tenantId, tenantId),
+      isNull(operationsPurchaseOrders.deletedAt),
+    ];
+    const vendor = query.searchVendor?.trim();
+    if (vendor) {
+      const pattern = `%${vendor}%`;
+      const match = or(
+        ilike(vendorText, pattern),
+        ilike(operationsPurchaseOrders.billTo, pattern),
+      );
+      if (match) conditions.push(match);
+    }
+    const number = query.searchPoNum?.trim();
+    if (number) {
+      conditions.push(
+        ilike(operationsPurchaseOrders.poNumber, `%${number}%`),
+      );
+    }
+    if (query.startDate) {
+      conditions.push(gte(operationsPurchaseOrders.poDate, query.startDate));
+    }
+    if (query.endDate) {
+      conditions.push(lte(operationsPurchaseOrders.poDate, query.endDate));
+    }
+    const creatorFirst = sql<string>`coalesce(${hrEmployees.firstName}, ${users.firstName})`;
+    const direction = query.direction === 'asc' ? asc : desc;
+    const sortColumn = {
+      po_number: operationsPurchaseOrders.poNumber,
+      po_date: operationsPurchaseOrders.poDate,
+      vendor_name: vendorText,
+      total_amount: operationsPurchaseOrders.totalAmount,
+      first_name: creatorFirst,
+    }[query.sort ?? 'po_date'];
+
+    return db
       .select({
         id: operationsPurchaseOrders.id,
         poNumber: operationsPurchaseOrders.poNumber,
         poDate: operationsPurchaseOrders.poDate,
-        vendorId: operationsPurchaseOrders.vendorId,
-        vendorCode: operationsVendors.code,
-        vendorName: operationsVendors.name,
-        vendorAddress: operationsVendors.address,
-        vendorEmail: operationsVendors.email,
-        vendorPhone: operationsVendors.phone,
-        attentionContact: operationsPurchaseOrders.attentionContact,
-        deliveryAddress: operationsPurchaseOrders.deliveryAddress,
-        paymentTerms: operationsPurchaseOrders.paymentTerms,
-        notes: operationsPurchaseOrders.notes,
-        status: operationsPurchaseOrders.status,
+        vendorDetails: vendorText,
         totalAmount: operationsPurchaseOrders.totalAmount,
-        createdAt: operationsPurchaseOrders.createdAt,
+        currency: operationsPurchaseOrders.currency,
+        creatorFirstName: creatorFirst,
+        creatorLastName: sql<string>`coalesce(${hrEmployees.lastName}, ${users.lastName})`,
       })
       .from(operationsPurchaseOrders)
-      .innerJoin(
+      .leftJoin(
         operationsVendors,
         eq(operationsVendors.id, operationsPurchaseOrders.vendorId),
+      )
+      .leftJoin(users, eq(users.id, operationsPurchaseOrders.createdBy))
+      .leftJoin(
+        hrEmployees,
+        and(
+          eq(hrEmployees.userId, users.id),
+          eq(hrEmployees.tenantId, operationsPurchaseOrders.tenantId),
+        ),
+      )
+      .where(and(...conditions))
+      .orderBy(direction(sortColumn));
+  }
+
+  async findHeader(tenantId: string, id: string) {
+    const [row] = await db
+      .select({
+        id: operationsPurchaseOrders.id,
+        poNumber: operationsPurchaseOrders.poNumber,
+        poDate: operationsPurchaseOrders.poDate,
+        vendorDetails: sql<string>`coalesce(${operationsPurchaseOrders.vendorDetails}, ${operationsVendors.name}, '')`,
+        billTo: sql<string>`coalesce(${operationsPurchaseOrders.billTo}, ${operationsPurchaseOrders.deliveryAddress}, '')`,
+        shipTo: sql<string>`coalesce(${operationsPurchaseOrders.shipTo}, '')`,
+        termsConditions: sql<string>`coalesce(${operationsPurchaseOrders.termsConditions}, ${operationsPurchaseOrders.notes}, '')`,
+        totalAmount: operationsPurchaseOrders.totalAmount,
+        currency: operationsPurchaseOrders.currency,
+        createdAt: operationsPurchaseOrders.createdAt,
+        creatorFirstName: sql<string | null>`coalesce(${hrEmployees.firstName}, ${users.firstName})`,
+        creatorLastName: sql<string | null>`coalesce(${hrEmployees.lastName}, ${users.lastName})`,
+        creatorRole: users.role,
+        signatureUrl: sql<string | null>`coalesce(${hrEmployees.signatureUrl}, ${users.signatureUrl})`,
+      })
+      .from(operationsPurchaseOrders)
+      .leftJoin(
+        operationsVendors,
+        eq(operationsVendors.id, operationsPurchaseOrders.vendorId),
+      )
+      .leftJoin(users, eq(users.id, operationsPurchaseOrders.createdBy))
+      .leftJoin(
+        hrEmployees,
+        and(
+          eq(hrEmployees.userId, users.id),
+          eq(hrEmployees.tenantId, operationsPurchaseOrders.tenantId),
+        ),
       )
       .where(
         and(
@@ -128,96 +141,113 @@ export class PurchaseOrdersRepository {
         ),
       )
       .limit(1);
-    if (!order) return undefined;
-
-    const items = await db
-      .select({
-        id: operationsPurchaseOrderItems.id,
-        productId: operationsPurchaseOrderItems.productId,
-        productName: operationsPurchaseOrderItems.productName,
-        description: operationsPurchaseOrderItems.description,
-        unitSymbol: operationsPurchaseOrderItems.unitSymbol,
-        quantity: operationsPurchaseOrderItems.quantity,
-        unitPrice: operationsPurchaseOrderItems.unitPrice,
-        lineTotal: operationsPurchaseOrderItems.lineTotal,
-        receivedQuantity: operationsPurchaseOrderItems.receivedQuantity,
-      })
-      .from(operationsPurchaseOrderItems)
-      .where(eq(operationsPurchaseOrderItems.purchaseOrderId, id))
-      .orderBy(operationsPurchaseOrderItems.sortOrder);
-    return { ...order, items };
+    return row;
   }
 
-  async findVendor(tenantId: string, id: string) {
-    const [vendor] = await db
-      .select()
-      .from(operationsVendors)
-      .where(
-        and(
-          eq(operationsVendors.tenantId, tenantId),
-          eq(operationsVendors.id, id),
-          eq(operationsVendors.isActive, true),
-          isNull(operationsVendors.deletedAt),
-        ),
-      )
-      .limit(1);
-    return vendor;
-  }
-
-  async findProducts(tenantId: string, ids: string[]) {
-    if (ids.length === 0) return [];
+  async findItems(tenantId: string, purchaseOrderId: string) {
     return db
       .select({
-        id: operationsProducts.id,
-        name: operationsProducts.name,
-        description: operationsProducts.description,
-        unitSymbol: operationsUnits.symbol,
-        purchasePrice: operationsProducts.purchasePrice,
-        isActive: operationsProducts.isActive,
+        id: operationsPurchaseOrderItems.id,
+        itemName: operationsPurchaseOrderItems.productName,
+        partNumber: operationsPurchaseOrderItems.partNumber,
+        description: operationsPurchaseOrderItems.description,
+        quantity: operationsPurchaseOrderItems.quantity,
+        unitPrice: operationsPurchaseOrderItems.unitPrice,
       })
-      .from(operationsProducts)
-      .innerJoin(
-        operationsUnits,
-        eq(operationsUnits.id, operationsProducts.unitId),
-      )
+      .from(operationsPurchaseOrderItems)
       .where(
         and(
-          eq(operationsProducts.tenantId, tenantId),
-          isNull(operationsProducts.deletedAt),
-          inArray(operationsProducts.id, ids),
+          eq(operationsPurchaseOrderItems.tenantId, tenantId),
+          eq(operationsPurchaseOrderItems.purchaseOrderId, purchaseOrderId),
         ),
+      )
+      .orderBy(
+        asc(operationsPurchaseOrderItems.sortOrder),
+        asc(operationsPurchaseOrderItems.id),
       );
   }
 
-  async latestNumber(tenantId: string, year: number) {
-    const prefix = `PO-${year}-`;
+  async findActor(tenantId: string, userId: string) {
     const [row] = await db
-      .select({ poNumber: operationsPurchaseOrders.poNumber })
-      .from(operationsPurchaseOrders)
-      .where(
-        and(
-          eq(operationsPurchaseOrders.tenantId, tenantId),
-          ilike(operationsPurchaseOrders.poNumber, `${prefix}%`),
-        ),
+      .select({
+        firstName: sql<string>`coalesce(${hrEmployees.firstName}, ${users.firstName})`,
+        lastName: sql<string>`coalesce(${hrEmployees.lastName}, ${users.lastName})`,
+        role: users.role,
+        passwordHash: users.passwordHash,
+      })
+      .from(users)
+      .leftJoin(
+        hrEmployees,
+        and(eq(hrEmployees.userId, users.id), eq(hrEmployees.tenantId, tenantId)),
       )
-      .orderBy(desc(operationsPurchaseOrders.poNumber))
+      .where(and(eq(users.id, userId), eq(users.organizationId, tenantId)))
       .limit(1);
-    return row?.poNumber;
+    return row;
   }
 
   async create(
-    order: NewOperationsPurchaseOrder,
+    header: typeof operationsPurchaseOrders.$inferInsert,
     items: NewOperationsPurchaseOrderItem[],
   ) {
     return db.transaction(async (tx) => {
       const [created] = await tx
         .insert(operationsPurchaseOrders)
-        .values(order)
-        .returning();
-      if (!created)
-        throw new Error('Database did not return the purchase order');
-      await tx.insert(operationsPurchaseOrderItems).values(items);
+        .values(header)
+        .returning({ id: operationsPurchaseOrders.id });
+      if (!created) throw new Error('MISSING_PO');
+      if (items.length) {
+        await tx.insert(operationsPurchaseOrderItems).values(
+          items.map((item) => ({ ...item, purchaseOrderId: created.id })),
+        );
+      }
       return created;
     });
+  }
+
+  async update(
+    tenantId: string,
+    id: string,
+    header: Partial<typeof operationsPurchaseOrders.$inferInsert>,
+    items: NewOperationsPurchaseOrderItem[],
+  ) {
+    return db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(operationsPurchaseOrders)
+        .set({ ...header, updatedAt: new Date() })
+        .where(
+          and(
+            eq(operationsPurchaseOrders.tenantId, tenantId),
+            eq(operationsPurchaseOrders.id, id),
+            isNull(operationsPurchaseOrders.deletedAt),
+          ),
+        )
+        .returning({ id: operationsPurchaseOrders.id });
+      if (!updated) return undefined;
+      await tx
+        .delete(operationsPurchaseOrderItems)
+        .where(
+          and(
+            eq(operationsPurchaseOrderItems.tenantId, tenantId),
+            eq(operationsPurchaseOrderItems.purchaseOrderId, id),
+          ),
+        );
+      if (items.length) await tx.insert(operationsPurchaseOrderItems).values(items);
+      return updated;
+    });
+  }
+
+  async purge(tenantId: string, id: string) {
+    const [removed] = await db
+      .update(operationsPurchaseOrders)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(
+          eq(operationsPurchaseOrders.tenantId, tenantId),
+          eq(operationsPurchaseOrders.id, id),
+          isNull(operationsPurchaseOrders.deletedAt),
+        ),
+      )
+      .returning({ id: operationsPurchaseOrders.id });
+    return removed;
   }
 }

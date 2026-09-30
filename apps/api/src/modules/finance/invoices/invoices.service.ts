@@ -54,12 +54,33 @@ export class InvoicesService {
       throw new NotFoundException('Delivery order not found');
     }
 
+    if (source.order.isBillable === 0) {
+      throw new BadRequestException('This delivery order is not billable.');
+    }
+    if (source.order.isVoided === 1) {
+      throw new BadRequestException('This delivery order is voided.');
+    }
+
     const subtotal = source.items.reduce(
       (sum, item) => sum + Number(item.unitPrice) * item.quantity,
       0,
     );
-    const vat = roundMoney(subtotal * VAT_RATE);
-    const total = roundMoney(subtotal + vat);
+    const discountValue = Number(source.order.discountValue ?? 0);
+    const discount =
+      source.order.discountValue == null
+        ? 0
+        : source.order.discountType === 'fixed' ||
+            source.order.discountType === 'amount'
+          ? discountValue
+          : (subtotal * discountValue) / 100;
+    const taxableBase = Math.max(
+      0,
+      subtotal - (Number.isFinite(discount) ? discount : 0),
+    );
+    const applyVat =
+      source.order.isTaxable == null || source.order.isTaxable === 1;
+    const vat = applyVat ? roundMoney(taxableBase * VAT_RATE) : 0;
+    const total = roundMoney(taxableBase + vat);
     const invoiceDate = source.order.deliveryDate;
     const invoiceNumber = await this.generateNumber(tenantId, invoiceDate);
 

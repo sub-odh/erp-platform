@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -40,6 +41,17 @@ import { UpdateLeadDto } from './dto/update-lead.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
 
 import { LeadsFacade } from './leads.facade';
+import {
+  CreatePipelineLeadDto,
+  PipelineQueryDto,
+  PostPipelineActivityDto,
+  SetFinalQuotationDto,
+  UpdatePipelineProfileDto,
+  UpdatePipelineSettingsDto,
+  UpdatePipelineSourceDto,
+  UpdatePipelineStageDto,
+} from './pipeline.dto';
+import { PipelineService } from './pipeline.service';
 
 type AuthenticatedRequest = Request & {
   user: JwtPayload;
@@ -56,7 +68,101 @@ type AuthenticatedRequest = Request & {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @RequirePermissions(PERMISSIONS.CRM_ACCESS)
 export class LeadsController {
-  constructor(private readonly leadsFacade: LeadsFacade) {}
+  constructor(
+    private readonly leadsFacade: LeadsFacade,
+    private readonly pipeline: PipelineService,
+  ) {}
+
+  @Get('pipeline')
+  pipelineList(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: PipelineQueryDto,
+  ) {
+    return this.pipeline.list(request.user.organizationId, request.user.sub, query);
+  }
+
+  @Post('pipeline')
+  pipelineCreate(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: CreatePipelineLeadDto,
+  ) {
+    return this.pipeline.create(request.user.organizationId, request.user.sub, dto);
+  }
+
+  @Get(':leadId/deal')
+  deal(
+    @Req() request: AuthenticatedRequest,
+    @Param('leadId', new ParseUUIDPipe()) leadId: string,
+  ) {
+    return this.pipeline.details(
+      request.user.organizationId,
+      request.user.sub,
+      request.user.role,
+      leadId,
+    );
+  }
+
+  @Patch(':leadId/stage')
+  stage(
+    @Req() request: AuthenticatedRequest,
+    @Param('leadId', new ParseUUIDPipe()) leadId: string,
+    @Body() dto: UpdatePipelineStageDto,
+  ) {
+    return this.pipeline.updateStage(request.user.organizationId, leadId, dto.stage);
+  }
+
+  @Put(':leadId/profile')
+  profile(
+    @Req() request: AuthenticatedRequest,
+    @Param('leadId', new ParseUUIDPipe()) leadId: string,
+    @Body() dto: UpdatePipelineProfileDto,
+  ) {
+    return this.pipeline.updateProfile(request.user.organizationId, leadId, dto);
+  }
+
+  @Patch(':leadId/source')
+  source(
+    @Req() request: AuthenticatedRequest,
+    @Param('leadId', new ParseUUIDPipe()) leadId: string,
+    @Body() dto: UpdatePipelineSourceDto,
+  ) {
+    return this.pipeline.updateSource(request.user.organizationId, leadId, dto);
+  }
+
+  @Post(':leadId/activity')
+  activity(
+    @Req() request: AuthenticatedRequest,
+    @Param('leadId', new ParseUUIDPipe()) leadId: string,
+    @Body() dto: PostPipelineActivityDto,
+  ) {
+    return this.pipeline.postActivity(request.user.organizationId, leadId, dto);
+  }
+
+  @Put(':leadId/settings')
+  settings(
+    @Req() request: AuthenticatedRequest,
+    @Param('leadId', new ParseUUIDPipe()) leadId: string,
+    @Body() dto: UpdatePipelineSettingsDto,
+  ) {
+    return this.pipeline.updateSettings(request.user.organizationId, leadId, dto);
+  }
+
+  @Post(':leadId/final-quotation')
+  finalQuotation(
+    @Req() request: AuthenticatedRequest,
+    @Param('leadId', new ParseUUIDPipe()) leadId: string,
+    @Body() dto: SetFinalQuotationDto,
+  ) {
+    return this.pipeline.setFinal(request.user.organizationId, leadId, dto.quotationId);
+  }
+
+  @Post(':leadId/purge')
+  purge(
+    @Req() request: AuthenticatedRequest,
+    @Param('leadId', new ParseUUIDPipe()) leadId: string,
+  ) {
+    return this.pipeline.purge(request.user.organizationId, leadId);
+  }
 
   @Get()
   list(

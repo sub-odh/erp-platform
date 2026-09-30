@@ -1,311 +1,305 @@
 "use client";
 
-import { Eye, FileText, Filter, Plus, Search, Trash2 } from "lucide-react";
+import { Eye, Pencil, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
-import { Button, DeleteConfirmView, Select } from "@/components/ui";
+import { QuotationPurgeView } from "@/components/quotations/quotation-purge-view";
+import { Button, Input, Modal, Select, Spinner } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/currency";
-import { deleteQuotation, getQuotations } from "@/lib/quotations";
-import type { QuotationListItem, QuotationStatus } from "@/types/quotations";
+import { formatPiAmount } from "@/lib/pi-format";
+import { getQuotation, getQuotations, purgeQuotation } from "@/lib/quotations";
+import type { QuotationDetails, QuotationListItem, QuotationMetrics } from "@/types/quotations";
 
-const money = (value: number) => formatCurrency(value);
+const FLASH: Record<string, string> = {
+  creation_success:
+    "Quotation record generated and synchronized successfully down to the ledger.",
+  update_success:
+    "Quotation baseline definitions and ledger metrics revised cleanly.",
+  delete_success:
+    "Target proposal entry and related child arrays dropped permanently from records.",
+};
+
+const SORTS = [
+  ["quotation_number", "Tracking ID"],
+  ["quotation_date", "Issue Date"],
+  ["expiry_date", "Expiry Date"],
+  ["customer_name", "Client"],
+  ["total_amount", "Grand Total"],
+  ["lead", "Mapped Lead"],
+] as const;
 
 export default function QuotationsPage() {
-  const [searchInput, setSearchInput] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const flash = FLASH[searchParams.get("msg") ?? ""] ?? null;
   const [search, setSearch] = useState("");
-  const [statusInput, setStatusInput] = useState<"" | QuotationStatus>("");
-  const [status, setStatus] = useState<"" | QuotationStatus>("");
-  const [quotations, setQuotations] = useState<QuotationListItem[]>([]);
-  const [total, setTotal] = useState(0);
+  const [status, setStatus] = useState<"" | "active" | "expired">("");
+  const [sort, setSort] = useState("quotation_date");
+  const [direction, setDirection] = useState<"asc" | "desc">("desc");
+  const [items, setItems] = useState<QuotationListItem[]>([]);
+  const [metrics, setMetrics] = useState<QuotationMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingDelete, setPendingDelete] =
-    useState<QuotationListItem | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [view, setView] = useState<QuotationDetails | null>(null);
+  const [purge, setPurge] = useState<QuotationListItem | null>(null);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
+  const [purging, setPurging] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const result = await getQuotations({
-        search,
+        search: search.trim() || undefined,
         status: status || undefined,
-        limit: 100,
+        sort,
+        direction,
       });
-      setQuotations(result.data);
-      setTotal(result.pagination.total);
-    } catch (cause) {
-      setError(
-        cause instanceof ApiError
-          ? cause.message
-          : "Unable to load quotations.",
-      );
+      setItems(result.items);
+      setMetrics(result.metrics);
+    } catch (reason: unknown) {
+      setError(reason instanceof ApiError ? reason.message : "Quotations could not be loaded.");
     } finally {
       setLoading(false);
     }
-  }, [search, status]);
+  }, [direction, search, sort, status]);
+
   useEffect(() => {
     void load();
   }, [load]);
 
-  const pipelineTotal = useMemo(
-    () => quotations.reduce((sum, quotation) => sum + quotation.totalAmount, 0),
-    [quotations],
-  );
-  const expiredTotal = useMemo(
-    () =>
-      quotations.filter(
-        (quotation) =>
-          quotation.status === "EXPIRED" ||
-          (quotation.status === "ACTIVE" &&
-            quotation.expiryDate < new Date().toISOString().slice(0, 10)),
-      ).length,
-    [quotations],
-  );
+  function toggleSort(column: string) {
+    if (sort === column) {
+      setDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSort(column);
+    setDirection("asc");
+  }
 
-  async function remove(quotation: QuotationListItem) {
-    setDeleting(true);
-    setError(null);
+  async function openView(id: string) {
+    const details = await getQuotation(id);
+    setView(details);
+  }
+
+  async function confirmPurge(password: string) {
+    if (!purge) return;
+    setPurging(true);
+    setPurgeError(null);
     try {
-      await deleteQuotation(quotation.id);
-      setPendingDelete(null);
+      await purgeQuotation(purge.id, password);
+      setPurge(null);
+      router.push("/quotations?msg=delete_success");
       await load();
-    } catch (cause) {
-      setError(
-        cause instanceof ApiError
-          ? cause.message
-          : "Unable to delete quotation.",
+    } catch (reason: unknown) {
+      setPurgeError(
+        reason instanceof ApiError
+          ? reason.message
+          : "Administrative clearance failure: Security code authorization mismatch.",
       );
     } finally {
-      setDeleting(false);
+      setPurging(false);
     }
   }
 
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kathmandu",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Commercial Quotation Pipeline
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Track, organize, and output customer proposals with VAT evaluation
-            and commercial terms.
-          </p>
-        </div>
-        <Link
-          href="/quotations/new"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white transition hover:bg-emerald-700"
-        >
-          <Plus size={16} />
-          Generate New Quotation
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-slate-900">Commercial Quotation Pipeline</h1>
+        <Link href="/quotations/new">
+          <Button>Generate New Quotation</Button>
         </Link>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Stat label="Total Proposals Filed" value={String(total)} tone="blue" />
-        <Stat
+      {flash ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{flash}</p> : null}
+      {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Metric label="Total Proposals Filed" value={String(metrics?.totalCount ?? 0)} />
+        <Metric
           label="Gross Pipeline Valuation (Inc. VAT)"
-          value={money(pipelineTotal)}
-          tone="green"
+          value={formatCurrency(Number(metrics?.pipelineGrossValue ?? 0))}
         />
-        <Stat
-          label="Expired Boundary Records"
-          value={String(expiredTotal)}
-          tone="red"
-        />
+        <Metric label="Expired" value={String(metrics?.expiredCount ?? 0)} />
       </div>
-      <section className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm lg:flex-row">
-        <label className="relative flex-1">
-          <span className="sr-only">Search quotations</span>
-          <Search
-            size={16}
-            aria-hidden="true"
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+      <div className="flex flex-wrap gap-2">
+        <div className="min-w-64">
+          <Input
+            placeholder="Search number, customer, or lead"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
           />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") setSearch(searchInput);
-            }}
-            placeholder="Search tracking ID number or customer profiles..."
-            className="h-10 w-full rounded-md border border-slate-200 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          />
-        </label>
-        <Select
-          aria-label="Quotation Status"
-          value={statusInput}
-          onChange={(event) =>
-            setStatusInput(event.target.value as "" | QuotationStatus)
-          }
-          wrapperClassName="lg:w-80"
-          className="h-10 py-2"
-        >
-          <option value="">All Boundary Statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="ACCEPTED">Accepted</option>
-          <option value="REJECTED">Rejected</option>
-          <option value="EXPIRED">Expired</option>
-          <option value="CANCELLED">Cancelled</option>
-        </Select>
-        <Button
-          variant="secondary"
-          className="lg:min-w-44"
-          onClick={() => {
-            setSearch(searchInput);
-            setStatus(statusInput);
-          }}
-        >
-          <Filter size={15} />
-          Query Filter
-        </Button>
-      </section>
-      {error ? (
-        <div
-          role="alert"
-          className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
-        >
-          {error}
         </div>
-      ) : null}
-      <section className="overflow-hidden rounded-xl bg-white shadow-sm">
-        <h2 className="border-b border-slate-100 px-4 py-4 font-semibold text-slate-900">
-          <FileText size={17} className="mr-2 inline text-blue-600" />
-          Active Pipeline Quotations Manifest
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-[900px] w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Tracking ID</th>
-                <th className="px-4 py-3">Issue Date</th>
-                <th className="px-4 py-3">Expiry Date</th>
-                <th className="px-4 py-3">Client / Customer Reference</th>
-                <th className="px-4 py-3 text-right">Grand Total</th>
-                <th className="px-4 py-3">State</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+        <Select value={status} onChange={(event) => setStatus(event.target.value as typeof status)}>
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="expired">Expired</option>
+        </Select>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Spinner />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          No commercial pipeline tracking quotations found matching the requested query filter boundaries.
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                {SORTS.map(([key, label]) => (
+                  <th key={key} className="px-3 py-2">
+                    <button type="button" onClick={() => toggleSort(key)}>
+                      {label}
+                      {sort === key ? (direction === "asc" ? " ↑" : " ↓") : ""}
+                    </button>
+                  </th>
+                ))}
+                <th className="px-3 py-2">State</th>
+                <th className="px-3 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="h-40 text-center text-slate-400">
-                    Loading quotations…
-                  </td>
-                </tr>
-              ) : quotations.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="h-40 text-center text-slate-400">
-                    No quotations created yet.
-                  </td>
-                </tr>
-              ) : (
-                quotations.map((quotation) => (
-                  <tr key={quotation.id} className="border-t border-slate-100">
-                    <td className="px-4 py-4 font-semibold text-emerald-700">
-                      {quotation.quotationNumber}
+              {items.map((row) => {
+                const expired = Boolean(row.expiryDate && row.expiryDate < today);
+                return (
+                  <tr
+                    key={row.id}
+                    className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
+                    onClick={() => void openView(row.id)}
+                  >
+                    <td className="px-3 py-2 font-mono">{row.quotationNumber}</td>
+                    <td className="px-3 py-2">{row.quotationDate}</td>
+                    <td className={`px-3 py-2 ${expired ? "font-bold text-rose-700" : ""}`}>
+                      {row.expiryDate || "N/A"}
                     </td>
-                    <td className="px-4 py-4">{quotation.issueDate}</td>
-                    <td className="px-4 py-4">{quotation.expiryDate}</td>
-                    <td className="px-4 py-4">
-                      <div className="font-medium text-slate-900">
-                        {quotation.customerName}
+                    <td className="px-3 py-2">
+                      <div>{row.customerName || "N/A"}</div>
+                      <div className="text-xs text-slate-500">by: {row.creatorName}</div>
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.leadName ? (
+                        <Link href="/leads" className="rounded bg-slate-100 px-2 py-0.5 text-xs" onClick={(event) => event.stopPropagation()}>
+                          {row.leadName}
+                        </Link>
+                      ) : (
+                        "Unmapped"
+                      )}
+                    </td>
+                    <td className="px-3 py-2">{formatPiAmount(row.totalAmount, row.currency)}</td>
+                    <td className="px-3 py-2">
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${expired ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"}`}>
+                        {expired ? "Expired" : "Active"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1" onClick={(event) => event.stopPropagation()}>
+                        <Link href={`/quotations/${row.id}/print`} target="_blank" className="rounded p-1 text-slate-600 hover:bg-slate-100" title="Print">
+                          <Printer className="size-4" />
+                        </Link>
+                        <Link href={`/quotations/${row.id}/edit`} className="rounded p-1 text-slate-600 hover:bg-slate-100" title="Edit">
+                          <Pencil className="size-4" />
+                        </Link>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-rose-600 hover:bg-rose-50"
+                          title="Purge"
+                          onClick={() => {
+                            setPurgeError(null);
+                            setPurge(row);
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
                       </div>
-                      <div className="text-xs text-slate-500">
-                        {quotation.customerCode}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-right font-semibold">
-                      {money(quotation.totalAmount)}
-                    </td>
-                    <td className="px-4 py-4">
-                      <Status status={quotation.status} />
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      <Link
-                        href={`/quotations/${quotation.id}`}
-                        className="mr-2 inline-flex rounded-md border border-blue-200 p-2 text-blue-600 hover:bg-blue-50"
-                        aria-label={`View ${quotation.quotationNumber}`}
-                      >
-                        <Eye size={16} />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => setPendingDelete(quotation)}
-                        className="rounded-md border border-rose-200 p-2 text-rose-600 hover:bg-rose-50"
-                        aria-label={`Delete ${quotation.quotationNumber}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
                     </td>
                   </tr>
-                ))
-              )}
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </section>
-      <DeleteConfirmView
-        open={pendingDelete !== null}
-        title="Delete Quotation"
-        description={
-          pendingDelete
-            ? `Delete quotation ${pendingDelete.quotationNumber}?`
-            : "Delete this quotation?"
+      )}
+      <Modal
+        open={Boolean(view)}
+        title={`Quotation Proposal View: ${view?.quotationNumber ?? ""}`}
+        onClose={() => setView(null)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setView(null)}>
+              Dismiss View
+            </Button>
+            {view ? (
+              <Link href={`/quotations/${view.id}/print`} target="_blank">
+                <Button>
+                  <Eye className="size-4" />
+                  Print / Save Proposal PDF
+                </Button>
+              </Link>
+            ) : null}
+          </>
         }
-        confirmLabel="Delete"
-        loading={deleting}
-        onConfirm={() => {
-          if (pendingDelete) void remove(pendingDelete);
-        }}
-        onClose={() => {
-          if (deleting) return;
-          setPendingDelete(null);
-        }}
+      >
+        {view ? (
+          <div className="space-y-3 text-sm">
+            <p><strong>Client:</strong> {view.customerName}</p>
+            <p className="whitespace-pre-line"><strong>Address:</strong> {view.customerAddress || "N/A"}</p>
+            <p><strong>Mapped Lead:</strong> {view.leadName || "Unmapped"}</p>
+            <p><strong>Issue:</strong> {view.quotationDate}</p>
+            <p><strong>Expiry:</strong> {view.expiryDate || "On Notice"}</p>
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-xs uppercase text-slate-500">
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.items.map((item, index) => (
+                  <tr key={item.id ?? index}>
+                    <td>{item.itemName}</td>
+                    <td>{item.quantity}</td>
+                    <td>{formatPiAmount(item.unitPrice, view.currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="font-semibold">
+              Gross Amount {view.vatApplicable ? "(Inc. 13% VAT)" : ""}: {formatPiAmount(view.totalAmount, view.currency)}
+            </p>
+            <p className="whitespace-pre-line">{view.termsConditions}</p>
+            <p>Created by {view.creatorName}</p>
+          </div>
+        ) : null}
+      </Modal>
+      <QuotationPurgeView
+        open={Boolean(purge)}
+        trackingId={purge?.quotationNumber ?? ""}
+        loading={purging}
+        error={purgeError ?? undefined}
+        onClose={() => setPurge(null)}
+        onConfirm={(password) => void confirmPurge(password)}
       />
     </div>
   );
 }
 
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "blue" | "green" | "red";
-}) {
-  const toneClasses = {
-    blue: "text-slate-900",
-    green: "text-emerald-600",
-    red: "text-rose-600",
-  };
+function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <section className="rounded-xl bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className={`mt-2 text-xl font-bold ${toneClasses[tone]}`}>{value}</p>
-    </section>
-  );
-}
-function Status({ status }: { status: QuotationStatus }) {
-  const classes: Record<QuotationStatus, string> = {
-    ACTIVE: "bg-emerald-100 text-emerald-700",
-    ACCEPTED: "bg-blue-100 text-blue-700",
-    REJECTED: "bg-rose-100 text-rose-700",
-    EXPIRED: "bg-amber-100 text-amber-700",
-    CANCELLED: "bg-slate-100 text-slate-600",
-  };
-  return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${classes[status]}`}
-    >
-      {status[0] + status.slice(1).toLowerCase()}
-    </span>
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
+    </div>
   );
 }

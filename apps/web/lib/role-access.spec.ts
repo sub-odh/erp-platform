@@ -156,7 +156,7 @@ const deniedProbes: Array<{
   { role: "SALES", path: "/delivery-orders/new", allowed: false },
   { role: "SALES", path: "/delivery-orders", allowed: true },
   { role: "HEAD", path: "/purchase-orders/new", allowed: true },
-  { role: "HEAD", path: "/purchase-orders/abc", allowed: false },
+  { role: "HEAD", path: "/purchase-orders/abc", allowed: true },
   { role: "SALES", path: "/purchase-orders", allowed: true },
   { role: "EMPLOYEE", path: "/hr/hall-bookings", allowed: true },
   { role: "EMPLOYEE", path: "/hr/halls", allowed: false },

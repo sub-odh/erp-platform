@@ -24,6 +24,9 @@ import { LeadsModule } from './modules/sales/leads/leads.module';
 import { OpportunitiesModule } from './modules/sales/opportunities/opportunities.module';
 import { ProformaInvoicesModule } from './modules/sales/proforma-invoices/proforma-invoices.module';
 import { QuotationsModule } from './modules/sales/quotations/quotations.module';
+import { CloudQuotationsModule } from './modules/sales/cloud-quotations/cloud-quotations.module';
+import { ReportsModule } from './modules/sales/reports/reports.module';
+import { RecoveriesModule } from './modules/sales/recoveries/recoveries.module';
 import { SalesOrdersModule } from './modules/sales/sales-orders/sales-orders.module';
 import { PipelineStagesModule } from './modules/sales/pipeline-stages/pipeline-stages.module';
 import { InventoryModule } from './modules/operations/inventory/inventory.module';
@@ -120,9 +123,13 @@ import { VisitsModule } from './modules/hr/visits/visits.module';
 
     QuotationsModule,
 
+    CloudQuotationsModule,
+
     ProformaInvoicesModule,
 
     SalesOrdersModule,
+    ReportsModule,
+    RecoveriesModule,
 
     InventoryModule,
 

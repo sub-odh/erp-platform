@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -22,36 +23,45 @@ export class ListQuotationsQueryDto {
   search?: string;
 
   @IsOptional()
-  @IsIn(['ACTIVE', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CANCELLED'])
-  status?: 'ACTIVE' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
+  @IsIn(['active', 'expired'])
+  status?: 'active' | 'expired';
 
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page = 1;
+  @IsIn([
+    'quotation_number',
+    'quotation_date',
+    'expiry_date',
+    'customer_name',
+    'total_amount',
+    'lead',
+  ])
+  sort?:
+    | 'quotation_number'
+    | 'quotation_date'
+    | 'expiry_date'
+    | 'customer_name'
+    | 'total_amount'
+    | 'lead';
 
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
+  @IsIn(['asc', 'desc'])
+  direction?: 'asc' | 'desc';
 }
 
-export class CreateQuotationItemDto {
+export class QuotationItemDto {
   @IsString()
   @MaxLength(255)
   itemName!: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(5000)
-  description?: string | null;
+  @MaxLength(4000)
+  description?: string;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(1_000_000)
   quantity!: number;
 
   @Type(() => Number)
@@ -60,29 +70,55 @@ export class CreateQuotationItemDto {
   unitPrice!: number;
 }
 
-export class CreateQuotationDto {
-  @IsUUID()
-  customerId!: string;
+export class SaveQuotationDto {
+  @IsString()
+  @MaxLength(40)
+  quotationNumber!: string;
 
   @IsDateString()
-  issueDate!: string;
+  quotationDate!: string;
 
   @IsDateString()
   expiryDate!: string;
 
   @IsOptional()
+  @IsUUID()
+  leadId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
+
   @IsString()
-  @MaxLength(5000)
-  destinationAddress?: string | null;
+  @MaxLength(255)
+  customerName!: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(10000)
-  terms?: string | null;
+  @MaxLength(4000)
+  customerAddress?: string;
+
+  @IsIn(['NPR', 'USD'])
+  currency!: 'NPR' | 'USD';
+
+  @IsOptional()
+  @IsBoolean()
+  vatApplicable?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  termsConditions?: string;
 
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => CreateQuotationItemDto)
-  items!: CreateQuotationItemDto[];
+  @Type(() => QuotationItemDto)
+  items!: QuotationItemDto[];
+}
+
+export class PurgeQuotationDto {
+  @IsString()
+  @MaxLength(200)
+  password!: string;
 }

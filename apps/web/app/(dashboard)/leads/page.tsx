@@ -1,541 +1,250 @@
 "use client";
 
-import { Plus, RefreshCw, Search } from "lucide-react";
+import { Building2, ChevronDown, FileText, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-
-import { Button, ConfirmDialog, Select, Spinner } from "@/components/ui";
-
-import { LeadConversionModal } from "@/components/leads/lead-conversion-modal";
-import { LeadModal } from "@/components/leads/lead-modal";
-import { LeadTable } from "@/components/leads/lead-table";
-import { LeadViewModal } from "@/components/leads/lead-view-modal";
-
-import { getStoredUser } from "@/lib/auth";
-
+import { CaptureLeadView } from "@/components/leads/capture-lead-view";
+import { LeadDeleteView } from "@/components/leads/lead-delete-view";
+import { Button, Input, Spinner } from "@/components/ui";
+import { ApiError } from "@/lib/api";
+import { formatCurrency } from "@/lib/currency";
 import {
-  archiveLead,
-  getLeads,
-  permanentlyDeleteLead,
-  restoreLead,
-  updateLeadStatus,
-} from "@/lib/leads";
+  createPipelineLead,
+  getPipeline,
+  purgePipelineLead,
+  stageMeta,
+  updatePipelineStage,
+  PIPELINE_STAGES,
+  type PipelineLead,
+  type PipelineMetrics,
+  type PipelineStage,
+} from "@/lib/pipeline";
 
-import type {
-  ConvertLeadResponse,
-  EditableLeadStatus,
-  Lead,
-  LeadPagination,
-  LeadRecordState,
-  LeadStatus,
-} from "@/types/lead";
-
-const PAGE_SIZE = 20;
-
-type StatusFilter = "ALL" | LeadStatus;
+const SORTS = [
+  ["date", "Date"],
+  ["project", "Project / Company"],
+  ["stage", "Stage / Progress"],
+  ["deal_val", "Deal Value"],
+  ["weighted", "Weighted Value"],
+  ["assigned", "Assigned To"],
+] as const;
 
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-
-  const [pagination, setPagination] = useState<LeadPagination | null>(null);
-
+  const router = useRouter();
+  const [view, setView] = useState<"all" | "my">("all");
+  const [sort, setSort] = useState("id");
+  const [direction, setDirection] = useState<"asc" | "desc">("desc");
+  const [rows, setRows] = useState<PipelineLead[]>([]);
+  const [metrics, setMetrics] = useState<PipelineMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [searchInput, setSearchInput] = useState("");
-
-  const [search, setSearch] = useState("");
-
-  const [status, setStatus] = useState<StatusFilter>("ALL");
-
-  const [recordState, setRecordState] = useState<LeadRecordState>("active");
-
-  const [page, setPage] = useState(1);
-
-  const [modalOpen, setModalOpen] = useState(false);
-
-  const [editingLead, setEditingLead] = useState<Lead | null>(null);
-
-  const [viewingLead, setViewingLead] = useState<Lead | null>(null);
-
-  const [conversionTarget, setConversionTarget] = useState<Lead | null>(null);
-
-  const [conversionSuccess, setConversionSuccess] = useState<{
-    opportunityName: string;
-    opportunityId: string;
-  } | null>(null);
-
-  const [archiveTarget, setArchiveTarget] = useState<Lead | null>(null);
-
-  const [permanentDeleteTarget, setPermanentDeleteTarget] =
-    useState<Lead | null>(null);
-
-  const [archiving, setArchiving] = useState(false);
-
-  const [deletingPermanently, setDeletingPermanently] = useState(false);
-
-  const [busyLeadId, setBusyLeadId] = useState<string | null>(null);
-
-  const [canPermanentlyDelete, setCanPermanentlyDelete] = useState(false);
-
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [captureOpen, setCaptureOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const role = getStoredUser()?.role;
-
-    setCanPermanentlyDelete(role === "OWNER" || role === "ADMIN");
-  }, []);
-
-  const loadLeads = useCallback(async (): Promise<void> => {
+  const load = useCallback(async () => {
     setLoading(true);
-
     setError(null);
-
     try {
-      const result = await getLeads({
-        search: search || undefined,
-
-        status: status === "ALL" ? undefined : status,
-
-        recordState,
-
-        page,
-
-        limit: PAGE_SIZE,
-
-        sortBy: "createdAt",
-
-        sortDirection: "desc",
-      });
-
-      setLeads(result.data);
-
-      setPagination(result.pagination);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to load leads.",
-      );
+      const result = await getPipeline({ view, sort, direction });
+      setRows(result.items);
+      setMetrics(result.metrics);
+    } catch (reason: unknown) {
+      setError(reason instanceof ApiError ? reason.message : "Unable to load leads.");
     } finally {
       setLoading(false);
     }
-  }, [page, recordState, search, status]);
+  }, [direction, sort, view]);
 
   useEffect(() => {
-    void loadLeads();
-  }, [loadLeads]);
+    void load();
+  }, [load]);
 
-  function handleSearch(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-
-    setPage(1);
-
-    setSearch(searchInput.trim());
-  }
-
-  function openCreate(): void {
-    if (recordState === "archived") {
-      return;
-    }
-
-    setEditingLead(null);
-
-    setModalOpen(true);
-  }
-
-  function openEdit(lead: Lead): void {
-    if (lead.deletedAt) {
-      return;
-    }
-
-    setEditingLead(lead);
-
-    setModalOpen(true);
-  }
-
-  function handleSaved(lead: Lead): void {
-    setModalOpen(false);
-
-    setEditingLead(null);
-
-    setLeads((current) =>
-      current.map((item) => (item.id === lead.id ? lead : item)),
-    );
-
-    void loadLeads();
-  }
-
-  async function handleStatusChange(
-    lead: Lead,
-    nextStatus: EditableLeadStatus,
-  ): Promise<void> {
-    if (lead.deletedAt) {
-      return;
-    }
-
-    setError(null);
-
-    try {
-      const updated = await updateLeadStatus(lead.id, nextStatus);
-
-      setLeads((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
-      );
-
-      await loadLeads();
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to update lead status.",
-      );
-
-      throw requestError;
-    }
-  }
-
-  function handleConverted(result: ConvertLeadResponse): void {
-    setConversionTarget(null);
-
-    setConversionSuccess({
-      opportunityName: result.opportunity.name,
-
-      opportunityId: result.opportunity.id,
+  const visible = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((row) => {
+      const date = formatLeadDate(row.createdAt).toLowerCase();
+      return [row.companyName, row.projectTitle, row.contactPerson, row.phone, row.assignedName, date]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle);
     });
+  }, [rows, search]);
 
-    setLeads((current) =>
-      current.map((lead) => (lead.id === result.lead.id ? result.lead : lead)),
-    );
-
-    void loadLeads();
-  }
-
-  async function confirmArchive(): Promise<void> {
-    if (!archiveTarget) {
+  function toggleSort(column: string) {
+    if (sort === column) {
+      setDirection((current) => (current === "asc" ? "desc" : "asc"));
       return;
     }
+    setSort(column);
+    setDirection("asc");
+  }
 
-    setArchiving(true);
+  async function changeStage(id: string, stage: PipelineStage) {
+    await updatePipelineStage(id, stage);
+    await load();
+  }
 
-    setError(null);
-
+  async function saveLead(payload: Record<string, unknown>) {
+    setSaving(true);
+    setSaveError(null);
     try {
-      await archiveLead(archiveTarget.id);
-
-      setArchiveTarget(null);
-
-      /*
-       * If we removed the final row
-       * of a later page, move back
-       * one page.
-       */
-      if (leads.length === 1 && page > 1 && recordState === "active") {
-        setPage((current) => current - 1);
-      } else {
-        await loadLeads();
-      }
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to archive lead.",
-      );
+      await createPipelineLead(payload);
+      setCaptureOpen(false);
+      await load();
+    } catch (reason: unknown) {
+      setSaveError(reason instanceof ApiError ? reason.message : "The lead could not be saved.");
     } finally {
-      setArchiving(false);
+      setSaving(false);
     }
   }
 
-  async function handleRestore(lead: Lead): Promise<void> {
-    setBusyLeadId(lead.id);
-
-    setError(null);
-
+  async function confirmDelete() {
+    if (!deleteId) return;
+    setDeleting(true);
+    setDeleteError(null);
     try {
-      await restoreLead(lead.id);
-
-      if (leads.length === 1 && page > 1 && recordState === "archived") {
-        setPage((current) => current - 1);
-      } else {
-        await loadLeads();
-      }
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to restore lead.",
-      );
+      await purgePipelineLead(deleteId);
+      setDeleteId(null);
+      await load();
+    } catch (reason: unknown) {
+      setDeleteError(reason instanceof ApiError ? reason.message : "The lead could not be deleted.");
     } finally {
-      setBusyLeadId(null);
+      setDeleting(false);
     }
   }
-
-  async function confirmPermanentDelete(): Promise<void> {
-    if (!permanentDeleteTarget) {
-      return;
-    }
-
-    setDeletingPermanently(true);
-
-    setError(null);
-
-    try {
-      await permanentlyDeleteLead(permanentDeleteTarget.id);
-
-      setPermanentDeleteTarget(null);
-
-      if (leads.length === 1 && page > 1) {
-        setPage((current) => current - 1);
-      } else {
-        await loadLeads();
-      }
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to permanently delete lead.",
-      );
-    } finally {
-      setDeletingPermanently(false);
-    }
-  }
-
-  const total = pagination?.total ?? 0;
-
-  const totalPages = pagination?.totalPages ?? 1;
 
   return (
-    <>
-      <div className="space-y-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Sales Pipeline
-            </h1>
-
-            <p className="mt-1 text-sm text-slate-600">
-              Track leads and manage business deals.
-            </p>
-          </div>
-
-          <Button disabled={recordState === "archived"} onClick={openCreate}>
-            <Plus size={18} />
-            Add New Lead
-          </Button>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-900">Sales Flow & Analytics Engine</h1>
+          <p className="text-xs text-slate-500">Clari-inspired Revenue Intelligence Pipeline</p>
         </div>
-
-        <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:flex-row">
-          <form onSubmit={handleSearch} className="flex min-w-0 flex-1">
-            <div className="relative flex-1">
-              <Search
-                size={17}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-
-              <input
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search leads by company, contact, email or phone..."
-                className="h-10 w-full rounded-l-lg border border-slate-300 pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-
-            <Button type="submit" className="rounded-l-none">
-              Search
-            </Button>
-          </form>
-
-          <div className="w-full xl:w-48">
-            <Select
-              value={status}
-              onChange={(event) => {
-                setStatus(event.target.value as StatusFilter);
-
-                setPage(1);
-              }}
-            >
-              <option value="ALL">All Statuses</option>
-
-              <option value="NEW">New</option>
-
-              <option value="CONTACTED">Contacted</option>
-
-              <option value="QUALIFIED">Qualified</option>
-
-              <option value="DISQUALIFIED">Disqualified</option>
-
-              <option value="CONVERTED">Converted</option>
-            </Select>
+        <div className="flex items-center gap-2">
+          <div className="flex overflow-hidden rounded-md border border-slate-200">
+            <button type="button" className={`px-3 py-1 text-sm ${view === "all" ? "bg-blue-600 font-semibold text-white" : "bg-white text-slate-600"}`} onClick={() => setView("all")}>All Leads</button>
+            <button type="button" className={`px-3 py-1 text-sm ${view === "my" ? "bg-blue-600 font-semibold text-white" : "bg-white text-slate-600"}`} onClick={() => setView("my")}>My Leads</button>
           </div>
-
-          <div className="w-full xl:w-48">
-            <Select
-              value={recordState}
-              onChange={(event) => {
-                setRecordState(event.target.value as LeadRecordState);
-
-                setPage(1);
-              }}
-            >
-              <option value="active">Active</option>
-
-              <option value="archived">Archived</option>
-
-              <option value="all">All Records</option>
-            </Select>
-          </div>
-
-          <Button
-            variant="outline"
-            disabled={loading}
-            onClick={() => void loadLeads()}
-          >
-            <RefreshCw
-              size={17}
-              className={loading ? "animate-spin" : undefined}
-            />
-            Refresh
-          </Button>
-        </div>
-
-        {recordState === "archived" ? (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Archived leads are read-only. Restore a lead before editing or
-            changing its status.
-          </div>
-        ) : null}
-
-        {conversionSuccess ? (
-          <div className="flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Lead successfully converted to opportunity{" "}
-              <span className="font-semibold">
-                “{conversionSuccess.opportunityName}”
-              </span>
-              .
-            </span>
-
-            <button
-              type="button"
-              onClick={() => setConversionSuccess(null)}
-              className="self-start font-medium text-emerald-700 hover:text-emerald-900 sm:self-auto"
-            >
-              Dismiss
-            </button>
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          {loading && leads.length === 0 ? (
-            <div className="flex min-h-64 items-center justify-center">
-              <Spinner />
-            </div>
-          ) : (
-            <LeadTable
-              leads={leads}
-              recordState={recordState}
-              canPermanentlyDelete={canPermanentlyDelete}
-              busyLeadId={busyLeadId}
-              onView={setViewingLead}
-              onEdit={openEdit}
-              onConvert={setConversionTarget}
-              onArchive={setArchiveTarget}
-              onRestore={(lead) => void handleRestore(lead)}
-              onPermanentDelete={setPermanentDeleteTarget}
-              onChangeStatus={handleStatusChange}
-            />
-          )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-500">
-            {total} {total === 1 ? "lead" : "leads"}
-          </p>
-
-          {totalPages > 1 ? (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                disabled={page <= 1 || loading}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                Previous
-              </Button>
-
-              <span className="text-sm text-slate-600">
-                Page {page} of {totalPages}
-              </span>
-
-              <Button
-                variant="outline"
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage((current) => current + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          ) : null}
+          <Button onClick={() => { setSaveError(null); setCaptureOpen(true); }}>Capture New Lead</Button>
         </div>
       </div>
-
-      <LeadViewModal
-        open={viewingLead !== null}
-        lead={viewingLead}
-        onClose={() => setViewingLead(null)}
-      />
-
-      <LeadModal
-        open={modalOpen}
-        lead={editingLead}
-        onClose={() => {
-          setModalOpen(false);
-
-          setEditingLead(null);
-        }}
-        onSaved={handleSaved}
-      />
-
-      <LeadConversionModal
-        open={conversionTarget !== null}
-        lead={conversionTarget}
-        onClose={() => setConversionTarget(null)}
-        onConverted={handleConverted}
-      />
-
-      <ConfirmDialog
-        open={Boolean(archiveTarget)}
-        title="Archive lead"
-        description={
-          archiveTarget
-            ? `Archive ${archiveTarget.firstName} ${archiveTarget.lastName}? The lead can be restored later.`
-            : ""
-        }
-        confirmLabel="Archive lead"
-        destructive
-        loading={archiving}
-        onClose={() => setArchiveTarget(null)}
-        onConfirm={() => void confirmArchive()}
-      />
-
-      <ConfirmDialog
-        open={Boolean(permanentDeleteTarget)}
-        title="Delete lead permanently"
-        description={
-          permanentDeleteTarget
-            ? `Permanently delete ${permanentDeleteTarget.firstName} ${permanentDeleteTarget.lastName}? This cannot be undone.`
-            : ""
-        }
-        confirmLabel="Delete permanently"
-        destructive
-        loading={deletingPermanently}
-        onClose={() => setPermanentDeleteTarget(null)}
-        onConfirm={() => void confirmPermanentDelete()}
-      />
-    </>
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Total Pipeline Value" value={formatCurrency(Number(metrics?.totalPipelineValue ?? 0))} note={`${metrics?.totalOpportunities ?? 0} Total Opportunities`} accent="border-blue-600" />
+        <Metric label="Weighted Pipeline Forecast" value={formatCurrency(Number(metrics?.weightedPipelineValue ?? 0))} note="Probability Adjusted" accent="border-cyan-500" />
+        <Metric label="Historical Win Rate" value={`${metrics?.winRate ?? 0}%`} note={`${metrics?.wonDeals ?? 0} Closed Won Deals`} accent="border-emerald-600" />
+        <Metric label="Active Flow Conversion" value={`${metrics?.stageCount ?? 7} Stage Funnel`} note="Clari Methodology" accent="border-amber-500" />
+      </div>
+      <div className="flex justify-end">
+        <div className="w-64">
+          <Input placeholder="Search leads..." value={search} onChange={(event) => setSearch(event.target.value)} />
+        </div>
+      </div>
+      {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+      {loading ? (
+        <div className="flex justify-center py-12"><Spinner /></div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="w-full text-[13px]">
+            <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+              <tr>
+                {SORTS.map(([key, label]) => (
+                  <th key={key} className="px-3 py-2">
+                    <button type="button" onClick={() => toggleSort(key)}>
+                      {label}{sort === key ? (direction === "asc" ? " ↑" : " ↓") : ""}
+                    </button>
+                  </th>
+                ))}
+                <th className="px-3 py-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
+                    No sales leads recorded in the system flow yet.
+                  </td>
+                </tr>
+              ) : visible.map((row) => {
+                const meta = stageMeta(row.stage);
+                const title = row.projectTitle || row.companyName || "Lead";
+                return (
+                  <tr key={row.id} className="cursor-pointer border-t border-slate-100 hover:bg-slate-50" onClick={() => router.push(`/leads/${row.id}`)}>
+                    <td className="px-3 py-2 text-slate-500">{formatLeadDate(row.createdAt)}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-semibold text-slate-900">{title}</div>
+                      <div className="flex items-center gap-1 text-xs text-slate-500"><Building2 className="size-3" />{row.companyName}</div>
+                      <div className="text-[11px] text-slate-500">
+                        {row.contactPerson}{row.phone ? ` | ${row.phone}` : ""}
+                      </div>
+                    </td>
+                    <td className="min-w-44 px-3 py-2" onClick={(event) => event.stopPropagation()}>
+                      <div className="relative">
+                        <select
+                          className={`w-full appearance-none rounded-full border border-black/10 py-0.5 pl-2 pr-7 text-xs font-bold ${meta.tone}`}
+                          value={row.stage}
+                          onChange={(event) => void changeStage(row.id, event.target.value as PipelineStage)}
+                        >
+                          {PIPELINE_STAGES.map((item) => (
+                            <option key={item.name} value={item.name}>{item.name} ({item.percent}%)</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-3 -translate-y-1/2 text-slate-700" />
+                      </div>
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-slate-200">
+                        <div className={`h-full ${meta.bar}`} style={{ width: `${meta.percent}%` }} />
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 font-semibold">{formatCurrency(Number(row.dealValue))}</td>
+                    <td className="px-3 py-2 font-semibold text-slate-500">{formatCurrency(Number(row.weightedValue))}</td>
+                    <td className="px-3 py-2">
+                      <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs">{row.assignedName}</span>
+                    </td>
+                    <td className="px-3 py-2 text-right" onClick={(event) => event.stopPropagation()}>
+                      {row.quotationId ? (
+                        <a href={`/quotations/${row.quotationId}/print`} target="_blank" rel="noreferrer" className="mr-1 inline-flex items-center rounded border border-blue-200 px-2 py-0.5 text-xs text-blue-700">
+                          <FileText className="mr-1 size-3" /> Quote
+                        </a>
+                      ) : (
+                        <button type="button" disabled className="mr-1 inline-flex items-center rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-400" title="No quotation available">
+                          <FileText className="mr-1 size-3" /> Quote
+                        </button>
+                      )}
+                      <button type="button" className="rounded border border-slate-200 p-1 text-rose-600" title="Delete Lead" onClick={() => { setDeleteError(null); setDeleteId(row.id); }}>
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <CaptureLeadView open={captureOpen} saving={saving} error={saveError ?? undefined} onClose={() => setCaptureOpen(false)} onSave={(payload) => void saveLead(payload)} />
+      <LeadDeleteView open={Boolean(deleteId)} loading={deleting} error={deleteError ?? undefined} onClose={() => setDeleteId(null)} onConfirm={() => void confirmDelete()} />
+    </div>
   );
+}
+
+function Metric({ label, value, note, accent }: { label: string; value: string; note: string; accent: string }) {
+  return (
+    <div className={`rounded-lg border border-slate-200 border-l-4 bg-white p-3 shadow-sm ${accent}`}>
+      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
+      <p className="text-xs text-slate-500">{note}</p>
+    </div>
+  );
+}
+
+function formatLeadDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit", year: "numeric" }).format(date);
 }

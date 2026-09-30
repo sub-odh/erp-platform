@@ -253,6 +253,48 @@
       "when": 1789694400000,
       "tag": "0035_proforma_invoices",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1789780800000,
+      "tag": "0036_legacy_order_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789867200000,
+      "tag": "0037_delivery_order_customer",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1789953600000,
+      "tag": "0038_quotation_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790040000000,
+      "tag": "0039_cloud_quotations",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790126400000,
+      "tag": "0040_sales_pipeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790212800000,
+      "tag": "0041_recovery_balance",
+      "breakpoints": true
     }
   ]
 }

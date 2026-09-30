@@ -1,47 +1,176 @@
 import { apiRequest } from "@/lib/api";
 import type {
-  PurchaseOrderDetails,
-  PurchaseOrderInput,
-  PurchaseOrderListResponse,
-} from "@/types/purchase-orders";
+  ProformaCurrency,
+  ProformaDetails,
+  ProformaDraft,
+  ProformaItem,
+  ProformaListItem,
+  SaveProformaInput,
+} from "@/types/proforma-invoices";
 
 const PATH = "/operations/purchase-orders";
 
-export function getPurchaseOrders(
-  params: {
-    search?: string;
-    vendorId?: string;
-    fromDate?: string;
-    toDate?: string;
-    page?: number;
-    limit?: number;
-  } = {},
-): Promise<PurchaseOrderListResponse> {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== "") query.set(key, String(value));
-  }
-  return apiRequest(`${PATH}?${query.toString()}`);
+interface ApiListItem {
+  id: string;
+  poNumber: string;
+  poDate: string;
+  vendorDetails: string;
+  totalAmount: string;
+  currency: ProformaCurrency;
+  generatedBy: string;
 }
 
-export function getNextPurchaseOrderNumber(
-  date: string,
-): Promise<{ poNumber: string }> {
-  return apiRequest(`${PATH}/next-number?date=${encodeURIComponent(date)}`);
+interface ApiDetails {
+  id: string;
+  poNumber: string;
+  poDate: string;
+  vendorDetails: string;
+  billTo: string;
+  shipTo: string;
+  termsConditions: string;
+  totalAmount: string;
+  currency: ProformaCurrency;
+  createdAt: string;
+  signatureUrl: string | null;
+  totalInWords: string;
+  preparedBy: string;
+  position: string;
+  items: ProformaItem[];
 }
 
-export function getPurchaseOrder(id: string): Promise<PurchaseOrderDetails> {
-  return apiRequest(`${PATH}/${id}`);
+interface ApiDraft {
+  poNumber: string;
+  poDate: string;
+  preparedBy: string;
+  position: string;
 }
 
-export function createPurchaseOrder(
-  input: PurchaseOrderInput,
-): Promise<PurchaseOrderDetails> {
-  return apiRequest(PATH, { method: "POST", body: JSON.stringify(input) });
+export interface PurchaseOrderListQuery {
+  searchCustomer?: string;
+  searchPiNum?: string;
+  startDate?: string;
+  endDate?: string;
+  sort?: string;
+  direction?: string;
 }
 
-export function sendPurchaseOrderEmail(
+const SORTS: Record<string, string> = {
+  pi_number: "po_number",
+  pi_date: "po_date",
+  customer_details: "vendor_name",
+  total_amount: "total_amount",
+  first_name: "first_name",
+};
+
+export function getProformaDraft(): Promise<ProformaDraft> {
+  return apiRequest<ApiDraft>(`${PATH}/draft`).then((draft) => ({
+    piNumber: draft.poNumber,
+    piDate: draft.poDate,
+    creatorName: draft.preparedBy,
+    creatorPosition: draft.position,
+  }));
+}
+
+export function listProformaInvoices(
+  query: PurchaseOrderListQuery,
+): Promise<ProformaListItem[]> {
+  const params = new URLSearchParams();
+  if (query.searchCustomer) params.set("searchVendor", query.searchCustomer);
+  if (query.searchPiNum) params.set("searchPoNum", query.searchPiNum);
+  if (query.startDate) params.set("startDate", query.startDate);
+  if (query.endDate) params.set("endDate", query.endDate);
+  if (query.sort && SORTS[query.sort]) params.set("sort", SORTS[query.sort]);
+  if (query.direction) params.set("direction", query.direction);
+  const suffix = params.toString();
+  return apiRequest<ApiListItem[]>(suffix ? `${PATH}?${suffix}` : PATH).then(
+    (rows) =>
+      rows.map((row) => ({
+        id: row.id,
+        piNumber: row.poNumber,
+        piDate: row.poDate,
+        customerDetails: row.vendorDetails,
+        totalAmount: row.totalAmount,
+        currency: row.currency === "USD" ? "USD" : "NPR",
+        creatorName: row.generatedBy,
+      })),
+  );
+}
+
+export function getProformaInvoice(id: string): Promise<ProformaDetails> {
+  return apiRequest<ApiDetails>(`${PATH}/${id}`).then((row) => ({
+    id: row.id,
+    piNumber: row.poNumber,
+    piDate: row.poDate,
+    customerDetails: row.vendorDetails,
+    billTo: row.billTo,
+    shipTo: row.shipTo,
+    termsConditions: row.termsConditions,
+    totalAmount: row.totalAmount,
+    currency: row.currency === "USD" ? "USD" : "NPR",
+    createdAt: row.createdAt,
+    signatureUrl: row.signatureUrl,
+    totalInWords: row.totalInWords,
+    creatorName: row.preparedBy,
+    creatorPosition: row.position,
+    items: row.items,
+  }));
+}
+
+function toApi(payload: SaveProformaInput) {
+  return {
+    poNumber: payload.piNumber,
+    poDate: payload.piDate,
+    vendorDetails: payload.customerDetails,
+    billTo: payload.billTo,
+    shipTo: payload.shipTo,
+    termsConditions: payload.termsConditions,
+    currency: payload.currency,
+    items: payload.items,
+  };
+}
+
+export function createProformaInvoice(
+  payload: SaveProformaInput,
+): Promise<ProformaDetails> {
+  return apiRequest<ApiDetails>(PATH, {
+    method: "POST",
+    body: JSON.stringify(toApi(payload)),
+  }).then((row) => ({ id: row.id }) as ProformaDetails);
+}
+
+export function updateProformaInvoice(
   id: string,
-): Promise<{ success: true; message: string }> {
-  return apiRequest(`${PATH}/${id}/email`, { method: "POST" });
+  payload: SaveProformaInput,
+): Promise<ProformaDetails> {
+  return apiRequest<ApiDetails>(`${PATH}/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(toApi(payload)),
+  }).then((row) => ({ id: row.id }) as ProformaDetails);
+}
+
+export function purgeProformaInvoice(
+  id: string,
+  password: string,
+): Promise<{ success: boolean; message: string }> {
+  return apiRequest(`${PATH}/${id}/purge`, {
+    method: "POST",
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function dispatchProformaInvoice(payload: {
+  recipientEmail: string;
+  emailSubject: string;
+  emailBodyNotes?: string;
+  piNumber: string;
+}): Promise<{ success: boolean; message: string }> {
+  return apiRequest(`${PATH}/dispatch-email`, {
+    method: "POST",
+    body: JSON.stringify({
+      recipientEmail: payload.recipientEmail,
+      emailSubject: payload.emailSubject,
+      emailBodyNotes: payload.emailBodyNotes,
+      poNumber: payload.piNumber,
+    }),
+  });
 }
