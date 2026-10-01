@@ -8,7 +8,10 @@ import { PermissionsGuard } from '../../modules/auth/guards/permissions.guard';
 import { PERMISSIONS } from '../../modules/auth/permissions/permission.constants';
 import type { JwtPayload } from '../../modules/auth/types/jwt-payload.type';
 import { AuditService } from './audit.service';
-import { ListAuditLogsQueryDto } from './dto/list-audit-logs-query.dto';
+import {
+  ListAuditLogsQueryDto,
+  ListLogLedgerQueryDto,
+} from './dto/list-audit-logs-query.dto';
 
 @ApiTags('Audit')
 @ApiBearerAuth()
@@ -17,6 +20,14 @@ import { ListAuditLogsQueryDto } from './dto/list-audit-logs-query.dto';
 @RequirePermissions(PERMISSIONS.AUDIT_READ)
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
+
+  @Get('ledger')
+  ledger(
+    @CurrentUser() currentUser: JwtPayload,
+    @Query() query: ListLogLedgerQueryDto,
+  ) {
+    return this.auditService.ledger(currentUser.organizationId, query);
+  }
 
   @Get()
   list(

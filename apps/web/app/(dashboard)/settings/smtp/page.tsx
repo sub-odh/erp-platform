@@ -115,9 +115,7 @@ export default function SmtpSettingsPage() {
       const result = await updateSmtpConfiguration(payload);
       setConfiguration(result);
       setForm((current) => ({ ...current, password: "" }));
-      setMessage(
-        "SMTP configuration saved. Test the connection before relying on email notifications.",
-      );
+      setMessage("SMTP configuration updated successfully!");
     } catch (requestError) {
       setError(errorMessage(requestError, "Unable to save SMTP settings."));
     } finally {
@@ -170,12 +168,11 @@ export default function SmtpSettingsPage() {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-blue-600">Administration</p>
-          <h1 className="text-3xl font-semibold text-slate-900">
+          <h1 className="text-xl font-bold text-slate-900">
             SMTP Configuration
           </h1>
-          <p className="mt-2 text-slate-500">
-            Configure the outgoing email server for company notifications.
+          <p className="mt-1 text-slate-500">
+            Configure the outgoing email server for system notifications.
           </p>
         </div>
       </div>
@@ -189,8 +186,8 @@ export default function SmtpSettingsPage() {
         >
           <div className="grid gap-5 md:grid-cols-2">
             <Input
-              label="SMTP host"
-              placeholder="smtp.gmail.com"
+              label="SMTP Host"
+              placeholder="e.g., smtp.gmail.com"
               value={form.host}
               onChange={(event) => updateField("host", event.target.value)}
               required
@@ -207,7 +204,7 @@ export default function SmtpSettingsPage() {
             />
 
             <Input
-              label="Username / email"
+              label="Username / Email"
               value={form.username}
               onChange={(event) => updateField("username", event.target.value)}
               required
@@ -221,7 +218,7 @@ export default function SmtpSettingsPage() {
               placeholder={
                 configuration?.hasPassword
                   ? "Leave blank to keep saved password"
-                  : "Email app password"
+                  : "Email App Password"
               }
               onChange={(event) => updateField("password", event.target.value)}
               required={!configuration?.hasPassword}
@@ -235,8 +232,8 @@ export default function SmtpSettingsPage() {
               }
               required
             >
-              <option value="STARTTLS">STARTTLS</option>
-              <option value="SSL">SSL / TLS</option>
+              <option value="STARTTLS">TLS (Recommended)</option>
+              <option value="SSL">SSL</option>
               <option value="NONE">None (Not Recommended)</option>
             </Select>
 
@@ -261,6 +258,7 @@ export default function SmtpSettingsPage() {
             <Input
               label="From Email Address"
               type="email"
+              placeholder="noreply@yourdomain.com"
               value={form.fromEmail}
               onChange={(event) => updateField("fromEmail", event.target.value)}
               required
@@ -288,7 +286,7 @@ export default function SmtpSettingsPage() {
             </Button>
 
             <Button type="submit" loading={saving} disabled={testing}>
-              <Save size={17} /> Save configuration
+              <Save size={17} /> Save Configuration
             </Button>
           </div>
         </form>
@@ -307,7 +305,7 @@ function InfoCard() {
   return (
     <div className="rounded-xl bg-slate-900 p-5 text-slate-100 shadow-sm">
       <h2 className="flex items-center gap-2 font-semibold">
-        <Info size={17} className="text-cyan-400" /> Gmail setup
+        <Info size={17} className="text-cyan-400" /> Gmail Setup
       </h2>
       <p className="mt-3 text-sm leading-6 text-slate-300">
         Gmail requires 2-Step Verification and an App Password. A regular Google
@@ -321,12 +319,12 @@ function PortCard() {
   return (
     <div className="rounded-xl bg-cyan-500 p-5 text-white shadow-sm">
       <h2 className="flex items-center gap-2 font-semibold">
-        <ShieldCheck size={18} /> Port reference
+        <ShieldCheck size={18} /> Port Reference
       </h2>
       <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-        <li>587: STARTTLS (recommended)</li>
-        <li>465: SSL / TLS</li>
-        <li>25: Unencrypted (not recommended)</li>
+        <li>587: TLS (Modern Standard)</li>
+        <li>465: SSL (Legacy)</li>
+        <li>25: Unencrypted (Not recommended)</li>
       </ul>
     </div>
   );

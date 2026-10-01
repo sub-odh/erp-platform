@@ -111,6 +111,12 @@ export const PAGE_RULES: readonly PageRule[] = [
     phpFile: "views/admin/company_settings.php",
   },
   {
+    prefix: "/logs",
+    phpIds: [1],
+    deny: "index",
+    phpFile: "views/admin/logs.php",
+  },
+  {
     prefix: "/purchase-orders/new",
     phpIds: [1, 2, 3, 5, 6, 7],
     deny: "dashboard",
@@ -432,7 +438,7 @@ export const API_RULES: readonly ApiRule[] = [
   {
     methods: ["GET"],
     pattern: /^audit-logs(\/.*)?$/,
-    phpIds: [1, 2, 3, 5, 6, 7],
+    phpIds: [1],
     deny: "index",
     phpFile: "views/admin/logs.php",
     label: "GET audit-logs",

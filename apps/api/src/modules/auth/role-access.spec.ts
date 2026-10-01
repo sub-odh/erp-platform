@@ -104,7 +104,8 @@ describe('PHP role access', () => {
 
     expect(decidePage('/users', 'EMPLOYEE').allowed).toBe(false);
     expect(decidePage('/users', 'EMPLOYEE').redirect).toBe('/dashboard');
-    expect(apiAllowed('GET', '/api/v1/audit-logs', 'SALES')).toBe(true);
+    expect(apiAllowed('GET', '/api/v1/audit-logs', 'SALES')).toBe(false);
+    expect(apiAllowed('GET', '/api/v1/audit-logs', 'ADMIN')).toBe(true);
     expect(apiAllowed('GET', '/api/v1/audit-logs', 'EMPLOYEE')).toBe(false);
   });
 });

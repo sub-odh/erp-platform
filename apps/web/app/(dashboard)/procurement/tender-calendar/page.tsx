@@ -1,25 +1,15 @@
 "use client";
 
-import { Eye, RefreshCw } from "lucide-react";
+import { Eye } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  TenderCalendar,
-  URGENCY_STYLES,
-} from "@/components/procurement/tender-calendar";
-import { Button, Spinner } from "@/components/ui";
-import { useCalendarSystem } from "@/lib/calendar-system";
-import { cn } from "@/lib/cn";
-import {
-  formatCalendarDate,
-  type CalendarSystem,
-} from "@/lib/nepali-date";
+import { TenderCalendar } from "@/components/procurement/tender-calendar";
+import { Spinner } from "@/components/ui";
+import { formatCalendarDate } from "@/lib/nepali-date";
 import { getTenders } from "@/lib/procurement";
 import type { Tender } from "@/types/procurement";
 
 export default function TenderCalendarPage() {
-  const { system } = useCalendarSystem();
-
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,17 +35,18 @@ export default function TenderCalendarPage() {
     void load();
   }, [load]);
 
-  /* The deadline panel only cares about work that is still ahead. */
-  const upcoming = useMemo(
-    () => tenders.filter((tender) => tender.urgency !== "OVERDUE").slice(0, 12),
-    [tenders],
-  );
+  const upcoming = useMemo(() => {
+    const now = Date.now();
+    return [...tenders]
+      .sort((left, right) => left.submissionDate.localeCompare(right.submissionDate))
+      .filter((tender) => noon(tender.submissionDate) >= now - 2 * 86400000);
+  }, [tenders]);
 
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Tender Calendar</h1>
+          <h1 className="text-xl font-bold text-slate-900">Tender Schedule</h1>
           <p className="mt-0.5 text-sm text-slate-600">
             Live tracking of project deadlines and submission statuses.
           </p>
@@ -66,9 +57,6 @@ export default function TenderCalendarPage() {
             <Eye size={14} /> Read-Only View
           </span>
 
-          <Button variant="outline" onClick={() => void load()} loading={loading}>
-            <RefreshCw size={16} /> Refresh
-          </Button>
         </div>
       </div>
 
@@ -109,7 +97,7 @@ export default function TenderCalendarPage() {
             </div>
           ) : upcoming.length === 0 ? (
             <p className="py-10 text-center text-sm text-slate-500">
-              No upcoming tender deadlines.
+              No active tenders.
             </p>
           ) : (
             <table className="mt-3 w-full text-sm">
@@ -124,11 +112,7 @@ export default function TenderCalendarPage() {
 
               <tbody className="divide-y divide-slate-100">
                 {upcoming.map((tender) => (
-                  <UpcomingRow
-                    key={tender.id}
-                    tender={tender}
-                    system={system}
-                  />
+                  <UpcomingRow key={tender.id} tender={tender} />
                 ))}
               </tbody>
             </table>
@@ -139,31 +123,56 @@ export default function TenderCalendarPage() {
   );
 }
 
-function UpcomingRow({
-  tender,
-  system,
-}: {
-  tender: Tender;
-  system: CalendarSystem;
-}) {
+function noon(isoDate: string): number {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(year, (month ?? 1) - 1, day ?? 1, 12, 0, 0, 0).getTime();
+}
+
+function UpcomingRow({ tender }: { tender: Tender }) {
+  const deadline = noon(tender.submissionDate);
+  const now = new Date();
+  const closed = deadline < now.getTime();
+  const sameDay =
+    new Date(deadline).toDateString() === now.toDateString();
+  const diff = deadline - now.getTime();
+  const daysLeft = Math.floor(diff / 86400000);
+  const hoursLeft = Math.floor(diff / 3600000);
+  const urgent = diff < 432000000 && !closed;
+  const ad = new Date(deadline).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
   return (
     <tr>
       <td className="py-2.5 pr-3">
-        <p className="font-semibold text-slate-900">{tender.title}</p>
-        <p className="mt-0.5 text-xs text-slate-500">
-          {formatCalendarDate(tender.submissionDate, system)}
+        <p className="max-w-[180px] truncate font-semibold text-slate-900" title={tender.title}>
+          {tender.title}
+        </p>
+        <p className="mt-0.5 text-[11px] text-slate-500">{ad}</p>
+        <p className="text-[11px] font-semibold text-violet-600">
+          {formatCalendarDate(tender.submissionDate, "BS")}
         </p>
       </td>
-
       <td className="py-2.5 text-right">
-        <span
-          className={cn(
-            "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-            URGENCY_STYLES[tender.urgency].badge,
-          )}
-        >
-          {URGENCY_STYLES[tender.urgency].label}
-        </span>
+        {closed ? (
+          <span className="rounded-full border bg-slate-50 px-2 py-0.5 text-[11px] text-slate-500">
+            Closed
+          </span>
+        ) : sameDay ? (
+          <span className="animate-pulse rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+            {hoursLeft} Hours Left
+          </span>
+        ) : urgent ? (
+          <span className="animate-pulse rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+            {daysLeft} Days Left
+          </span>
+        ) : (
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+            {daysLeft} Days Left
+          </span>
+        )}
       </td>
     </tr>
   );

@@ -4,7 +4,6 @@ import { useState, type FormEvent } from "react";
 
 import { Button, Input, Select, Textarea } from "@/components/ui";
 import { useCalendarSystem } from "@/lib/calendar-system";
-import { CURRENCY_SYMBOL } from "@/lib/currency";
 import { formatCalendarDate } from "@/lib/nepali-date";
 import { createGuarantee, uploadGuaranteeDocument } from "@/lib/procurement";
 import type { GuaranteeType } from "@/types/procurement";
@@ -69,13 +68,9 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
       className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_18px_48px_rgba(15,23,42,.1)]"
     >
       <div>
-        <h2 className="text-lg font-bold text-slate-900">
-          Register New Guarantee
+        <h2 className="text-base font-bold text-blue-700">
+          Provision Asset Commitment Parameter Entry
         </h2>
-        <p className="mt-0.5 text-sm text-slate-500">
-          Record the bank commitment, its expiry horizon and the supporting
-          document.
-        </p>
       </div>
 
       {error ? (
@@ -86,7 +81,7 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Select
-          label="Guarantee Type"
+          label="Commitment Classification"
           name="guaranteeType"
           required
           value={guaranteeType}
@@ -109,7 +104,7 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
         />
 
         <Input
-          label="Bank Name & Branch"
+          label="Bank Issuer Identity & Target Branch Location"
           name="bankNameBranch"
           required
           maxLength={255}
@@ -119,7 +114,7 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
         />
 
         <Input
-          label={`Guarantee Amount (${CURRENCY_SYMBOL})`}
+          label="Total Committed Valuation Amount (Rs.)"
           name="amount"
           type="number"
           required
@@ -131,7 +126,7 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
         />
 
         <Input
-          label="Submission Date"
+          label="Date of Official Submission"
           name="submissionDate"
           type="date"
           required
@@ -145,7 +140,7 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
         />
 
         <Input
-          label="Expiry Date"
+          label="Horizon End / Expiry Date"
           name="expiryDate"
           type="date"
           required
@@ -159,7 +154,7 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
         />
 
         <Input
-          label="Assigned Personnel"
+          label="Assigned Bank Representative Officer Identity Details"
           name="assignedPerson"
           maxLength={155}
           value={assignedPerson}
@@ -179,7 +174,7 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
       </div>
 
       <Textarea
-        label="Tender Details"
+        label="Tender Identity Nomenclature / Structural Details Mapping Scope"
         name="tenderDetails"
         required
         rows={3}

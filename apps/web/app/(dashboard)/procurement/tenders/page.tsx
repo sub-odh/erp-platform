@@ -1,11 +1,10 @@
 "use client";
 
-import { CalendarPlus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { ScheduleTenderModal } from "@/components/procurement/schedule-tender-modal";
 import { TenderCalendar } from "@/components/procurement/tender-calendar";
-import { Button, Spinner } from "@/components/ui";
+import { Spinner } from "@/components/ui";
 import { toIsoDate } from "@/lib/nepali-date";
 import { getTenders } from "@/lib/procurement";
 import type { Tender } from "@/types/procurement";
@@ -14,6 +13,7 @@ export default function TenderManagementPage() {
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => toIsoDate(new Date()));
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
@@ -55,24 +55,18 @@ export default function TenderManagementPage() {
     <div className="space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">
-            Tender Management
-          </h1>
+          <h1 className="text-xl font-bold text-slate-900">Tender Schedule</h1>
           <p className="mt-0.5 text-sm text-slate-600">
-            Track procurement deadlines and submission status.
+            Track procurement deadlines and track status.
           </p>
         </div>
-
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => void load()} loading={loading}>
-            <RefreshCw size={16} /> Refresh
-          </Button>
-
-          <Button onClick={() => openForDate(toIsoDate(new Date()))}>
-            <CalendarPlus size={17} /> Schedule Tender
-          </Button>
-        </div>
       </div>
+
+      {notice ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          {notice}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -108,7 +102,10 @@ export default function TenderManagementPage() {
         defaultDate={selectedDate}
         tender={selectedTender}
         onClose={() => setModalOpen(false)}
-        onSaved={() => void load()}
+        onSaved={(message) => {
+          setNotice(message);
+          void load();
+        }}
       />
     </div>
   );

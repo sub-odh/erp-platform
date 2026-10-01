@@ -15,6 +15,13 @@ import { LoginResponseDto } from './dto/login-response.dto';
 import type { JwtPayload } from './types/jwt-payload.type';
 import type { RefreshTokenPayload } from './types/refresh-token-payload.type';
 
+/*
+ * A real bcrypt hash so a missing account takes the same time as a wrong
+ * password. The plaintext is not a credential anyone can sign in with.
+ */
+const DUMMY_PASSWORD_HASH =
+  '$2b$10$.UqMf1ZnRUxWIZfeIhHg0.1s9cNN3EcgH6ghA4HTP1fjk2gTAhNLS';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -36,17 +43,16 @@ export class AuthService {
       loginDto.email,
     );
 
-    if (!user) {
+    const passwordMatches = await compare(
+      loginDto.password,
+      user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+    );
+
+    if (!user || !passwordMatches || !user.isActive) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     this.licensingService.assertTenant(user.organizationId);
-
-    const passwordMatches = await compare(loginDto.password, user.passwordHash);
-
-    if (!passwordMatches || !user.isActive) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
 
     const sessionId = randomUUID();
 

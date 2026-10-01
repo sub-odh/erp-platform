@@ -45,6 +45,8 @@ export class MediaService {
       throw new BadRequestException('Image must not exceed 2 MB');
     }
 
+    assertFileSignature(file.buffer, file.mimetype);
+
     const saved = await this.localStorageService.saveFile({
       folder,
       originalName: file.originalname,
@@ -78,6 +80,8 @@ export class MediaService {
     if (file.size > MEDIA_MAX_DOCUMENT_SIZE) {
       throw new BadRequestException('Document must not exceed 5 MB');
     }
+
+    assertFileSignature(file.buffer, file.mimetype);
 
     const saved = await this.localStorageService.saveFile({
       folder,
@@ -113,9 +117,12 @@ export class MediaService {
       throw new NotFoundException('File was not found');
     }
 
+    const disposition =
+      parsed.mimeType === 'application/pdf' ? 'attachment' : 'inline';
+
     return new StreamableFile(createReadStream(absolutePath), {
       type: parsed.mimeType,
-      disposition: `inline; filename="${parsed.fileName}"`,
+      disposition: `${disposition}; filename="${parsed.fileName}"`,
     });
   }
 
@@ -127,5 +134,29 @@ export class MediaService {
 
   private normalizeStoredPath(value: string | null | undefined): string | null {
     return parseStoredUploadPath(value)?.relativePath ?? null;
+  }
+}
+
+function assertFileSignature(buffer: Buffer, mimeType: string): void {
+  const matches =
+    (mimeType === 'image/png' &&
+      buffer.subarray(0, 8).equals(
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      )) ||
+    (mimeType === 'image/jpeg' &&
+      buffer.length >= 3 &&
+      buffer[0] === 0xff &&
+      buffer[1] === 0xd8 &&
+      buffer[2] === 0xff) ||
+    (mimeType === 'image/webp' &&
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP') ||
+    (mimeType === 'application/pdf' &&
+      buffer.subarray(0, 5).toString('ascii') === '%PDF-');
+
+  if (!matches) {
+    throw new BadRequestException(
+      'File contents do not match the declared type',
+    );
   }
 }

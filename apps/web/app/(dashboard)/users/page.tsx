@@ -183,14 +183,10 @@ export default function UsersPage() {
             </div>
 
             <div>
-              <p className="text-sm font-medium text-blue-600">
-                Administration
-              </p>
+              <h1 className="text-xl font-bold text-slate-900">System Users</h1>
 
-              <h1 className="text-3xl font-semibold text-slate-900">Users</h1>
-
-              <p className="mt-2 text-slate-500">
-                Manage company access, roles, passwords, and account status.
+              <p className="mt-1 text-sm text-slate-500">
+                Manage credentials and access levels.
               </p>
             </div>
           </div>
@@ -208,7 +204,7 @@ export default function UsersPage() {
               onClick={() => setCreateModalOpen(true)}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700"
             >
-              <Plus size={18} /> Create user
+              <Plus size={18} /> Create New User
             </button>
           </div>
         </div>

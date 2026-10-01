@@ -213,7 +213,8 @@ assert.equal(
   false,
 );
 assert.equal(apiAllowed("GET", "/api/v1/audit-logs", "EMPLOYEE"), false);
-assert.equal(apiAllowed("GET", "/api/v1/audit-logs", "SALES"), true);
+assert.equal(apiAllowed("GET", "/api/v1/audit-logs", "SALES"), false);
+assert.equal(apiAllowed("GET", "/api/v1/audit-logs", "ADMIN"), true);
 assert.equal(decideApi("GET", "/api/v1/company/current", "EMPLOYEE").matched, false);
 assert.equal(
   apiAllowed("GET", "/api/v1/sales/proforma-invoices", "SALES"),

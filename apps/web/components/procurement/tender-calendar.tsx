@@ -68,6 +68,23 @@ function tenderStyle(tender: Tender) {
   return tender.ended ? ENDED_STYLE : URGENCY_STYLES[tender.urgency];
 }
 
+function deadlineTone(submissionDate: string): "past" | "critical" | "warning" | "safe" {
+  const [year, month, day] = submissionDate.split("-").map(Number);
+  const deadline = new Date(year, (month ?? 1) - 1, day ?? 1, 12, 0, 0, 0);
+  const diffDays = (deadline.getTime() - Date.now()) / 86400000;
+  if (diffDays < 0) return "past";
+  if (diffDays <= 2) return "critical";
+  if (diffDays <= 5) return "warning";
+  return "safe";
+}
+
+const DEADLINE_CHIP: Record<ReturnType<typeof deadlineTone>, string> = {
+  past: "bg-slate-100 text-slate-400",
+  critical: "bg-red-500 text-white",
+  warning: "bg-amber-500 text-white",
+  safe: "bg-emerald-500 text-white",
+};
+
 interface HoverCard {
   tender: Tender;
   top: number;
@@ -88,6 +105,7 @@ export function TenderCalendar({
 }: TenderCalendarProps) {
   /* Follows the AD/BS choice made in the topbar calendar. */
   const { system } = useCalendarSystem();
+  const readonly = !onSelectDate;
 
   const [view, setView] = useState<TenderCalendarView>("month");
   const [anchor, setAnchor] = useState(() => new Date());
@@ -224,6 +242,7 @@ export function TenderCalendar({
           </p>
         </div>
 
+        {readonly ? null : (
         <div className="flex rounded-lg bg-slate-100 p-0.5">
           {(Object.keys(VIEW_LABELS) as TenderCalendarView[]).map((option) => (
             <button
@@ -242,6 +261,7 @@ export function TenderCalendar({
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {view === "list" ? (
@@ -308,6 +328,7 @@ export function TenderCalendar({
                   muted={view === "month" && !isWithinMonth(date, grid)}
                   isToday={isSameDay(date, today)}
                   tenders={byDate.get(iso) ?? []}
+                  readonly={readonly}
                   onSelectDate={onSelectDate}
                   onSelectTender={onSelectTender}
                   onHover={setHovered}
@@ -330,6 +351,7 @@ function DayCell({
   muted,
   isToday,
   tenders,
+  readonly,
   onSelectDate,
   onSelectTender,
   onHover,
@@ -340,6 +362,7 @@ function DayCell({
   muted: boolean;
   isToday: boolean;
   tenders: Tender[];
+  readonly: boolean;
   onSelectDate?: (isoDate: string) => void;
   onSelectTender?: (tender: Tender) => void;
   onHover: (card: HoverCard | null) => void;
@@ -425,10 +448,14 @@ function DayCell({
             onBlur={() => onHover(null)}
             className={cn(
               "shrink-0 truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium transition",
-              tenderStyle(tender).chip,
+              readonly
+                ? DEADLINE_CHIP[deadlineTone(tender.submissionDate)]
+                : tender.ended
+                  ? "border-l-8 border-slate-300 bg-slate-50 text-slate-400"
+                  : "border-l-8 border-[#ffd700] bg-[#2ab103] text-blue-700",
             )}
           >
-            {tender.title}
+            {!readonly && tender.ended ? `[ENDED] ${tender.title}` : tender.title}
           </button>
         ))}
       </div>

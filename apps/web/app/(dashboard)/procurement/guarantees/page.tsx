@@ -72,12 +72,11 @@ export default function GuaranteeLedgerPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            BG | PG Guarantee
+          <h1 className="text-xl font-bold text-slate-900">
+            Tender Bank & Performance Guarantee Ledger
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Monitor bank and performance guarantees, their release horizons and
-            supporting documents.
+            Monitor critical financial bindings, examine structural release horizons, and audit physical bank components cleanly.
           </p>
         </div>
 
@@ -87,7 +86,7 @@ export default function GuaranteeLedgerPage() {
           </Button>
 
           <Button onClick={() => setFormOpen((current) => !current)}>
-            <Plus size={17} /> Register New Guarantee
+            <Plus size={17} /> Register New Guarantee Node
           </Button>
         </div>
       </div>

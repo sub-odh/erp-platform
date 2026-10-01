@@ -57,7 +57,11 @@ export function DeleteUserModal({
     <Modal
       open={open}
       title="Delete User Permanently"
-      description="This action cannot be undone."
+      description={
+        user
+          ? `Are you sure you want to revoke system access for ${user.firstName} ${user.lastName}? This action will delete the login record permanently.`
+          : "This action will delete the login record permanently."
+      }
       onClose={close}
       footer={
         <>
