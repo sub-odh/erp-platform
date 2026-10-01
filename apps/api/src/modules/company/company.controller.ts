@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UploadedFile,
@@ -33,11 +35,13 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PERMISSIONS } from '../auth/permissions/permission.constants';
 import type { JwtPayload } from '../auth/types/jwt-payload.type';
 import { MEDIA_MAX_FILE_SIZE } from '../media/constants';
+import { CompanyBackupArchiveService } from './company-backup-archive.service';
 import { CompanyDataService } from './company-data.service';
 import { CompanyService } from './company.service';
 import { CompanyResponseDto } from './dto/company-response.dto';
 import { ResetCompanyDataDto } from './dto/reset-company-data.dto';
 import { RestoreCompanyDataDto } from './dto/restore-company-data.dto';
+import { UpdateBackupScheduleDto } from './dto/update-backup-schedule.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
 const COMPANY_BACKUP_MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -53,6 +57,7 @@ export class CompanyController {
   constructor(
     private readonly companyService: CompanyService,
     private readonly companyDataService: CompanyDataService,
+    private readonly backupArchiveService: CompanyBackupArchiveService,
   ) {}
 
   @Get('current')
@@ -277,6 +282,79 @@ export class CompanyController {
       dto.confirmation,
       dto.ownerPassword,
       file,
+    );
+  }
+
+  @Get('current/backup-archive')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
+  @ApiOperation({ summary: 'List stored company backups and the schedule' })
+  listBackupArchive(@CurrentUser() currentUser: JwtPayload) {
+    return this.backupArchiveService.list(currentUser.organizationId);
+  }
+
+  @Patch('current/backup-archive/schedule')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
+  @ApiOperation({ summary: 'Update the company backup schedule' })
+  updateBackupSchedule(
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() dto: UpdateBackupScheduleDto,
+  ) {
+    return this.backupArchiveService.updateSchedule(
+      currentUser.organizationId,
+      dto,
+    );
+  }
+
+  @Post('current/backup-archive')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
+  @ApiOperation({ summary: 'Store a manual company backup snapshot' })
+  createBackupArchive(@CurrentUser() currentUser: JwtPayload) {
+    return this.backupArchiveService.createManual(currentUser.organizationId);
+  }
+
+  @Get('current/backup-archive/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
+  @ApiOperation({ summary: 'Download one stored company backup' })
+  readBackupArchive(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.backupArchiveService.readFile(currentUser.organizationId, id);
+  }
+
+  @Delete('current/backup-archive/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
+  @ApiOperation({ summary: 'Delete one stored company backup' })
+  deleteBackupArchive(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.backupArchiveService.deleteFile(
+      currentUser.organizationId,
+      id,
+    );
+  }
+
+  @Post('current/backup-archive/:id/restore')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(PERMISSIONS.ORGANIZATION_MANAGE)
+  @ApiOperation({ summary: 'Restore one stored company backup' })
+  restoreBackupArchive(
+    @CurrentUser() currentUser: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: RestoreCompanyDataDto,
+  ) {
+    return this.backupArchiveService.restoreFile(
+      currentUser.organizationId,
+      currentUser.sub,
+      id,
+      dto.confirmation,
+      dto.ownerPassword,
     );
   }
 

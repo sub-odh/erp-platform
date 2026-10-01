@@ -137,3 +137,10 @@ export class ReleaseGuaranteeDto {
   @MaxLength(2000)
   releaseRemarks?: string | null;
 }
+
+export class DeleteGuaranteeDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
+  password!: string;
+}

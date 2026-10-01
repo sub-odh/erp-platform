@@ -3,27 +3,23 @@
 import {
   Building2,
   Database,
-  Download,
   Info,
   RotateCcw,
   Save,
-  ShieldCheck,
-  Upload,
 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { ImageUploader } from "@/components/media";
 import type { ImageUploadPreset } from "@/components/media/image-presets";
+import { CompanyBackupPanel } from "@/components/company/company-backup-panel";
 import { Button, Input } from "@/components/ui";
 import { getStoredUser } from "@/lib/auth";
 import {
-  getCompanyBackup,
   getCurrentCompany,
   removeFavicon,
   removeInvoiceLogo,
   removeCompanyLogo,
   resetCompanyData,
-  restoreCompanyBackup,
   updateCurrentCompany,
   uploadInvoiceLogo,
   uploadCompanyLogo,
@@ -79,12 +75,7 @@ export default function CompanySettingsPage() {
   const [logoBusy, setLogoBusy] = useState(false);
   const [invoiceLogoBusy, setInvoiceLogoBusy] = useState(false);
   const [faviconBusy, setFaviconBusy] = useState(false);
-  const [backupBusy, setBackupBusy] = useState(false);
-  const [restoreBusy, setRestoreBusy] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
-  const [restoreFile, setRestoreFile] = useState<File | null>(null);
-  const [restoreConfirmation, setRestoreConfirmation] = useState("");
-  const [restoreOwnerPassword, setRestoreOwnerPassword] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -185,60 +176,6 @@ export default function CompanySettingsPage() {
       setError(errorMessage(requestError, "Unable to save company settings."));
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleDownloadBackup(): Promise<void> {
-    setBackupBusy(true);
-    setMessage(null);
-    setError(null);
-
-    try {
-      const backup = await getCompanyBackup();
-      const blob = new Blob([JSON.stringify(backup, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const date = backup.exportedAt.slice(0, 10);
-      link.href = url;
-      link.download = `${company.code.toLowerCase()}-company-backup-${date}.json`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      setMessage("Company backup downloaded successfully.");
-    } catch (requestError) {
-      setError(errorMessage(requestError, "Unable to create company backup."));
-    } finally {
-      setBackupBusy(false);
-    }
-  }
-
-  async function handleRestore(): Promise<void> {
-    if (!restoreFile) {
-      setError("Select a company backup JSON file first.");
-      return;
-    }
-
-    setRestoreBusy(true);
-    setMessage(null);
-    setError(null);
-
-    try {
-      const result = await restoreCompanyBackup(
-        restoreFile,
-        restoreConfirmation,
-        restoreOwnerPassword,
-      );
-      setMessage(result.message);
-      setRestoreFile(null);
-      setRestoreConfirmation("");
-      setRestoreOwnerPassword("");
-    } catch (requestError) {
-      setError(errorMessage(requestError, "Unable to restore company data."));
-    } finally {
-      setRestoreBusy(false);
     }
   }
 
@@ -519,18 +456,16 @@ export default function CompanySettingsPage() {
       ) : null}
 
       {activeTab === "backup" ? (
-        <BackupRestorePanel
+        <CompanyBackupPanel
           company={company}
-          backupBusy={backupBusy}
-          restoreBusy={restoreBusy}
-          restoreFile={restoreFile}
-          confirmation={restoreConfirmation}
-          ownerPassword={restoreOwnerPassword}
-          onDownload={() => void handleDownloadBackup()}
-          onFileChange={setRestoreFile}
-          onConfirmationChange={setRestoreConfirmation}
-          onOwnerPasswordChange={setRestoreOwnerPassword}
-          onRestore={() => void handleRestore()}
+          onNotice={(notice) => {
+            setMessage(notice);
+            setError(null);
+          }}
+          onError={(notice) => {
+            setError(notice);
+            setMessage(null);
+          }}
         />
       ) : null}
 
@@ -626,138 +561,6 @@ function CompanySettingsTabs({
   );
 }
 
-function BackupRestorePanel({
-  company,
-  backupBusy,
-  restoreBusy,
-  restoreFile,
-  confirmation,
-  ownerPassword,
-  onDownload,
-  onFileChange,
-  onConfirmationChange,
-  onOwnerPasswordChange,
-  onRestore,
-}: {
-  company: Company;
-  backupBusy: boolean;
-  restoreBusy: boolean;
-  restoreFile: File | null;
-  confirmation: string;
-  ownerPassword: string;
-  onDownload: () => void;
-  onFileChange: (file: File | null) => void;
-  onConfirmationChange: (value: string) => void;
-  onOwnerPasswordChange: (value: string) => void;
-  onRestore: () => void;
-}) {
-  const restorePhrase = `RESTORE ${company.code}`;
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="rounded-xl bg-blue-100 p-3 text-blue-700">
-            <Download size={22} />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Download company backup
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
-              Export customers, contacts, leads, opportunities, and pipeline
-              stages for {company.name} only.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-          <div className="flex gap-2 font-medium">
-            <ShieldCheck size={18} /> Company-scoped and portable
-          </div>
-          <p className="mt-2 leading-6">
-            The JSON backup is tagged with company ID {company.code} and can
-            only be restored to this same company.
-          </p>
-        </div>
-
-        <Button
-          className="mt-6 w-full sm:w-auto"
-          loading={backupBusy}
-          onClick={onDownload}
-        >
-          <Download size={17} /> Download backup
-        </Button>
-      </section>
-
-      <section className="rounded-xl border border-amber-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="rounded-xl bg-amber-100 p-3 text-amber-700">
-            <Upload size={22} />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Restore company backup
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
-              Replaces this company&apos;s current Sales/CRM records with the
-              selected backup. Take a fresh backup first.
-            </p>
-          </div>
-        </div>
-
-        <label className="mt-6 block">
-          <span className="mb-2 block text-sm font-medium text-slate-700">
-            Company Backup File
-          </span>
-          <input
-            key={restoreFile?.name ?? "no-backup-selected"}
-            type="file"
-            accept=".json,application/json"
-            onChange={(event) =>
-              onFileChange(event.target.files?.item(0) ?? null)
-            }
-            className="block w-full rounded-lg border border-slate-300 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:border-r file:border-slate-200 file:bg-slate-50 file:px-4 file:py-3 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-100"
-          />
-        </label>
-
-        <div className="mt-5">
-          <Input
-            label="Owner Current Password"
-            type="password"
-            value={ownerPassword}
-            onChange={(event) => onOwnerPasswordChange(event.target.value)}
-            autoComplete="current-password"
-          />
-        </div>
-
-        <div className="mt-5">
-          <Input
-            label={`Type ${restorePhrase} to confirm`}
-            value={confirmation}
-            onChange={(event) => onConfirmationChange(event.target.value)}
-            autoComplete="off"
-          />
-        </div>
-
-        <Button
-          variant="danger"
-          className="mt-6 w-full sm:w-auto"
-          loading={restoreBusy}
-          disabled={
-            !restoreFile ||
-            confirmation !== restorePhrase ||
-            ownerPassword.length === 0
-          }
-          onClick={onRestore}
-        >
-          <Upload size={17} /> Restore backup
-        </Button>
-      </section>
-    </div>
-  );
-}
-
 function ResetCompanyDataPanel({
   companyCode,
   busy,
@@ -786,12 +589,12 @@ function ResetCompanyDataPanel({
           </div>
           <div>
             <h2 className="text-lg font-semibold text-red-950">
-              Reset company operational data
+              Reset Database
             </h2>
             <p className="mt-1 text-sm leading-6 text-red-800">
-              Only the signed-in company owner can perform this action. It
-              permanently removes Sales/CRM data belonging to company
-              {` ${companyCode}`} only.
+              Clears this company&apos;s operational records and keeps user
+              logins, the company profile, and SMTP settings. Only the
+              signed-in company owner can run it.
             </p>
           </div>
         </div>
@@ -802,9 +605,9 @@ function ResetCompanyDataPanel({
           title="Deleted"
           tone="red"
           items={[
-            "Customers and contacts",
-            "Leads and opportunities",
-            "Pipeline stages",
+            "Sales, inventory, procurement, and HR records",
+            "Customers, quotations, orders, and invoices",
+            "Holidays, attendance, leaves, and expenses",
           ]}
         />
         <DataScopeList
@@ -846,7 +649,7 @@ function ResetCompanyDataPanel({
           disabled={confirmation !== resetPhrase || ownerPassword.length === 0}
           onClick={onReset}
         >
-          <RotateCcw size={17} /> Reset company data
+          <RotateCcw size={17} /> Wipe Company Data
         </Button>
       </div>
     </section>

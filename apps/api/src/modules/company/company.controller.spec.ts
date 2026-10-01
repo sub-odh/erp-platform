@@ -1,4 +1,5 @@
 import type { JwtPayload } from '../auth/types/jwt-payload.type';
+import type { CompanyBackupArchiveService } from './company-backup-archive.service';
 import type { CompanyDataService } from './company-data.service';
 import { CompanyController } from './company.controller';
 import type { CompanyService } from './company.service';
@@ -24,9 +25,18 @@ describe('CompanyController', () => {
     restoreBackup: jest.fn(),
     resetData: jest.fn(),
   };
+  const backupArchiveService = {
+    list: jest.fn(),
+    updateSchedule: jest.fn(),
+    createManual: jest.fn(),
+    readFile: jest.fn(),
+    deleteFile: jest.fn(),
+    restoreFile: jest.fn(),
+  };
   const controller = new CompanyController(
     companyService as unknown as CompanyService,
     companyDataService as unknown as CompanyDataService,
+    backupArchiveService as unknown as CompanyBackupArchiveService,
   );
 
   beforeEach(() => jest.clearAllMocks());

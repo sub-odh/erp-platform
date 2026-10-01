@@ -1,10 +1,15 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { compare } from 'bcrypt';
 
 import type { ProcurementGuarantee, ProcurementTender } from '@erp/db';
+
+import { UsersService } from '../users/users.service';
 
 import type {
   CreateGuaranteeDto,
@@ -57,7 +62,10 @@ export interface GuaranteeResponse {
 
 @Injectable()
 export class ProcurementService {
-  constructor(private readonly repository: ProcurementRepository) {}
+  constructor(
+    private readonly repository: ProcurementRepository,
+    private readonly usersService: UsersService,
+  ) {}
 
   async listTenders(tenantId: string, query: ListTendersQueryDto) {
     const rows = await this.repository.listTenders({ tenantId, ...query });
@@ -192,7 +200,35 @@ export class ProcurementService {
     return this.toGuarantee(row, todayIso());
   }
 
-  async deleteGuarantee(tenantId: string, id: string, userId: string) {
+  async deleteGuarantee(
+    tenantId: string,
+    id: string,
+    userId: string,
+    password: string,
+  ) {
+    const actor = await this.usersService.findByIdAndOrganization(
+      userId,
+      tenantId,
+    );
+    const allowed =
+      actor?.role === 'OWNER' ||
+      actor?.role === 'SUPER_ADMIN' ||
+      actor?.role === 'ADMIN';
+
+    if (!actor || !actor.isActive || !allowed) {
+      throw new ForbiddenException(
+        'Only a superadmin can delete a guarantee.',
+      );
+    }
+
+    const passwordMatches = await compare(password, actor.passwordHash).catch(
+      () => false,
+    );
+
+    if (!passwordMatches) {
+      throw new UnauthorizedException('The superadmin password is incorrect.');
+    }
+
     const row = await this.repository.softDeleteGuarantee(tenantId, id, userId);
     if (!row) {
       throw new NotFoundException('Guarantee not found');

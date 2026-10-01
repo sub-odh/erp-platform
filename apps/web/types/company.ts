@@ -119,3 +119,25 @@ export interface CompanyDataOperationResult {
   message: string;
   counts: CompanyDataCounts;
 }
+
+export interface CompanyBackupSchedule {
+  frequency: "daily" | "weekly";
+  backupTime: string;
+  backupDay: number;
+  retentionMaxFiles: number;
+  retentionDays: number;
+  lastAutomatedRun: string | null;
+}
+
+export interface CompanyBackupFile {
+  id: string;
+  filename: string;
+  kind: "manual" | "auto";
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export interface CompanyBackupArchive {
+  schedule: CompanyBackupSchedule;
+  files: CompanyBackupFile[];
+}

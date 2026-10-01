@@ -5,25 +5,41 @@ import { useState, type FormEvent } from "react";
 import { Button, Input, Select, Textarea } from "@/components/ui";
 import { useCalendarSystem } from "@/lib/calendar-system";
 import { formatCalendarDate } from "@/lib/nepali-date";
-import { createGuarantee, uploadGuaranteeDocument } from "@/lib/procurement";
-import type { GuaranteeType } from "@/types/procurement";
+import { createGuarantee, updateGuarantee, uploadGuaranteeDocument } from "@/lib/procurement";
+import type { Guarantee, GuaranteeType } from "@/types/procurement";
 
 interface GuaranteeFormProps {
+  guarantee?: Guarantee | null;
   onCancel: () => void;
   onSaved: () => void;
 }
 
-export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
+export function GuaranteeForm({
+  guarantee = null,
+  onCancel,
+  onSaved,
+}: GuaranteeFormProps) {
   const { system } = useCalendarSystem();
+  const editing = Boolean(guarantee);
 
-  const [guaranteeType, setGuaranteeType] = useState<GuaranteeType>("BG");
-  const [clientName, setClientName] = useState("");
-  const [bankNameBranch, setBankNameBranch] = useState("");
-  const [amount, setAmount] = useState("");
-  const [submissionDate, setSubmissionDate] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
-  const [assignedPerson, setAssignedPerson] = useState("");
-  const [tenderDetails, setTenderDetails] = useState("");
+  const [guaranteeType, setGuaranteeType] = useState<GuaranteeType>(
+    guarantee?.guaranteeType ?? "BG",
+  );
+  const [clientName, setClientName] = useState(guarantee?.clientName ?? "");
+  const [bankNameBranch, setBankNameBranch] = useState(
+    guarantee?.bankNameBranch ?? "",
+  );
+  const [amount, setAmount] = useState(guarantee?.amount ?? "");
+  const [submissionDate, setSubmissionDate] = useState(
+    guarantee?.submissionDate ?? "",
+  );
+  const [expiryDate, setExpiryDate] = useState(guarantee?.expiryDate ?? "");
+  const [assignedPerson, setAssignedPerson] = useState(
+    guarantee?.assignedPerson ?? "",
+  );
+  const [tenderDetails, setTenderDetails] = useState(
+    guarantee?.tenderDetails ?? "",
+  );
   const [document, setDocument] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +54,7 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
         ? await uploadGuaranteeDocument(document)
         : null;
 
-      await createGuarantee({
+      const payload = {
         guaranteeType,
         clientName: clientName.trim(),
         tenderDetails: tenderDetails.trim(),
@@ -47,8 +63,14 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
         submissionDate,
         expiryDate,
         assignedPerson: assignedPerson.trim() || null,
-        documentUrl: uploaded?.url ?? null,
-      });
+        documentUrl: uploaded?.url ?? guarantee?.documentUrl ?? null,
+      };
+
+      if (guarantee) {
+        await updateGuarantee(guarantee.id, payload);
+      } else {
+        await createGuarantee(payload);
+      }
 
       onSaved();
     } catch (requestError) {
@@ -69,7 +91,9 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
     >
       <div>
         <h2 className="text-base font-bold text-blue-700">
-          Provision Asset Commitment Parameter Entry
+          {editing
+            ? "Update Guarantee"
+            : "Provision Asset Commitment Parameter Entry"}
         </h2>
       </div>
 
@@ -190,7 +214,7 @@ export function GuaranteeForm({ onCancel, onSaved }: GuaranteeFormProps) {
         </Button>
 
         <Button type="submit" loading={saving}>
-          Register Guarantee
+          {editing ? "Update Guarantee" : "Register Guarantee"}
         </Button>
       </div>
     </form>

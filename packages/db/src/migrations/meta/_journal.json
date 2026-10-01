@@ -295,6 +295,13 @@
       "when": 1790212800000,
       "tag": "0041_recovery_balance",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790299200000,
+      "tag": "0042_company_backup_archive",
+      "breakpoints": true
     }
   ]
 }

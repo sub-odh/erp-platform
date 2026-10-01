@@ -108,9 +108,21 @@ export function releaseGuarantee(
 
 export function deleteGuarantee(
   guaranteeId: string,
+  password: string,
 ): Promise<{ id: string }> {
   return apiRequest<{ id: string }>(`${GUARANTEES_PATH}/${guaranteeId}`, {
     method: "DELETE",
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function updateGuarantee(
+  guaranteeId: string,
+  payload: CreateGuaranteePayload,
+): Promise<Guarantee> {
+  return apiRequest<Guarantee>(`${GUARANTEES_PATH}/${guaranteeId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }
 

@@ -1,15 +1,18 @@
 "use client";
 
-import { FileText, Plus, RefreshCw } from "lucide-react";
+import { FileText, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { GuaranteeDeleteView } from "@/components/procurement/guarantee-delete-view";
+import { GuaranteeDetailView } from "@/components/procurement/guarantee-detail-view";
+import { GuaranteeDocumentView } from "@/components/procurement/guarantee-document-view";
 import { GuaranteeForm } from "@/components/procurement/guarantee-form";
 import { ReleaseGuaranteeModal } from "@/components/procurement/release-guarantee-modal";
 import { Button, Select, Spinner } from "@/components/ui";
+import { getStoredUser } from "@/lib/auth";
 import { useCalendarSystem } from "@/lib/calendar-system";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/currency";
-import { openAuthenticatedMedia } from "@/lib/media";
 import {
   formatCalendarDate,
   type CalendarSystem,
@@ -37,7 +40,12 @@ export default function GuaranteeLedgerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Guarantee | null>(null);
   const [releasing, setReleasing] = useState<Guarantee | null>(null);
+  const [detail, setDetail] = useState<Guarantee | null>(null);
+  const [documentView, setDocumentView] = useState<Guarantee | null>(null);
+  const [deleting, setDeleting] = useState<Guarantee | null>(null);
+  const [canDelete, setCanDelete] = useState(false);
   const [typeFilter, setTypeFilter] = useState<GuaranteeType | "">("");
   const [statusFilter, setStatusFilter] = useState<GuaranteeStatus | "">("");
 
@@ -65,6 +73,10 @@ export default function GuaranteeLedgerPage() {
   }, [typeFilter, statusFilter]);
 
   useEffect(() => {
+    const role = getStoredUser()?.role;
+    setCanDelete(
+      role === "OWNER" || role === "SUPER_ADMIN" || role === "ADMIN",
+    );
     void load();
   }, [load]);
 
@@ -85,7 +97,12 @@ export default function GuaranteeLedgerPage() {
             <RefreshCw size={16} /> Refresh
           </Button>
 
-          <Button onClick={() => setFormOpen((current) => !current)}>
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen((current) => !current);
+            }}
+          >
             <Plus size={17} /> Register New Guarantee Node
           </Button>
         </div>
@@ -113,11 +130,17 @@ export default function GuaranteeLedgerPage() {
         <SummaryCube label="Released" value={summary.releasedCount} />
       </div>
 
-      {formOpen ? (
+      {formOpen || editing ? (
         <GuaranteeForm
-          onCancel={() => setFormOpen(false)}
+          key={editing?.id ?? "new"}
+          guarantee={editing}
+          onCancel={() => {
+            setFormOpen(false);
+            setEditing(null);
+          }}
           onSaved={() => {
             setFormOpen(false);
+            setEditing(null);
             void load();
           }}
         />
@@ -199,6 +222,14 @@ export default function GuaranteeLedgerPage() {
                     guarantee={guarantee}
                     system={system}
                     onRelease={() => setReleasing(guarantee)}
+                    onEdit={() => {
+                      setFormOpen(false);
+                      setEditing(guarantee);
+                    }}
+                    onDelete={() => setDeleting(guarantee)}
+                    onOpen={() => setDetail(guarantee)}
+                    onViewDocument={() => setDocumentView(guarantee)}
+                    canDelete={canDelete}
                   />
                 ))}
               </tbody>
@@ -212,6 +243,29 @@ export default function GuaranteeLedgerPage() {
         onClose={() => setReleasing(null)}
         onReleased={() => void load()}
       />
+      <GuaranteeDetailView
+        guarantee={detail}
+        system={system}
+        onClose={() => setDetail(null)}
+        onViewDocument={(guarantee) => {
+          setDetail(null);
+          setDocumentView(guarantee);
+        }}
+      />
+      <GuaranteeDocumentView
+        url={documentView?.documentUrl ?? null}
+        title={
+          documentView
+            ? `${documentView.guaranteeType} for ${documentView.clientName}`
+            : ""
+        }
+        onClose={() => setDocumentView(null)}
+      />
+      <GuaranteeDeleteView
+        guarantee={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => void load()}
+      />
     </div>
   );
 }
@@ -221,11 +275,21 @@ function GuaranteeRow({
   guarantee,
   system,
   onRelease,
+  onEdit,
+  onDelete,
+  onOpen,
+  onViewDocument,
+  canDelete,
 }: {
   index: number;
   guarantee: Guarantee;
   system: CalendarSystem;
   onRelease: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onOpen: () => void;
+  onViewDocument: () => void;
+  canDelete: boolean;
 }) {
   return (
     <tr className="text-slate-700">
@@ -245,7 +309,13 @@ function GuaranteeRow({
       </td>
 
       <td className="px-4 py-3">
-        <p className="font-semibold text-slate-900">{guarantee.clientName}</p>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="text-left font-semibold text-slate-900 hover:underline"
+        >
+          {guarantee.clientName}
+        </button>
         <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
           {guarantee.tenderDetails}
         </p>
@@ -277,7 +347,7 @@ function GuaranteeRow({
         {guarantee.documentUrl ? (
           <button
             type="button"
-            onClick={() => void openAuthenticatedMedia(guarantee.documentUrl)}
+            onClick={onViewDocument}
             className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
           >
             <FileText size={14} /> View
@@ -288,15 +358,25 @@ function GuaranteeRow({
       </td>
 
       <td className="px-4 py-3 text-right">
-        {guarantee.status === "ACTIVE" ? (
-          <Button size="sm" variant="outline" onClick={onRelease}>
-            Release
+        <div className="flex justify-end gap-1">
+          {guarantee.status === "ACTIVE" ? (
+            <Button size="sm" variant="outline" onClick={onRelease}>
+              Release
+            </Button>
+          ) : (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              Released
+            </span>
+          )}
+          <Button size="sm" variant="outline" onClick={onEdit} aria-label="Edit guarantee">
+            <Pencil size={14} />
           </Button>
-        ) : (
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-            Released
-          </span>
-        )}
+          {canDelete ? (
+            <Button size="sm" variant="outline" onClick={onDelete} aria-label="Delete guarantee">
+              <Trash2 size={14} />
+            </Button>
+          ) : null}
+        </div>
       </td>
     </tr>
   );

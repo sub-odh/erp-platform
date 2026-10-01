@@ -428,6 +428,14 @@ export const API_RULES: readonly ApiRule[] = [
     label: "smtp",
   },
   {
+    methods: ["GET"],
+    pattern: /^company\/current\/backup-archive(\/[^/]+)?$/,
+    phpIds: [1],
+    deny: "login",
+    phpFile: "views/admin/company_settings.php",
+    label: "GET company backup archive",
+  },
+  {
     methods: ["PATCH", "POST", "DELETE"],
     pattern: /^company\/current(\/.*)?$/,
     phpIds: [1],

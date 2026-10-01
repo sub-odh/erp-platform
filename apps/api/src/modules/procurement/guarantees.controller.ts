@@ -29,6 +29,7 @@ import { MEDIA_MAX_DOCUMENT_SIZE } from '../media/constants';
 import { MediaService } from '../media/media.service';
 import {
   CreateGuaranteeDto,
+  DeleteGuaranteeDto,
   ListGuaranteesQueryDto,
   ReleaseGuaranteeDto,
   UpdateGuaranteeDto,
@@ -119,11 +120,13 @@ export class GuaranteesController {
   remove(
     @Req() request: AuthenticatedRequest,
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: DeleteGuaranteeDto,
   ) {
     return this.service.deleteGuarantee(
       request.user.organizationId,
       id,
       request.user.sub,
+      dto.password,
     );
   }
 }
