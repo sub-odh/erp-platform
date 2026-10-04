@@ -147,13 +147,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div
           className={[
-            "flex min-h-screen flex-col transition-[padding] duration-200",
+            "flex min-h-screen w-full min-w-0 flex-col transition-[padding] duration-200",
             sidebarCollapsed ? "lg:pl-18" : "lg:pl-70",
           ].join(" ")}
         >
           <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
-          <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+          <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
 
           <footer
             data-app-footer

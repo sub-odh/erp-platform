@@ -194,7 +194,7 @@ export default function CloudQuotationsPage() {
               <div className="text-right">
                 <p><strong>Date:</strong> {view.quotationDate}</p>
                 <p><strong>Expiry:</strong> {view.expiryDate || "N/A"}</p>
-                <p><strong>Currency:</strong> {view.currency}</p>
+                <p><strong>Currency:</strong> {view.currency === "USD" ? "USD" : "Rs."}</p>
               </div>
             </div>
             <table className="w-full border border-slate-200">

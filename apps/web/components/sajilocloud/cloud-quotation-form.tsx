@@ -3,7 +3,7 @@
 import { ChevronDown, Plus, X } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
 
-import { Button, Input, Textarea } from "@/components/ui";
+import { Button, CurrencySwitch, CurrencyTag, Input, Textarea } from "@/components/ui";
 import { formatPiAmount } from "@/lib/pi-format";
 import type { CloudCurrency } from "@/types/cloud-quotations";
 
@@ -131,27 +131,6 @@ export function CloudQuotationForm({
           <h2 className="mb-3 text-sm font-semibold">Document Parameters</h2>
           <div className="space-y-3">
             <Input label="Quotation Tracker ID" value={values.quotationNumber} readOnly />
-            <div>
-              <p className="mb-1 text-sm font-medium text-slate-700">Currency</p>
-              <div className="flex gap-4 text-sm">
-                {(["NPR", "USD"] as const).map((code) => (
-                  <label key={code} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="currency"
-                      checked={values.currency === code}
-                      onChange={() =>
-                        patch({
-                          currency: code,
-                          vatApplicable: code === "USD" ? false : values.vatApplicable,
-                        })
-                      }
-                    />
-                    {code === "NPR" ? "NPR (Rs.)" : "USD"}
-                  </label>
-                ))}
-              </div>
-            </div>
             {usd ? null : (
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                 <input
@@ -193,8 +172,9 @@ export function CloudQuotationForm({
         </section>
         <div className="space-y-4">
           <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3">
-              <h2 className="text-sm font-semibold">Cloud Service Components</h2>
+            <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2">
+              <h2 className="text-sm font-bold text-slate-900">Cloud Service Components</h2>
+              <div className="ml-auto flex items-center gap-2">
               <Button
                 type="button"
                 size="sm"
@@ -204,6 +184,17 @@ export function CloudQuotationForm({
                 <Plus className="size-4" />
                 Add Service
               </Button>
+              <CurrencySwitch
+                className="shrink-0"
+                value={values.currency}
+                onChange={(code) =>
+                  patch({
+                    currency: code,
+                    vatApplicable: code === "USD" ? false : values.vatApplicable,
+                  })
+                }
+              />
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -213,7 +204,7 @@ export function CloudQuotationForm({
                     <th className="px-3 py-2">Item / Spec</th>
                     <th className="px-3 py-2">Specifications / Options</th>
                     <th className="px-3 py-2">Qty</th>
-                    <th className="px-3 py-2">Rate</th>
+                    <th className="px-3 py-2">Rate (<CurrencyTag>{usd ? "USD" : "Rs."}</CurrencyTag>)</th>
                     <th className="px-3 py-2" />
                   </tr>
                 </thead>

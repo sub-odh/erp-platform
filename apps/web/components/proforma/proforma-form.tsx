@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 
 import { AuthenticatedImage } from "@/components/media/authenticated-image";
-import { Button } from "@/components/ui";
+import { Button, CurrencySwitch, CurrencyTag } from "@/components/ui";
 import { formatPiAmount } from "@/lib/pi-format";
 import type { Company } from "@/types/company";
 import {
@@ -177,7 +177,7 @@ export function ProformaForm({
   }
 
   return (
-    <form onSubmit={submit} className="pi-create-sheet">
+    <form onSubmit={submit} className="pi-create-sheet min-w-0 max-w-full">
       <style>{`
         @media print {
           aside, header, .pi-no-print { display: none !important; }
@@ -206,8 +206,8 @@ export function ProformaForm({
           {formError ?? error}
         </p>
       ) : null}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0 max-w-full rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex w-full min-w-0 flex-wrap items-start justify-between gap-4">
           <div className="max-w-md">
             {logo ? (
               <AuthenticatedImage src={logo} alt={`${companyName} logo`} className="mb-2 max-h-16 object-contain" />
@@ -255,17 +255,15 @@ export function ProformaForm({
           <Field label="Bill To" required value={billTo} onChange={setBillTo} placeholder="Enter billing address and contact details..." />
           <Field label="Ship To" required value={shipTo} onChange={setShipTo} placeholder="Enter shipping address and delivery contact details..." />
         </div>
-        <div className="mb-2 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+        <div className="mb-2 flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
           <h3 className="text-sm font-bold text-slate-900">Line Item Cost Specification Ledger</h3>
-          <button
-            type="button"
-            className="pi-no-print rounded border border-slate-900 bg-amber-300 px-3 py-1 text-sm font-bold"
-            onClick={() => setCurrency((current) => (current === "NPR" ? "USD" : "NPR"))}
-          >
-            Currency: <span className="ml-1 rounded bg-slate-900 px-1.5 text-white">{unitLabel}</span>
-          </button>
+          <CurrencySwitch
+            className="pi-no-print ml-auto shrink-0"
+            value={currency}
+            onChange={setCurrency}
+          />
         </div>
-        <div className="overflow-x-auto">
+        <div className="min-w-0 overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
@@ -273,8 +271,8 @@ export function ProformaForm({
                 <th className="border border-slate-200 px-2 py-2 text-left">Part Number</th>
                 <th className="border border-slate-200 px-2 py-2 text-left">Description / Specification</th>
                 <th className="border border-slate-200 px-2 py-2 text-right">Quantity</th>
-                <th className="border border-slate-200 px-2 py-2 text-right">Unit Price ({unitLabel})</th>
-                <th className="border border-slate-200 px-2 py-2 text-right">Sub Total ({unitLabel})</th>
+                <th className="border border-slate-200 px-2 py-2 text-right">Unit Price (<CurrencyTag>{unitLabel}</CurrencyTag>)</th>
+                <th className="border border-slate-200 px-2 py-2 text-right">Sub Total (<CurrencyTag>{unitLabel}</CurrencyTag>)</th>
                 <th className="pi-no-print border border-slate-200 px-2 py-2">Action</th>
               </tr>
             </thead>

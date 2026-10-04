@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Button, Input, Select, Textarea } from "@/components/ui";
+import { Button, CurrencySwitch, CurrencyTag, Input, Select, Textarea } from "@/components/ui";
 import { formatPiAmount } from "@/lib/pi-format";
 import type { Customer } from "@/types/customer";
 import type { Lead } from "@/types/lead";
@@ -175,30 +175,6 @@ export function QuotationForm({
               required
             />
           </div>
-          <div>
-            <p className="mb-1 text-sm font-medium text-slate-700">Currency</p>
-            <div className="flex gap-2">
-              {(["NPR", "USD"] as const).map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  className={`rounded-lg border px-3 py-1.5 text-sm ${
-                    currency === code
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-300 bg-white text-slate-700"
-                  }`}
-                  onClick={() =>
-                    patch({
-                      currency: code,
-                      vatApplicable: code === "USD" ? false : values.vatApplicable,
-                    })
-                  }
-                >
-                  {code === "NPR" ? "NPR (Rs.)" : "USD"}
-                </button>
-              ))}
-            </div>
-          </div>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
@@ -210,8 +186,9 @@ export function QuotationForm({
           </label>
         </section>
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-800">Line Items</h2>
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+            <h2 className="text-sm font-bold text-slate-900">Line Items</h2>
+            <div className="ml-auto flex items-center gap-2">
             <Button
               type="button"
               size="sm"
@@ -229,6 +206,17 @@ export function QuotationForm({
               <Plus className="size-4" />
               Add Item Line
             </Button>
+            <CurrencySwitch
+              className="shrink-0"
+              value={currency}
+              onChange={(code) =>
+                patch({
+                  currency: code,
+                  vatApplicable: code === "USD" ? false : values.vatApplicable,
+                })
+              }
+            />
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -237,7 +225,7 @@ export function QuotationForm({
                   <th className="pb-2">Item</th>
                   <th className="pb-2">Description</th>
                   <th className="pb-2">Qty</th>
-                  <th className="pb-2">Rate ({unitLabel})</th>
+                  <th className="pb-2">Rate (<CurrencyTag>{unitLabel}</CurrencyTag>)</th>
                   <th className="pb-2">Subtotal</th>
                   <th />
                 </tr>

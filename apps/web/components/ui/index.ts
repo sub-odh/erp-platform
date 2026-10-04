@@ -2,6 +2,7 @@ export * from "./badge";
 export * from "./button";
 export * from "./card";
 export * from "./confirm-dialog";
+export * from "./currency-switch";
 export * from "./delete-confirm-view";
 export * from "./secure-delete-view";
 export * from "./replacement-confirm-view";
