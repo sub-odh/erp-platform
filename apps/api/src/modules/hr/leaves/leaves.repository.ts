@@ -6,6 +6,7 @@ import {
   db,
   hrEmployees,
   hrLeaveRequests,
+  users,
   type HrLeaveRequest,
   type NewHrLeaveRequest,
 } from '@erp/db';
@@ -37,6 +38,8 @@ export interface LeaveRequestRecord {
   request: HrLeaveRequest;
   employee: LeaveEmployeeSummary;
   substitute: LeaveSubstituteSummary | null;
+  approverFirstName: string | null;
+  approverLastName: string | null;
 }
 
 export interface LeaveTopTakerRow {
@@ -113,7 +116,7 @@ export class LeavesRepository {
           eq(hrLeaveRequests.status, 'PENDING'),
         ),
       )
-      .orderBy(asc(hrLeaveRequests.startDate), asc(hrLeaveRequests.createdAt));
+      .orderBy(asc(hrLeaveRequests.createdAt));
 
     return rows.map((row) => this.toRecord(row));
   }
@@ -129,7 +132,7 @@ export class LeavesRepository {
           ne(hrLeaveRequests.status, 'PENDING'),
         ),
       )
-      .orderBy(desc(hrLeaveRequests.updatedAt), desc(hrLeaveRequests.createdAt))
+      .orderBy(desc(hrLeaveRequests.createdAt))
       .limit(limit);
 
     return rows.map((row) => this.toRecord(row));
@@ -205,13 +208,8 @@ export class LeavesRepository {
     return db
       .select(employeeColumns)
       .from(hrEmployees)
-      .where(
-        and(
-          eq(hrEmployees.tenantId, tenantId),
-          eq(hrEmployees.status, 'ACTIVE'),
-        ),
-      )
-      .orderBy(asc(hrEmployees.firstName), asc(hrEmployees.lastName));
+      .where(eq(hrEmployees.tenantId, tenantId))
+      .orderBy(asc(hrEmployees.firstName));
   }
 
   async create(values: NewHrLeaveRequest): Promise<HrLeaveRequest> {
@@ -263,21 +261,28 @@ export class LeavesRepository {
         request: hrLeaveRequests,
         employee: employeeColumns,
         substitute: substituteColumns,
+        approverFirstName: users.firstName,
+        approverLastName: users.lastName,
       })
       .from(hrLeaveRequests)
       .innerJoin(hrEmployees, eq(hrEmployees.id, hrLeaveRequests.employeeId))
-      .leftJoin(substitutes, eq(substitutes.id, hrLeaveRequests.substituteId));
+      .leftJoin(substitutes, eq(substitutes.id, hrLeaveRequests.substituteId))
+      .leftJoin(users, eq(users.id, hrLeaveRequests.approvedBy));
   }
 
   private toRecord(row: {
     request: HrLeaveRequest;
     employee: LeaveEmployeeSummary;
     substitute: LeaveSubstituteSummary | null;
+    approverFirstName: string | null;
+    approverLastName: string | null;
   }): LeaveRequestRecord {
     return {
       request: row.request,
       employee: row.employee,
       substitute: row.substitute?.id ? row.substitute : null,
+      approverFirstName: row.approverFirstName,
+      approverLastName: row.approverLastName,
     };
   }
 }

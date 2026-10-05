@@ -7,6 +7,7 @@ import {
 
 import type { HrMemoAttachment, User } from '@erp/db';
 
+import { PHP_ROLE_1 } from '../../auth/role-access';
 import { PERMISSIONS } from '../../auth/permissions/permission.constants';
 import { PermissionsService } from '../../auth/permissions/permissions.service';
 import { MediaService } from '../../media/media.service';
@@ -29,16 +30,20 @@ export interface MemoView {
   content: string;
   raisedBy: string;
   raisedByName: string;
+  raisedByDesignation: string | null;
   verifierId: string | null;
   verifierName: string | null;
+  verifierDesignation: string | null;
   currentStep: number;
   status: MemoRecord['memo']['status'];
   verifierSignedBy: string | null;
   verifierSignedByName: string | null;
   hodSignedBy: string | null;
   hodSignedByName: string | null;
+  hodDesignation: string | null;
   ceoSignedBy: string | null;
   ceoSignedByName: string | null;
+  ceoDesignation: string | null;
   createdBy: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -101,77 +106,76 @@ export class MemosService {
     memoId: string,
   ): Promise<MemoView> {
     const current = await this.requireRecord(tenantId, memoId);
-    const employee = await this.employeesService.requireLinkedEmployee(
-      tenantId,
-      actorUserId,
-    );
-    const canManage = await this.canManageMemos(tenantId, role);
+    const employeeId = await this.actorEmployeeId(tenantId, actorUserId);
 
-    if (current.memo.verifierId !== employee.id && !canManage) {
-      throw new ForbiddenException('You cannot verify this memo');
-    }
-
-    if (current.memo.status !== 'PENDING') {
+    if (current.memo.status !== 'PENDING' || current.memo.currentStep !== 2) {
       throw new BadRequestException('Only pending memos can be verified');
     }
+
+    this.assertCanAct(current.memo, role, employeeId);
 
     return this.applyWorkflow(tenantId, memoId, {
       status: 'VERIFIED',
       currentStep: 3,
-      verifierSignedBy: employee.id,
+      ...(employeeId ? { verifierSignedBy: employeeId } : {}),
     });
   }
 
   async confirm(
     tenantId: string,
     actorUserId: string,
+    role: User['role'],
     memoId: string,
   ): Promise<MemoView> {
     const current = await this.requireRecord(tenantId, memoId);
-    const employee = await this.employeesService.requireLinkedEmployee(
-      tenantId,
-      actorUserId,
-    );
+    const employeeId = await this.actorEmployeeId(tenantId, actorUserId);
 
-    if (current.memo.status !== 'VERIFIED') {
+    if (current.memo.status !== 'VERIFIED' || current.memo.currentStep !== 3) {
       throw new BadRequestException('Only verified memos can be confirmed');
     }
+
+    this.assertCanAct(current.memo, role, employeeId);
 
     return this.applyWorkflow(tenantId, memoId, {
       status: 'CONFIRMED',
       currentStep: 4,
-      hodSignedBy: employee.id,
+      ...(employeeId ? { hodSignedBy: employeeId } : {}),
     });
   }
 
   async approve(
     tenantId: string,
     actorUserId: string,
+    role: User['role'],
     memoId: string,
   ): Promise<MemoView> {
     const current = await this.requireRecord(tenantId, memoId);
-    const employee = await this.employeesService.requireLinkedEmployee(
-      tenantId,
-      actorUserId,
-    );
+    const employeeId = await this.actorEmployeeId(tenantId, actorUserId);
 
-    if (current.memo.status !== 'CONFIRMED') {
+    if (
+      current.memo.status !== 'CONFIRMED' ||
+      current.memo.currentStep !== 4
+    ) {
       throw new BadRequestException('Only confirmed memos can be approved');
     }
 
+    this.assertCanAct(current.memo, role, employeeId);
+
     return this.applyWorkflow(tenantId, memoId, {
       status: 'APPROVED',
-      currentStep: 4,
-      ceoSignedBy: employee.id,
+      currentStep: 5,
+      ...(employeeId ? { ceoSignedBy: employeeId } : {}),
     });
   }
 
   async reject(
     tenantId: string,
     actorUserId: string,
+    role: User['role'],
     memoId: string,
   ): Promise<MemoView> {
     const current = await this.requireRecord(tenantId, memoId);
+    const employeeId = await this.actorEmployeeId(tenantId, actorUserId);
 
     if (
       current.memo.status === 'APPROVED' ||
@@ -180,8 +184,11 @@ export class MemosService {
       throw new BadRequestException('This memo can no longer be rejected');
     }
 
+    this.assertCanAct(current.memo, role, employeeId);
+
     return this.applyWorkflow(tenantId, memoId, {
       status: 'REJECTED',
+      currentStep: 1,
     });
   }
 
@@ -254,6 +261,71 @@ export class MemosService {
     return record;
   }
 
+  private async actorEmployeeId(
+    tenantId: string,
+    userId: string,
+  ): Promise<string | null> {
+    try {
+      const employee = await this.employeesService.requireLinkedEmployee(
+        tenantId,
+        userId,
+      );
+      return employee.id;
+    } catch (error: unknown) {
+      if (error instanceof NotFoundException) {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
+  private assertCanAct(
+    memo: MemoRecord['memo'],
+    role: User['role'],
+    employeeId: string | null,
+  ): void {
+    const role1 = (PHP_ROLE_1 as readonly string[]).includes(role);
+    const step = memo.currentStep;
+
+    if (
+      step === 2 &&
+      (employeeId === memo.verifierId || role1)
+    ) {
+      return;
+    }
+
+    if (step === 3 && (role === 'MANAGEMENT' || role1)) {
+      if (employeeId === memo.verifierId && !role1) {
+        throw new ForbiddenException(
+          'Conflict of Interest: You already verified this in Step 2.',
+        );
+      }
+
+      return;
+    }
+
+    if (step === 4 && (role === 'HEAD' || role1)) {
+      return;
+    }
+
+    if (step === 2) {
+      throw new ForbiddenException(
+        'Unauthorized: You are not the assigned verifier.',
+      );
+    }
+
+    if (step === 3) {
+      throw new ForbiddenException('Unauthorized: Management role required.');
+    }
+
+    if (step === 4) {
+      throw new ForbiddenException('Unauthorized: CEO approval required.');
+    }
+
+    throw new ForbiddenException('Unauthorized');
+  }
+
   private canManageMemos(tenantId: string, role: User['role']) {
     return this.permissionsService.hasAll(tenantId, role, [
       PERMISSIONS.HR_MEMOS_MANAGE,
@@ -272,11 +344,13 @@ export class MemosService {
       content: memo.content,
       raisedBy: memo.raisedBy,
       raisedByName: fullName(record.raisedByFirstName, record.raisedByLastName),
+      raisedByDesignation: record.raisedByDesignation,
       verifierId: memo.verifierId,
       verifierName: optionalFullName(
         record.verifierFirstName,
         record.verifierLastName,
       ),
+      verifierDesignation: record.verifierDesignation,
       currentStep: memo.currentStep,
       status: memo.status,
       verifierSignedBy: memo.verifierSignedBy,
@@ -289,11 +363,13 @@ export class MemosService {
         record.hodSignedFirstName,
         record.hodSignedLastName,
       ),
+      hodDesignation: record.hodDesignation,
       ceoSignedBy: memo.ceoSignedBy,
       ceoSignedByName: optionalFullName(
         record.ceoSignedFirstName,
         record.ceoSignedLastName,
       ),
+      ceoDesignation: record.ceoDesignation,
       createdBy: memo.createdBy,
       createdAt: memo.createdAt,
       updatedAt: memo.updatedAt,

@@ -107,8 +107,10 @@ describe('HallsService', () => {
     expect(repository.updateHall).not.toHaveBeenCalled();
   });
 
-  it('rejects overlapping pending or confirmed bookings on the same hall and date', async () => {
-    repository.listActiveForHallDate.mockResolvedValue([booking]);
+  it('rejects overlapping confirmed bookings on the same hall and date', async () => {
+    repository.listActiveForHallDate.mockResolvedValue([
+      { ...booking, status: 'CONFIRMED' },
+    ]);
 
     await expect(
       service.book(tenantId, actorId, {
@@ -120,6 +122,20 @@ describe('HallsService', () => {
       }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(repository.createBooking).not.toHaveBeenCalled();
+  });
+
+  it('allows a pending booking to share the same time slot', async () => {
+    repository.listActiveForHallDate.mockResolvedValue([booking]);
+
+    await service.book(tenantId, actorId, {
+      hallId,
+      bookingDate: '2026-04-01',
+      startTime: '10:30',
+      endTime: '11:30',
+      reason: 'Second request',
+    });
+
+    expect(repository.createBooking).toHaveBeenCalled();
   });
 
   it('allows a booking that does not overlap an existing slot', async () => {
@@ -144,11 +160,11 @@ describe('HallsService', () => {
     );
   });
 
-  it('lists only the current employee bookings when the user cannot manage halls', async () => {
+  it('lists every company booking on the reservation page', async () => {
     repository.listBookings.mockResolvedValue([bookingRecord]);
 
     await service.listBookings(tenantId, actorId, 'EMPLOYEE');
 
-    expect(repository.listBookings).toHaveBeenCalledWith(tenantId, employeeId);
+    expect(repository.listBookings).toHaveBeenCalledWith(tenantId);
   });
 });

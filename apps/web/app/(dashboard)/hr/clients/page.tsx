@@ -13,7 +13,14 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 
 import { AuthenticatedImage } from "@/components/media/authenticated-image";
 import { Button, Input, Modal, Spinner } from "@/components/ui";
@@ -63,6 +70,7 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [canDelete, setCanDelete] = useState(false);
@@ -152,7 +160,9 @@ export default function ClientsPage() {
     try {
       const result = await importCustomersCsv(csvFile);
       setCsvFile(null);
-      (event.target as HTMLFormElement).reset();
+      if (csvInputRef.current) {
+        csvInputRef.current.value = "";
+      }
       setNotice(
         `Imported ${result.imported} client${result.imported === 1 ? "" : "s"}${
           result.skipped ? `, skipped ${result.skipped} duplicate${result.skipped === 1 ? "" : "s"}` : ""
@@ -263,13 +273,24 @@ export default function ClientsPage() {
               Download CSV Template
             </button>
           </div>
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(event) => setCsvFile(event.target.files?.[0] ?? null)}
-              className="h-10 w-full rounded-full border border-slate-200 bg-white px-4 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm"
-            />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <label className="flex h-9 min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-full border border-slate-300 bg-white text-sm shadow-sm">
+              <span className="shrink-0 border-r border-slate-300 bg-slate-100 px-4 py-1.5 font-medium text-slate-700">
+                Choose File
+              </span>
+              <span className="truncate px-3 text-slate-500">
+                {csvFile?.name ?? "No file chosen"}
+              </span>
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="sr-only"
+                onChange={(event) =>
+                  setCsvFile(event.target.files?.[0] ?? null)
+                }
+              />
+            </label>
             <Button
               type="submit"
               variant="success"
@@ -398,37 +419,40 @@ export default function ClientsPage() {
                         </button>
                       </td>
                       <td className="px-5 py-3">
-                        <div className="flex justify-end overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <div className="inline-flex overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
                           <button
                             type="button"
                             title="View"
-                            className="p-2 text-blue-600 hover:bg-slate-50"
+                            aria-label={`View ${customer.name}`}
+                            className="inline-flex h-8 w-9 items-center justify-center text-blue-600 hover:bg-slate-50"
                             onClick={() => setDetails(customer)}
                           >
-                            <Eye size={15} />
+                            <Eye size={16} strokeWidth={2.25} aria-hidden />
                           </button>
                           <button
                             type="button"
                             title="Edit"
-                            className="border-l border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+                            aria-label={`Edit ${customer.name}`}
+                            className="inline-flex h-8 w-9 items-center justify-center border-l border-slate-200 text-slate-500 hover:bg-slate-50"
                             onClick={() =>
                               router.push(`/hr/clients/${customer.id}/edit`)
                             }
                           >
-                            <Pencil size={15} />
+                            <Pencil size={15} aria-hidden />
                           </button>
                           {canDelete ? (
                             <button
                               type="button"
                               title="Delete"
-                              className="border-l border-slate-200 p-2 text-rose-600 hover:bg-rose-50"
+                              aria-label={`Delete ${customer.name}`}
+                              className="inline-flex h-8 w-9 items-center justify-center border-l border-slate-200 text-rose-600 hover:bg-rose-50"
                               onClick={() => {
                                 setDeleteTarget(customer);
                                 setDeletePassword("");
                                 setDeleteError(null);
                               }}
                             >
-                              <Trash2 size={15} />
+                              <Trash2 size={15} aria-hidden />
                             </button>
                           ) : null}
                         </div>

@@ -51,6 +51,7 @@ export interface LeaveRequestView {
   reason: string | null;
   status: HrLeaveRequest['status'];
   approvedBy: string | null;
+  approvedByName: string | null;
   adminComment: string | null;
   createdBy: string | null;
   createdAt: Date;
@@ -485,6 +486,10 @@ export class LeavesService {
       reason: request.reason,
       status: request.status,
       approvedBy: request.approvedBy,
+      approvedByName: optionalFullName(
+        record.approverFirstName,
+        record.approverLastName,
+      ),
       adminComment: request.adminComment,
       createdBy: request.createdBy,
       createdAt: request.createdAt,
@@ -558,6 +563,14 @@ function leaveTypeLabel(leaveType: LeaveTypeCode): string {
   }
 
   return 'Casual';
+}
+
+function optionalFullName(
+  firstName: string | null,
+  lastName: string | null,
+): string | null {
+  const name = `${firstName ?? ''} ${lastName ?? ''}`.trim();
+  return name || null;
 }
 
 function todayIsoDate(): string {

@@ -23,14 +23,18 @@ export interface MemoRecord {
   memo: HrMemo;
   raisedByFirstName: string;
   raisedByLastName: string;
+  raisedByDesignation: string | null;
   verifierFirstName: string | null;
   verifierLastName: string | null;
+  verifierDesignation: string | null;
   verifierSignedFirstName: string | null;
   verifierSignedLastName: string | null;
   hodSignedFirstName: string | null;
   hodSignedLastName: string | null;
+  hodDesignation: string | null;
   ceoSignedFirstName: string | null;
   ceoSignedLastName: string | null;
+  ceoDesignation: string | null;
 }
 
 @Injectable()
@@ -106,14 +110,18 @@ export class MemosRepository {
         memo: hrMemos,
         raisedByFirstName: raisedByEmployee.firstName,
         raisedByLastName: raisedByEmployee.lastName,
+        raisedByDesignation: raisedByEmployee.designation,
         verifierFirstName: verifierEmployee.firstName,
         verifierLastName: verifierEmployee.lastName,
+        verifierDesignation: verifierEmployee.designation,
         verifierSignedFirstName: verifierSignedEmployee.firstName,
         verifierSignedLastName: verifierSignedEmployee.lastName,
         hodSignedFirstName: hodSignedEmployee.firstName,
         hodSignedLastName: hodSignedEmployee.lastName,
+        hodDesignation: hodSignedEmployee.designation,
         ceoSignedFirstName: ceoSignedEmployee.firstName,
         ceoSignedLastName: ceoSignedEmployee.lastName,
+        ceoDesignation: ceoSignedEmployee.designation,
       })
       .from(hrMemos)
       .innerJoin(raisedByEmployee, eq(hrMemos.raisedBy, raisedByEmployee.id))
@@ -131,14 +139,18 @@ export class MemosRepository {
     memo: HrMemo;
     raisedByFirstName: string;
     raisedByLastName: string;
+    raisedByDesignation: string | null;
     verifierFirstName: string | null;
     verifierLastName: string | null;
+    verifierDesignation: string | null;
     verifierSignedFirstName: string | null;
     verifierSignedLastName: string | null;
     hodSignedFirstName: string | null;
     hodSignedLastName: string | null;
+    hodDesignation: string | null;
     ceoSignedFirstName: string | null;
     ceoSignedLastName: string | null;
+    ceoDesignation: string | null;
   }): MemoRecord {
     return row;
   }

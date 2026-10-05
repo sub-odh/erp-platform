@@ -84,6 +84,8 @@ describe('LeavesService', () => {
       annualLeaveEnabled: true,
     },
     substitute: null,
+    approverFirstName: null,
+    approverLastName: null,
   };
 
   const repository = {

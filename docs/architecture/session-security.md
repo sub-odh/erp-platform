@@ -5,7 +5,7 @@
 The application uses two tokens with different exposure and lifetime profiles:
 
 - the short-lived access token is returned to the frontend and sent in the `Authorization: Bearer` header;
-- the long-lived refresh token is stored only in an HttpOnly browser cookie and is never returned in a JSON response.
+- the refresh token is stored only in an HttpOnly browser cookie and is never returned in a JSON response.
 
 The refresh token is hashed with SHA-256 before its session record is stored. The plaintext token exists only in the signed token and browser cookie.
 
@@ -19,7 +19,13 @@ Security attributes:
 - `Secure` is enabled in production;
 - `SameSite=Lax` limits cross-site request attachment;
 - `Path=/api/v1/auth` prevents the browser from attaching the token to unrelated API routes;
-- `Max-Age` matches the configured refresh-token lifetime.
+- no `Max-Age` or `Expires` is set, so the browser drops the cookie when the browser process exits.
+
+A cookie that was stored earlier with a 30-day `Max-Age` is cleared and replaced the next time the session is issued or rotated.
+
+The server session record still expires after `JWT_REFRESH_TTL_SECONDS` (30 days by default) and slides forward on each refresh. That cap applies only while a tab stays open.
+
+Closing the window does not always discard a session cookie. Edge and Chrome can restore it when the window opens again. The web app therefore records when the last tab closes. The next visit revokes that refresh session and returns to the sign-in page. Reloading the page, or leaving another tab open, keeps the session.
 
 The frontend must use `credentials: "include"` for API calls that issue, rotate, or clear the cookie.
 

@@ -58,6 +58,7 @@ export interface FieldVisitRow {
   employeeId: string;
   visitDate: string;
   agenda: string;
+  visitType: string;
   outTime: string;
   inTime: string | null;
 }
@@ -211,6 +212,7 @@ export class AttendanceRepository {
         employeeId: hrFieldVisits.employeeId,
         visitDate: hrFieldVisits.visitDate,
         agenda: hrFieldVisits.agenda,
+        visitType: hrFieldVisits.visitType,
         outTime: hrFieldVisits.outTime,
         inTime: hrFieldVisits.inTime,
       })

@@ -18,10 +18,14 @@ export function setRefreshTokenCookie(
   response: Response,
   refreshToken: string,
 ): void {
-  response.cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
-    ...getRefreshCookieOptions(),
-    maxAge: env.JWT_REFRESH_TTL_SECONDS * 1000,
-  });
+  // Drop any older persistent cookie, then set a session cookie.
+  // A cookie that already has Max-Age stays on disk until it is replaced.
+  response.clearCookie(REFRESH_TOKEN_COOKIE_NAME, getRefreshCookieOptions());
+  response.cookie(
+    REFRESH_TOKEN_COOKIE_NAME,
+    refreshToken,
+    getRefreshCookieOptions(),
+  );
 }
 
 export function clearRefreshTokenCookie(response: Response): void {

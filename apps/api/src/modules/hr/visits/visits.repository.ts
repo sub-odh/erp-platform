@@ -46,7 +46,10 @@ export class VisitsRepository {
   async listSupport(tenantId: string): Promise<SupportVisitRecord[]> {
     const rows = await this.supportQuery()
       .where(eq(hrSupportVisits.tenantId, tenantId))
-      .orderBy(desc(hrSupportVisits.visitDate), desc(hrSupportVisits.createdAt));
+      .orderBy(
+        desc(hrSupportVisits.visitDate),
+        desc(hrSupportVisits.timeStarted),
+      );
 
     return rows.map((row) => this.toSupportRecord(row));
   }

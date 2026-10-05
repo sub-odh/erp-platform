@@ -99,7 +99,7 @@ export default function TadaManagementPage() {
         <div>
           <p className="text-sm font-medium text-blue-600">HR & Operations</p>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            TADA Management
+            TA/DA Management
           </h1>
           <p className="mt-0.5 text-sm text-slate-500">
             Review travel allowance requests and approve or reject pending claims.

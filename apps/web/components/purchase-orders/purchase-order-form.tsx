@@ -199,7 +199,7 @@ export function ProformaForm({
             href="/purchase-orders"
             className="inline-flex h-9 items-center rounded-lg border border-slate-300 px-3 text-sm text-slate-700"
           >
-            View All PIs
+            View All POs
           </Link>
         </div>
       </div>

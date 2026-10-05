@@ -38,14 +38,18 @@ describe('MemosService', () => {
     memo,
     raisedByFirstName: 'Ujwal',
     raisedByLastName: 'Shakya',
+    raisedByDesignation: 'Officer',
     verifierFirstName: 'Sita',
     verifierLastName: 'Rai',
+    verifierDesignation: 'Manager',
     verifierSignedFirstName: 'Sita',
     verifierSignedLastName: 'Rai',
     hodSignedFirstName: 'Ujwal',
     hodSignedLastName: 'Shakya',
+    hodDesignation: 'Officer',
     ceoSignedFirstName: null,
     ceoSignedLastName: null,
+    ceoDesignation: null,
   };
 
   const repository = {
@@ -130,7 +134,7 @@ describe('MemosService', () => {
     repository.findById.mockResolvedValue(null);
 
     await expect(
-      service.approve(otherTenantId, actorId, memoId),
+      service.approve(otherTenantId, actorId, 'HEAD', memoId),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(repository.findById).toHaveBeenCalledWith(otherTenantId, memoId);
     expect(repository.update).not.toHaveBeenCalled();
@@ -146,13 +150,14 @@ describe('MemosService', () => {
         ceoSignedLastName: 'Shakya',
       });
 
-    const result = await service.approve(tenantId, actorId, memoId);
+    const result = await service.approve(tenantId, actorId, 'HEAD', memoId);
 
     expect(repository.update).toHaveBeenCalledWith(
       tenantId,
       memoId,
       expect.objectContaining({
         status: 'APPROVED',
+        currentStep: 5,
         ceoSignedBy: employeeId,
       }),
     );

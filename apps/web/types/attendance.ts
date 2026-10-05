@@ -43,11 +43,13 @@ export interface AttendancePunchInput {
 
 export interface AttendanceFieldDuty {
   agenda: string;
+  visitType: string;
   outTime: string;
   inTime: string | null;
 }
 
 export interface AttendanceReportRow {
+  attendanceId: string | null;
   employeeId: string;
   employeeCode: string;
   employeeName: string;
@@ -57,9 +59,11 @@ export interface AttendanceReportRow {
   duration: string | null;
   fieldDuty: AttendanceFieldDuty[];
   holidayTitle: string | null;
+  holidayLabel: string | null;
   leaveName: string | null;
   status: string;
   punctuality: string | null;
+  punctualityTags: string[];
 }
 
 export interface AttendanceReportQuery {

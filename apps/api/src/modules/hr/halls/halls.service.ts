@@ -127,7 +127,7 @@ export class HallsService {
     const endTime = requireTime(dto.endTime, 'End time');
 
     if (startTime >= endTime) {
-      throw new BadRequestException('End time must be after the start time');
+      throw new BadRequestException('End time must be after start time');
     }
 
     const existing = await this.repository.listActiveForHallDate(
@@ -137,12 +137,14 @@ export class HallsService {
     );
 
     if (
-      existing.some((booking) =>
-        timesOverlap(startTime, endTime, booking.startTime, booking.endTime),
+      existing.some(
+        (booking) =>
+          booking.status === 'CONFIRMED' &&
+          timesOverlap(startTime, endTime, booking.startTime, booking.endTime),
       )
     ) {
       throw new ConflictException(
-        'This hall is already booked for the selected time',
+        'This time slot is already booked',
       );
     }
 
@@ -163,17 +165,11 @@ export class HallsService {
 
   async listBookings(
     tenantId: string,
-    actorUserId: string,
-    role: User['role'],
+    _actorUserId: string,
+    _role: User['role'],
   ): Promise<HallBookingView[]> {
-    const canManage = await this.canManageHalls(tenantId, role);
-
-    if (canManage) {
-      const rows = await this.repository.listBookings(tenantId);
-      return rows.map((row) => this.toBookingView(row));
-    }
-
-    return this.listMine(tenantId, actorUserId);
+    const rows = await this.repository.listBookings(tenantId);
+    return rows.map((row) => this.toBookingView(row));
   }
 
   async listMine(

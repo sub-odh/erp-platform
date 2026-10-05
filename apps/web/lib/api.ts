@@ -1,4 +1,9 @@
 import {
+  setBrowserClosedHandler,
+  startBrowserSessionWatch,
+  takeClosedBrowserSession,
+} from "@/lib/browser-session";
+import {
   expireAuthSession,
   getAccessToken,
   saveAuthSession,
@@ -141,17 +146,44 @@ async function performRequest(
   }
 }
 
+setBrowserClosedHandler(() => {
+  void revokeClosedBrowserSession();
+});
+
 export async function restoreSession(): Promise<boolean> {
+  if (takeClosedBrowserSession()) {
+    await revokeClosedBrowserSession();
+
+    return false;
+  }
+
   if (getAccessToken()) {
+    startBrowserSessionWatch();
+
     return true;
   }
 
   try {
     await refreshAccessToken();
+    startBrowserSessionWatch();
+
     return true;
   } catch {
     return false;
   }
+}
+
+async function revokeClosedBrowserSession(): Promise<void> {
+  try {
+    await fetch(`${API_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    // The local session is cleared even when the API cannot be reached.
+  }
+
+  expireAuthSession();
 }
 
 async function refreshAccessToken(): Promise<string> {

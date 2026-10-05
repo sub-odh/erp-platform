@@ -11,11 +11,18 @@ import {
 describe('refresh token cookie', () => {
   it('sets an HttpOnly SameSite cookie scoped to authentication routes', () => {
     const response = {
+      clearCookie: jest.fn(),
       cookie: jest.fn(),
     } as unknown as Response;
 
     setRefreshTokenCookie(response, 'signed.refresh.token');
 
+    expect(response.clearCookie).toHaveBeenCalledWith(
+      REFRESH_TOKEN_COOKIE_NAME,
+      expect.objectContaining({
+        path: '/api/v1/auth',
+      }),
+    );
     expect(response.cookie).toHaveBeenCalledWith(
       REFRESH_TOKEN_COOKIE_NAME,
       'signed.refresh.token',
@@ -23,7 +30,14 @@ describe('refresh token cookie', () => {
         httpOnly: true,
         sameSite: 'lax',
         path: '/api/v1/auth',
-        maxAge: expect.any(Number),
+      }),
+    );
+    expect(response.cookie).toHaveBeenCalledWith(
+      REFRESH_TOKEN_COOKIE_NAME,
+      'signed.refresh.token',
+      expect.not.objectContaining({
+        maxAge: expect.anything(),
+        expires: expect.anything(),
       }),
     );
   });

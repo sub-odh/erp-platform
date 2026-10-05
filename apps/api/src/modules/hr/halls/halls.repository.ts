@@ -116,7 +116,7 @@ export class HallsRepository {
       )
       .orderBy(
         desc(hrHallBookings.bookingDate),
-        asc(hrHallBookings.startTime),
+        desc(hrHallBookings.startTime),
       );
 
     return rows.map((row) => this.toBookingRecord(row));

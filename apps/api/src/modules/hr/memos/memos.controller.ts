@@ -16,10 +16,7 @@ import { memoryStorage } from 'multer';
 
 import { AuditEntity } from '../../../common/audit/audit.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { PERMISSIONS } from '../../auth/permissions/permission.constants';
 import type { JwtPayload } from '../../auth/types/jwt-payload.type';
 import { MEDIA_MAX_DOCUMENT_SIZE } from '../../media/constants';
 import { CreateMemoDto } from './dto/memo.dto';
@@ -30,7 +27,7 @@ import { MemosService } from './memos.service';
   version: '1',
 })
 @AuditEntity('hr.memo')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard)
 export class MemosController {
   constructor(private readonly memosService: MemosService) {}
 
@@ -67,33 +64,45 @@ export class MemosController {
   }
 
   @Post(':id/confirm')
-  @RequirePermissions(PERMISSIONS.HR_MEMOS_MANAGE)
   @HttpCode(HttpStatus.OK)
   confirm(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) memoId: string,
   ) {
-    return this.memosService.confirm(user.organizationId, user.sub, memoId);
+    return this.memosService.confirm(
+      user.organizationId,
+      user.sub,
+      user.role,
+      memoId,
+    );
   }
 
   @Post(':id/approve')
-  @RequirePermissions(PERMISSIONS.HR_MEMOS_MANAGE)
   @HttpCode(HttpStatus.OK)
   approve(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) memoId: string,
   ) {
-    return this.memosService.approve(user.organizationId, user.sub, memoId);
+    return this.memosService.approve(
+      user.organizationId,
+      user.sub,
+      user.role,
+      memoId,
+    );
   }
 
   @Post(':id/reject')
-  @RequirePermissions(PERMISSIONS.HR_MEMOS_MANAGE)
   @HttpCode(HttpStatus.OK)
   reject(
     @CurrentUser() user: JwtPayload,
     @Param('id', new ParseUUIDPipe()) memoId: string,
   ) {
-    return this.memosService.reject(user.organizationId, user.sub, memoId);
+    return this.memosService.reject(
+      user.organizationId,
+      user.sub,
+      user.role,
+      memoId,
+    );
   }
 
   @Post(':id/attachments')

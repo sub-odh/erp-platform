@@ -1,11 +1,10 @@
 "use client";
 
-import { Eye, EyeOff, Pencil } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { EmployeeStatusBadge } from "@/components/employees/employee-status-badge";
-import { Button, Modal } from "@/components/ui";
-import { Avatar } from "@/components/users/avatar";
+import { AuthenticatedImage } from "@/components/media/authenticated-image";
+import { Modal } from "@/components/ui";
 import { formatCurrency } from "@/lib/currency";
 import { employeeFullName } from "@/lib/employees";
 import type { Employee } from "@/types/employee";
@@ -13,21 +12,23 @@ import type { Employee } from "@/types/employee";
 interface EmployeeProfileModalProps {
   employee: Employee | null;
   onClose: () => void;
-  onView: (employee: Employee) => void;
-  onEdit: (employee: Employee) => void;
 }
 
 export function EmployeeProfileModal({
   employee,
   onClose,
-  onView,
-  onEdit,
 }: EmployeeProfileModalProps) {
   const [salaryVisible, setSalaryVisible] = useState(false);
 
   useEffect(() => {
     setSalaryVisible(false);
   }, [employee?.id]);
+
+  const leave = employee
+    ? (
+        Number(employee.sickLeaveBal) + Number(employee.casualLeaveBal)
+      ).toFixed(1)
+    : "0.0";
 
   return (
     <Modal
@@ -36,58 +37,57 @@ export function EmployeeProfileModal({
       onClose={onClose}
       className="max-w-3xl"
       footer={
-        employee ? (
-          <>
-            <Button variant="outline" onClick={onClose}>
-              Close Profile
-            </Button>
-            <Button variant="outline" onClick={() => onView(employee)}>
-              View Full Record
-            </Button>
-            <Button onClick={() => onEdit(employee)}>
-              <Pencil size={16} />
-              Edit Employee
-            </Button>
-          </>
-        ) : null
+        <button
+          type="button"
+          className="w-full rounded-full bg-slate-500 py-2.5 text-sm font-bold text-white hover:bg-slate-600"
+          onClick={onClose}
+        >
+          Close Profile
+        </button>
       }
     >
       {employee ? (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <div className="text-center">
-            <div className="flex justify-center">
-              <Avatar
-                firstName={employee.firstName}
-                lastName={employee.lastName}
-                src={employee.photoUrl}
-                size="xl"
-                className="ring-2 ring-blue-100"
-              />
+            <div className="mx-auto mb-3 h-[100px] w-[100px]">
+              {employee.photoUrl ? (
+                <AuthenticatedImage
+                  src={employee.photoUrl}
+                  alt=""
+                  className="h-full w-full rounded-full border-[3px] border-indigo-500 object-cover shadow"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center rounded-full bg-blue-600 text-4xl font-bold text-white shadow">
+                  {(employee.firstName[0] ?? "E").toUpperCase()}
+                </div>
+              )}
             </div>
-            <h3 className="mt-4 text-xl font-semibold text-slate-900">
+            <h3 className="mb-0 text-xl font-bold text-slate-900">
               {employeeFullName(employee)}
             </h3>
-            <p className="mt-1 text-sm font-medium text-blue-600">
-              {employee.designation ?? "Staff"}
+            <p className="mb-0 font-medium text-blue-600">
+              {employee.designation?.trim() || "Staff"}
             </p>
-            <p className="mt-1 font-mono text-xs text-slate-500">
-              Employee Code: {employee.employeeCode}
+            <p className="text-xs text-slate-500">
+              Employee Code: {employee.employeeCode || employee.id}
             </p>
-            <div className="mt-3 flex justify-center">
-              <EmployeeStatusBadge status={employee.status} />
-            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <ProfileSection title="Personal & Family">
-              <ProfileField label="Father Name" value={employee.fatherName} />
-              <ProfileField label="Mother Name" value={employee.motherName} />
-              <div className="grid grid-cols-2 gap-4">
+              <ProfileField label="Father's Name" value={employee.fatherName} />
+              <ProfileField label="Mother's Name" value={employee.motherName} />
+              <div className="grid grid-cols-2 gap-3">
                 <ProfileField
                   label="Marital Status"
                   value={formatMarital(employee.maritalStatus)}
+                  fallback="Single"
                 />
-                <ProfileField label="Spouse Name" value={employee.spouseName} />
+                <ProfileField
+                  label="Spouse Name"
+                  value={employee.spouseName}
+                  fallback="N/A"
+                />
               </div>
               <ProfileField
                 label="Date of Birth"
@@ -96,7 +96,7 @@ export function EmployeeProfileModal({
             </ProfileSection>
 
             <ProfileSection title="Legal & Contact">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <ProfileField
                   label="PAN Number"
                   value={employee.panNumber}
@@ -107,71 +107,92 @@ export function EmployeeProfileModal({
                   value={employee.citizenshipNumber}
                 />
               </div>
-              <ProfileField label="Work Email" value={employee.workEmail} />
-              <div className="grid grid-cols-2 gap-4">
-                <ProfileField label="Primary Phone" value={employee.phone} />
+              <ProfileField
+                label="Email Address"
+                value={employee.workEmail}
+                fallback="N/A"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <ProfileField
+                  label="Primary Phone"
+                  value={employee.phone}
+                  fallback="N/A"
+                />
                 <ProfileField label="Alt Phone" value={employee.altPhone} />
               </div>
             </ProfileSection>
           </div>
 
-          <ProfileSection title="Professional Background">
-            <div className="grid gap-4 md:grid-cols-2">
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h4 className="mb-3 border-b border-slate-200 pb-2 text-sm font-bold text-indigo-500">
+              Professional Background
+            </h4>
+            <div className="grid gap-3 md:grid-cols-2">
               <ProfileField
                 label="Qualification"
                 value={employee.qualification}
-                fallback="Not specified"
+                fallback="Not Specified"
               />
               <ProfileField
-                label="Past Experience"
+                label="Past Experiences"
                 value={employee.pastExperience}
                 fallback="No previous records found"
+                muted
               />
             </div>
-          </ProfileSection>
+          </section>
 
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+            <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
               Employment Status
-            </p>
-            <div className="grid gap-4 text-center sm:grid-cols-3">
+            </h4>
+            <div className="grid gap-3 text-center sm:grid-cols-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Department
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {employee.department || "—"}
+                <p className="font-bold text-slate-900">
+                  {employee.department?.trim() || "General"}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Joined Date
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {formatDate(employee.joinDate) ?? "—"}
+                <p className="font-bold text-slate-900">
+                  {formatDate(employee.joinDate) ?? "---"}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Salary
                 </p>
                 <button
                   type="button"
                   onClick={() => setSalaryVisible((current) => !current)}
-                  className="mx-auto mt-1 inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-semibold text-emerald-700 transition hover:bg-white"
+                  className="inline-flex items-center rounded px-2 py-0.5 font-bold text-emerald-600 hover:bg-slate-100"
                 >
-                  <span
-                    className={
-                      salaryVisible ? undefined : "select-none blur-[5px]"
-                    }
-                  >
+                  <span className={salaryVisible ? undefined : "select-none blur-[5px]"}>
                     {formatCurrency(employee.salary ?? 0)}
                   </span>
-                  {salaryVisible ? <Eye size={14} /> : <EyeOff size={14} />}
+                  {salaryVisible ? (
+                    <Eye size={14} className="ml-1 text-slate-400" aria-hidden />
+                  ) : (
+                    <EyeOff size={14} className="ml-1 text-slate-400" aria-hidden />
+                  )}
                 </button>
               </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Total Leave Bal.
+                </p>
+                <span className="inline-flex rounded-full bg-blue-600 px-3 py-0.5 text-sm font-semibold text-white">
+                  {leave} Days
+                </span>
+                <p className="mt-1 text-xs text-slate-500">(Sick + Casual)</p>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       ) : null}
     </Modal>
@@ -186,8 +207,8 @@ function ProfileSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl bg-slate-50 p-4">
-      <h4 className="mb-3 border-b border-slate-200 pb-2 text-sm font-semibold text-blue-600">
+    <section className="h-full rounded-2xl bg-slate-50 p-4">
+      <h4 className="mb-3 border-b border-slate-200 pb-2 text-sm font-bold text-blue-600">
         {title}
       </h4>
       <div className="space-y-3">{children}</div>
@@ -199,22 +220,25 @@ function ProfileField({
   label,
   value,
   emphasis,
-  fallback = "—",
+  muted,
+  fallback = "---",
 }: {
   label: string;
   value?: string | null;
   emphasis?: boolean;
+  muted?: boolean;
   fallback?: string;
 }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="mb-0.5 block text-xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p
         className={[
-          "mt-0.5 text-sm font-semibold",
-          emphasis ? "text-red-600" : "text-slate-800",
+          "block text-sm",
+          muted ? "font-normal text-slate-500" : "font-semibold",
+          emphasis ? "text-red-600" : muted ? "" : "text-slate-900",
         ].join(" ")}
       >
         {value?.trim() || fallback}

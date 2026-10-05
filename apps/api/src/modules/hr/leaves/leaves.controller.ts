@@ -37,7 +37,6 @@ export class LeavesController {
   constructor(private readonly leavesService: LeavesService) {}
 
   @Get()
-  @RequirePermissions(PERMISSIONS.HR_LEAVES_MANAGE)
   dashboard(@CurrentUser() user: JwtPayload) {
     return this.leavesService.dashboard(user.organizationId);
   }

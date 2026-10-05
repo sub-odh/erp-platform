@@ -43,11 +43,13 @@ export interface AttendanceRecordDto {
 
 export interface AttendanceFieldDutyDto {
   agenda: string;
+  visitType: string;
   outTime: string;
   inTime: string | null;
 }
 
 export interface AttendanceReportRowDto {
+  attendanceId: string | null;
   employeeId: string;
   employeeCode: string;
   employeeName: string;
@@ -57,9 +59,11 @@ export interface AttendanceReportRowDto {
   duration: string | null;
   fieldDuty: AttendanceFieldDutyDto[];
   holidayTitle: string | null;
+  holidayLabel: string | null;
   leaveName: string | null;
   status: string;
   punctuality: string | null;
+  punctualityTags: string[];
 }
 
 @Injectable()
@@ -346,17 +350,23 @@ export class AttendanceService {
       const current = visitsByKey.get(key) ?? [];
       current.push({
         agenda: visit.agenda,
+        visitType: visit.visitType,
         outTime: visit.outTime,
         inTime: visit.inTime,
       });
       visitsByKey.set(key, current);
     }
 
-    const dates = eachDateInRange(range.startDate, range.endDate);
+    const dates = eachDateInRange(range.startDate, range.endDate).slice().reverse();
+    const people = [...filtered].sort((left, right) =>
+      left.firstName.localeCompare(right.firstName, undefined, {
+        sensitivity: 'base',
+      }),
+    );
     const rows: AttendanceReportRowDto[] = [];
 
-    for (const employee of filtered) {
-      for (const date of dates) {
+    for (const date of dates) {
+      for (const employee of people) {
         const punch = punchByKey.get(`${employee.id}:${date}`);
         const holidayTitle = holidayByDate.get(date) ?? null;
         const leave = leaves.find(
@@ -367,20 +377,34 @@ export class AttendanceService {
         );
         const inTime = normalizeTime(punch?.inTime);
         const outTime = normalizeTime(punch?.outTime);
+        const hasPunch = Boolean(inTime || outTime);
+        const tags = computePunctualityTags(
+          inTime,
+          outTime,
+          office.officeStartTime,
+          office.officeEndTime,
+        );
 
         rows.push({
+          attendanceId: punch?.id ?? null,
           employeeId: employee.id,
           employeeCode: employee.employeeCode,
           employeeName: `${employee.firstName} ${employee.lastName}`.trim(),
           date,
           inTime,
           outTime,
-          duration: punch?.duration ?? computeDuration(inTime, outTime),
+          duration: hasPunch
+            ? (punch?.duration ?? computeDuration(inTime, outTime))
+            : null,
           fieldDuty: visitsByKey.get(`${employee.id}:${date}`) ?? [],
           holidayTitle,
-          leaveName: leave ? (LEAVE_LABELS[leave.leaveType] ?? leave.leaveType) : null,
-          status: computeReportStatus(Boolean(punch), holidayTitle, date),
-          punctuality: computePunctuality(inTime, office.officeStartTime),
+          holidayLabel: holidayTitle ?? (isSaturdayDate(date) ? 'Saturday' : null),
+          leaveName: leave
+            ? (LEAVE_LABELS[leave.leaveType] ?? leave.leaveType)
+            : null,
+          status: computeReportStatus(hasPunch, holidayTitle, date),
+          punctuality: tags[0] ?? null,
+          punctualityTags: tags,
         });
       }
     }
@@ -552,7 +576,9 @@ export function computeReportStatus(
   holidayTitle: string | null,
   date: string,
 ): string {
-  if (hasPunch && holidayTitle) {
+  const isHoliday = Boolean(holidayTitle) || isSaturdayDate(date);
+
+  if (hasPunch && isHoliday) {
     return 'Holiday + Present';
   }
 
@@ -560,40 +586,77 @@ export function computeReportStatus(
     return 'Present';
   }
 
-  if (isSaturdayDate(date) || holidayTitle) {
+  if (isHoliday) {
     return 'Holiday';
   }
 
   return 'Absent';
 }
 
-export function computePunctuality(
+export function computePunctualityTags(
   inTime: string | null,
+  outTime: string | null,
   officeStartTime: string,
-): string | null {
-  const punch = normalizeTime(inTime);
+  officeEndTime: string,
+): string[] {
+  const tags: string[] = [];
+  const start = normalizeTime(inTime);
+  const end = normalizeTime(outTime);
+  const officeStart = normalizeTime(officeStartTime) ?? '09:00:00';
+  const officeEnd = normalizeTime(officeEndTime) ?? '17:00:00';
 
-  if (!punch) {
-    return null;
+  if (start) {
+    const lateSeconds = clockDiffSeconds(officeStart, start);
+
+    if (lateSeconds > 0) {
+      tags.push(`Late Arrival (${formatDurationDifference(lateSeconds)})`);
+    } else if (lateSeconds < 0) {
+      tags.push(
+        `On Time (Early by ${formatDurationDifference(-lateSeconds)})`,
+      );
+    }
   }
 
-  const office = normalizeTime(officeStartTime) ?? '09:00:00';
-  const punchMinutes = timeToMinutes(punch);
-  const officeMinutes = timeToMinutes(office);
+  if (end) {
+    const earlySeconds = clockDiffSeconds(end, officeEnd);
 
-  if (punchMinutes === null || officeMinutes === null) {
-    return null;
+    if (earlySeconds > 0) {
+      tags.push(`Early Logout (${formatDurationDifference(earlySeconds)})`);
+    }
   }
 
-  if (punchMinutes > officeMinutes) {
-    return 'Late';
+  if (tags.length === 0 && (start || end)) {
+    tags.push('On Time');
   }
 
-  if (punchMinutes < officeMinutes) {
-    return 'Early';
+  return tags;
+}
+
+function formatDurationDifference(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const parts: string[] = [];
+
+  if (hours > 0) {
+    parts.push(`${hours}h`);
   }
 
-  return 'On Time';
+  if (minutes > 0 || hours === 0) {
+    parts.push(`${minutes}m`);
+  }
+
+  return parts.join(' ');
+}
+
+function clockDiffSeconds(earlier: string, later: string): number {
+  const start = timeToMinutes(earlier);
+  const end = timeToMinutes(later);
+
+  if (start === null || end === null) {
+    return 0;
+  }
+
+  return Math.round((end - start) * 60);
 }
 
 export function isSaturdayDate(date: string): boolean {

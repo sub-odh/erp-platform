@@ -226,15 +226,15 @@ describe('AttendanceService', () => {
 
     expect(result.data).toEqual([
       expect.objectContaining({
-        date: '2026-09-18',
-        status: 'Absent',
-        holidayTitle: null,
-        leaveName: 'Sick Leave',
-      }),
-      expect.objectContaining({
         date: '2026-09-19',
         status: 'Holiday',
         holidayTitle: 'Constitution Day',
+        leaveName: 'Sick Leave',
+      }),
+      expect.objectContaining({
+        date: '2026-09-18',
+        status: 'Absent',
+        holidayTitle: null,
         leaveName: 'Sick Leave',
       }),
     ]);
@@ -265,7 +265,8 @@ describe('AttendanceService', () => {
       expect.objectContaining({
         status: 'Holiday + Present',
         holidayTitle: 'Dashain',
-        punctuality: 'Late',
+        punctuality: 'Late Arrival (5m)',
+        punctualityTags: ['Late Arrival (5m)'],
       }),
     );
   });

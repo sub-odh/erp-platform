@@ -1,3 +1,4 @@
+import { resetBrowserSessionTracking, startBrowserSessionWatch } from "@/lib/browser-session";
 import type { AuthUser, LicenseSummary, LoginResponse } from "@/types/auth";
 
 const ACCESS_TOKEN_KEY = "erp.accessToken";
@@ -21,6 +22,7 @@ export function saveAuthSession(response: LoginResponse): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.setItem(USER_KEY, JSON.stringify(response.user));
   localStorage.setItem(LICENSE_KEY, JSON.stringify(response.license));
+  startBrowserSessionWatch();
 
   notifyAuthUserChanged();
 }
@@ -95,6 +97,7 @@ export function clearAuthSession(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(LICENSE_KEY);
+  resetBrowserSessionTracking();
 
   notifyAuthUserChanged();
 }

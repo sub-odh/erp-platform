@@ -34,6 +34,7 @@ export interface LeaveRequest {
   reason: string | null;
   status: LeaveStatus;
   approvedBy: string | null;
+  approvedByName: string | null;
   adminComment: string | null;
   createdBy: string | null;
   createdAt: string;
